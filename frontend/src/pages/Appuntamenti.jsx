@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { api, formatApiError } from "@/lib/api";
+import { api, formatApiError, API_BASE } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalIcon, Trash2 } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalIcon, Trash2, Download, LayoutGrid, List } from "lucide-react";
 import { Modal } from "./Docenti";
 
 const GIORNI = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
@@ -39,6 +39,8 @@ export default function Appuntamenti() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [createDefaults, setCreateDefaults] = useState(null);
+  const [viewMode, setViewMode] = useState("week"); // "week" | "day"
+  const [selectedDay, setSelectedDay] = useState(new Date());
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const da = fmtISO(days[0]);
@@ -128,6 +130,34 @@ export default function Appuntamenti() {
     await load();
   };
 
+  const downloadPdf = async (period) => {
+    const params = new URLSearchParams({ period });
+    const refDate = period === "day" ? fmtISO(selectedDay) : fmtISO(weekStart);
+    params.set("data", refDate);
+    if (selectedDocenteId) params.set("docente_id", selectedDocenteId);
+    const token = localStorage.getItem("eh_token");
+    try {
+      const resp = await fetch(`${API_BASE}/reports/appuntamenti.pdf?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!resp.ok) {
+        alert("Errore nella generazione del PDF");
+        return;
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `appuntamenti-${period}-${refDate}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Impossibile scaricare il report.");
+    }
+  };
+
   return (
     <div data-testid="appuntamenti-page">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
@@ -177,22 +207,46 @@ export default function Appuntamenti() {
         <>
           {/* Toolbar */}
           <div className="surface-card p-3 mb-4 flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-2">
-              <button className="btn-secondary" onClick={() => setWeekStart(addDays(weekStart, -7))} data-testid="cal-prev"><ChevronLeft size={16} /></button>
-              <button className="btn-secondary" onClick={() => setWeekStart(startOfWeek(new Date()))} data-testid="cal-today">Oggi</button>
-              <button className="btn-secondary" onClick={() => setWeekStart(addDays(weekStart, 7))} data-testid="cal-next"><ChevronRight size={16} /></button>
-              <div className="ml-3 font-display font-bold text-base">
-                {fmtShort(days[0])} – {fmtShort(days[6])} {days[0].getFullYear()}
+            <div className="flex items-center gap-2 flex-wrap">
+              {viewMode === "week" ? (
+                <>
+                  <button className="btn-secondary" onClick={() => setWeekStart(addDays(weekStart, -7))} data-testid="cal-prev"><ChevronLeft size={16} /></button>
+                  <button className="btn-secondary" onClick={() => { setWeekStart(startOfWeek(new Date())); setSelectedDay(new Date()); }} data-testid="cal-today">Oggi</button>
+                  <button className="btn-secondary" onClick={() => setWeekStart(addDays(weekStart, 7))} data-testid="cal-next"><ChevronRight size={16} /></button>
+                  <div className="ml-2 font-display font-bold text-base">{fmtShort(days[0])} – {fmtShort(days[6])} {days[0].getFullYear()}</div>
+                </>
+              ) : (
+                <>
+                  <button className="btn-secondary" onClick={() => setSelectedDay(addDays(selectedDay, -1))} data-testid="day-prev"><ChevronLeft size={16} /></button>
+                  <button className="btn-secondary" onClick={() => setSelectedDay(new Date())} data-testid="day-today">Oggi</button>
+                  <button className="btn-secondary" onClick={() => setSelectedDay(addDays(selectedDay, 1))} data-testid="day-next"><ChevronRight size={16} /></button>
+                  <div className="ml-2 font-display font-bold text-base">{selectedDay.toLocaleDateString("it-IT", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}</div>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* View toggle */}
+              <div className="flex p-0.5 rounded-md bg-[color:var(--surface-2)]">
+                <button onClick={() => setViewMode("week")} className={`px-2.5 py-1 text-xs font-semibold rounded-sm flex items-center gap-1 ${viewMode === "week" ? "bg-white shadow-sm" : "text-[color:var(--text-2)]"}`} data-testid="view-week"><LayoutGrid size={13} /> Settimana</button>
+                <button onClick={() => setViewMode("day")} className={`px-2.5 py-1 text-xs font-semibold rounded-sm flex items-center gap-1 ${viewMode === "day" ? "bg-white shadow-sm" : "text-[color:var(--text-2)]"}`} data-testid="view-day"><List size={13} /> Giorno</button>
+              </div>
+              {/* Report PDF */}
+              <div className="flex items-center gap-1.5">
+                <span className="label-eyebrow hidden sm:inline">Report:</span>
+                <button onClick={() => downloadPdf("day")} className="btn-secondary text-xs" data-testid="pdf-day"><Download size={12} /> Giorno</button>
+                <button onClick={() => downloadPdf("week")} className="btn-secondary text-xs" data-testid="pdf-week"><Download size={12} /> Settimana</button>
+                <button onClick={() => downloadPdf("month")} className="btn-secondary text-xs" data-testid="pdf-month"><Download size={12} /> Mese</button>
               </div>
             </div>
-            <div className="flex items-center gap-3 text-xs">
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[#3E7B5B]" /> Libero</div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm" style={{background: docenteSel?.color || "#2C4C3B"}} /> Prenotato</div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[color:var(--surface-2)] border border-[color:var(--border)]" /> Non disponibile</div>
-            </div>
+          </div>
+          <div className="hidden sm:flex items-center gap-3 text-xs mb-3 px-1">
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[#3E7B5B]" /> Libero</div>
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm" style={{background: docenteSel?.color || "#2C4C3B"}} /> Prenotato</div>
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[color:var(--surface-2)] border border-[color:var(--border)]" /> Non disponibile</div>
           </div>
 
           {/* Calendar settimanale per-docente */}
+          {viewMode === "week" && (
           <div className="surface-card p-2 sm:p-4 overflow-x-auto" data-testid="docente-calendar">
             <div className="min-w-[820px]">
               <div className="grid grid-cols-[70px_repeat(7,minmax(0,1fr))] gap-1.5 mb-2">
@@ -270,6 +324,66 @@ export default function Appuntamenti() {
               })()}
             </div>
           </div>
+          )}
+
+          {/* Vista GIORNO - lista verticale mobile-friendly */}
+          {viewMode === "day" && (
+            <div className="surface-card p-3 sm:p-5" data-testid="day-list-view">
+              {(() => {
+                const slots = computeDaySlots(selectedDay);
+                const dayKey = fmtISO(selectedDay);
+                if (slots.length === 0) {
+                  return <div className="text-center py-10 text-[color:var(--text-2)]">Nessuno slot disponibile in questo giorno.</div>;
+                }
+                return (
+                  <div className="max-w-md mx-auto space-y-1.5" data-testid="day-list">
+                    <div className="text-center py-4 mb-2 border border-[color:var(--border)] rounded-xl">
+                      <div className="font-display text-5xl font-black tracking-tight text-[color:var(--primary)]">
+                        {selectedDay.getDate()}<span className="text-base text-[color:var(--text-2)] font-normal">/{String(selectedDay.getMonth()+1).padStart(2,'0')}</span>
+                      </div>
+                      <div className="label-eyebrow mt-1">{selectedDay.toLocaleDateString("it-IT", { weekday: "long" })}</div>
+                    </div>
+                    {slots.map((slot) => {
+                      const ev = findAppointment(dayKey, slot.m);
+                      if (ev) {
+                        return (
+                          <div key={slot.m} className="rounded-lg overflow-hidden" data-testid={`day-row-${slot.dal}`}>
+                            <div className="px-4 py-2.5 text-white font-bold flex items-center justify-between" style={{ background: docenteSel?.color || "#2C4C3B" }}>
+                              <span className="text-lg">
+                                {slot.dal}<span className="text-sm opacity-80">/{slot.al}</span>
+                              </span>
+                              <button onClick={() => remove(ev.id)} className="opacity-80 hover:opacity-100" data-testid={`day-delete-${ev.id}-${slot.dal}`}><Trash2 size={14} /></button>
+                            </div>
+                            <div className="px-4 py-3 bg-[color:var(--surface-2)] text-center border-x border-b border-[color:var(--border)] rounded-b-lg">
+                              <div className="font-semibold">{ev.cliente_nome}</div>
+                              {ev.note && <div className="text-xs text-[color:var(--text-2)] mt-1">{ev.note}</div>}
+                            </div>
+                          </div>
+                        );
+                      }
+                      if (!slot.isAvailable) {
+                        return (
+                          <div key={slot.m} className="rounded-lg px-4 py-3 bg-[color:var(--surface-2)] border border-dashed border-[color:var(--border)] text-center text-[color:var(--text-2)] text-xs">
+                            {slot.dal}/{slot.al} — non disponibile
+                          </div>
+                        );
+                      }
+                      return (
+                        <button
+                          key={slot.m}
+                          onClick={() => onCellClick(selectedDay, slot)}
+                          className="w-full rounded-lg px-4 py-3 bg-[#3E7B5B] hover:bg-[#356B4F] text-white font-bold transition-colors flex items-center justify-center"
+                          data-testid={`day-slot-${slot.dal}`}
+                        >
+                          <span className="text-lg">{slot.dal}<span className="text-sm opacity-80">/{slot.al}</span></span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
 
           {loading && <div className="text-center text-[color:var(--text-2)] mt-3 text-sm">Caricamento…</div>}
         </>

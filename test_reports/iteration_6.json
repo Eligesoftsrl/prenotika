@@ -1,0 +1,35 @@
+{
+  "summary": "Iter 7 EligeHub testing: PDF report endpoint /api/reports/appuntamenti.pdf (admin/docente/super_admin scoping, period day|week|month, docente_id filter, %PDF magic-byte verification) + frontend Settimana/Giorno toggle on /appuntamenti, day-list-view rendering, day-slot click → booking modal, PDF download buttons (toolbar pdf-day/week/month + dashboard dash-pdf-day/week/month) for both admin and docente roles, mobile 390x844. All 11 new backend tests PASS and all 35 prior iter2-4 regression tests still PASS. All specced frontend behaviors verified working.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter7_reports.py",
+    "/app/test_reports/pytest/iter7_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend /api/reports/appuntamenti.pdf is clean: correct role-scoping (docente forced to own id, super_admin 403 via require_role('admin','docente')), 404 on missing docente, 400 on invalid period via _date_range_for, Content-Disposition filename uses start date so 'appuntamenti-day-YYYY-MM-DD.pdf' / 'appuntamenti-month-YYYY-MM-01.pdf' as expected. Magic bytes %PDF verified on all 4 calls (admin day/week/month + docente week).",
+    "Frontend downloadPdf uses fetch+blob+a.click() with Bearer header — correct approach since backend StreamingResponse uses 'inline' disposition; auth header cannot be set on plain <a href>. Network capture confirmed content-type=application/pdf and status 200 for both toolbar pdf-* and dashboard dash-pdf-* buttons.",
+    "Day view (data-testid=day-list-view) renders correctly: big '12/06' date + 'VENERDÌ' eyebrow, prenotato blocks with cliente nome and delete button, 'HH:MM/HH:MM — non disponibile' grey rows, green button day-slot-HH:MM for free slots. Slot click opens booking modal with prefilled dal=12:00 al=13:00 (60min slot for Marco Bianchi confirmed).",
+    "Day nav day-prev/day-today/day-next correctly update the date (verified '12/06 VENERDÌ' → '14/06 DOMENICA' after 2 clicks day-next).",
+    "Week-view regression PASS (docente-calendar still renders, Marco's Giulia Neri appointment still shown).",
+    "Mobile 390x844: day-list-view container renders correctly and is mobile-friendly (vertical list, max-w-md mx-auto).",
+    "Docente role: dashboard PDF buttons work — PDF download via dash-pdf-week returned 200 with %PDF magic. Backend correctly ignored any passed docente_id and scoped to logged-in docente (verified by test_pdf_docente_role_ignores_docente_id).",
+    "Pre-existing hydration warning '<span> cannot be a child of <option>' is caused by Emergent visual editor instrumentation injecting x-source-* spans into <option> children — cosmetic dev-only, not iter7-introduced. Same as iter5 report.",
+    "Initial query_selector for dash-pdf-day/dash-pdf-week returned MISSING but the buttons render correctly (subsequent click + network capture worked, returning 200/PDF). This is a Playwright timing artifact (dashboard renders progressively after stats fetch); not a real bug. All 3 dash-pdf-* buttons confirmed clickable and functional."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter7_reports.py"
+  ],
+  "success_rate": { "backend": "100% (11/11 new + 35/35 regression iter2-4)", "frontend": "100% (all iter7 specced behaviors verified)" },
+  "test_credentials": "admin@demo.it/Admin123!, docente@demo.it/Docente123!, superadmin@eligehub.it/SuperAdmin123!",
+  "seed_data_creation": "None. Used existing demo data (Marco Bianchi + Giulia Neri appointments Ven 12 Jun 09-12).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 7 fully verified. Backend test file /app/backend/tests/test_iter7_reports.py covers PDF endpoint thoroughly (status, content-type, magic bytes, role-scoping, 404, 400, 403). Note that the previous iter test files (test_iter2/3/4_features.py) require REACT_APP_BACKEND_URL env var to be set when run from CLI: `REACT_APP_BACKEND_URL=https://... pytest backend/tests/`. The new iter7 test has a fallback URL hard-coded, so it works without the env. Hydration warning on <option><span> is pre-existing/cosmetic — main agent already aware (iter5 report).",
+  "rca of the issue": "No issues found. Implementation aligned with spec."
+}

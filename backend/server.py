@@ -970,6 +970,157 @@ async def bulk_appuntamenti(body: BulkAppuntamentoCreate, user: dict = Depends(r
     }
 
 # -----------------------------------------------------------------------------
+# Report PDF appuntamenti
+# -----------------------------------------------------------------------------
+from fastapi.responses import StreamingResponse
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.lib.units import mm
+
+_GIORNI_IT = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
+
+def _date_range_for(period: str, ref: date) -> tuple[date, date, str]:
+    if period == "day":
+        return ref, ref, ref.strftime("%d/%m/%Y")
+    if period == "week":
+        weekday = ref.weekday()
+        start = ref - timedelta(days=weekday)
+        end = start + timedelta(days=6)
+        return start, end, f"settimana {start.strftime('%d/%m/%Y')} – {end.strftime('%d/%m/%Y')}"
+    if period == "month":
+        start = ref.replace(day=1)
+        if start.month == 12:
+            end = start.replace(year=start.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            end = start.replace(month=start.month + 1, day=1) - timedelta(days=1)
+        return start, end, f"{start.strftime('%B %Y')}"
+    raise HTTPException(status_code=400, detail="period deve essere day, week o month")
+
+@api.get("/reports/appuntamenti.pdf")
+async def report_appuntamenti_pdf(
+    period: str = "week",            # day | week | month
+    data: Optional[str] = None,      # YYYY-MM-DD (default oggi)
+    docente_id: Optional[str] = None,  # se None: tutti
+    user: dict = Depends(require_role("admin", "docente")),
+):
+    sid = _scope_studio_id(user)
+    ref = date.fromisoformat(data) if data else date.today()
+    start, end, label = _date_range_for(period, ref)
+
+    # Docenti scope
+    if user["role"] == "docente":
+        docente_id = user["id"]
+    docenti_q = {"studio_id": sid, "role": "docente"}
+    if docente_id:
+        docenti_q["_id"] = docente_id
+    docenti = await db.users.find(docenti_q).sort("cognome", 1).to_list(500)
+    if not docenti:
+        raise HTTPException(status_code=404, detail="Nessun docente trovato")
+
+    # Studio info
+    studio = await db.studios.find_one({"_id": sid})
+    studio_nome = studio["nome"] if studio else "Centro Studi"
+
+    # Appuntamenti del range, hydrated
+    app_q = {
+        "studio_id": sid,
+        "data": {"$gte": start.isoformat(), "$lte": end.isoformat()},
+        "docente_id": {"$in": [d["_id"] for d in docenti]},
+    }
+    raw_app = await db.appuntamenti.find(app_q).sort([("data", 1), ("dal", 1)]).to_list(5000)
+    hydrated = await _hydrate_appuntamenti(raw_app)
+
+    by_docente: dict[str, list[dict]] = {d["_id"]: [] for d in docenti}
+    for a in hydrated:
+        if a["docente_id"] in by_docente:
+            by_docente[a["docente_id"]].append(a)
+
+    # Build PDF
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)
+    styles = getSampleStyleSheet()
+    h1 = ParagraphStyle("h1", parent=styles["Heading1"], textColor=colors.HexColor("#2C4C3B"), fontSize=20, spaceAfter=4)
+    h2 = ParagraphStyle("h2", parent=styles["Heading2"], textColor=colors.HexColor("#1E1E1E"), fontSize=14, spaceBefore=10, spaceAfter=6)
+    small = ParagraphStyle("small", parent=styles["Normal"], textColor=colors.HexColor("#5C5C5C"), fontSize=9)
+    body = ParagraphStyle("body", parent=styles["Normal"], fontSize=10)
+
+    story = []
+    story.append(Paragraph(studio_nome, h1))
+    period_it = {"day": "Giorno", "week": "Settimana", "month": "Mese"}.get(period, period)
+    sub = f"Report appuntamenti — {period_it}: {label}"
+    if docente_id and docenti:
+        d = docenti[0]
+        sub += f" — Docente: {d['nome']} {d['cognome']}"
+    story.append(Paragraph(sub, small))
+    story.append(Spacer(1, 6))
+
+    total_appuntamenti = 0
+    for d in docenti:
+        list_d = by_docente.get(d["_id"], [])
+        if not list_d and docente_id is None:
+            continue  # in modalità "tutti", salta i docenti senza appuntamenti
+        story.append(Paragraph(f"{d['nome']} {d['cognome']}", h2))
+        story.append(Paragraph(
+            f"Email: {d.get('email','—')} • Durata slot: {d.get('slot_minuti', 60)} min • Totale appuntamenti: {len(list_d)}",
+            small,
+        ))
+        story.append(Spacer(1, 4))
+        if not list_d:
+            story.append(Paragraph("Nessun appuntamento nel periodo selezionato.", body))
+        else:
+            data_rows = [["Data", "Giorno", "Dalle", "Alle", "Cliente", "Stato", "Note"]]
+            for a in list_d:
+                dt = date.fromisoformat(a["data"])
+                data_rows.append([
+                    dt.strftime("%d/%m/%Y"),
+                    _GIORNI_IT[dt.weekday()],
+                    a["dal"],
+                    a["al"],
+                    a.get("cliente_nome") or "—",
+                    a.get("stato", "confermato"),
+                    (a.get("note") or "")[:60],
+                ])
+            tbl = Table(data_rows, colWidths=[22*mm, 24*mm, 14*mm, 14*mm, 50*mm, 22*mm, 34*mm], repeatRows=1)
+            tbl.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2C4C3B")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#FBF9F6"), colors.white]),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (0, 0), (3, -1), "CENTER"),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#E4E0D6")),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]))
+            story.append(tbl)
+            total_appuntamenti += len(list_d)
+        story.append(Spacer(1, 8))
+
+    if total_appuntamenti == 0:
+        story.append(Paragraph("Nessun appuntamento nel periodo selezionato.", body))
+
+    story.append(Spacer(1, 12))
+    story.append(Paragraph(
+        f"Generato il {now_utc().strftime('%d/%m/%Y %H:%M')} UTC — EligeHub SaaS",
+        small,
+    ))
+    doc.build(story)
+    buf.seek(0)
+
+    filename = f"appuntamenti-{period}-{start.isoformat()}.pdf"
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+# -----------------------------------------------------------------------------
 # Public availability check: free slots for a docente on a given date
 # -----------------------------------------------------------------------------
 def _to_minutes(hhmm: str) -> int:

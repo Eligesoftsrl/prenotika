@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, API_BASE } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Users, GraduationCap, CalendarClock, CalendarDays, Sparkles } from "lucide-react";
+import { Users, GraduationCap, CalendarClock, CalendarDays, Sparkles, Download } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const GIORNI = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
@@ -99,7 +99,33 @@ export default function Dashboard() {
         <div className="surface-card p-5">
           <h3 className="font-display text-lg font-bold mb-1">Suggerimento</h3>
           <p className="text-sm text-[color:var(--text-2)] mb-4">Imposta prima la disponibilità dei docenti, poi crea gli appuntamenti dal calendario.</p>
-          <Link to="/orari" className="btn-secondary w-full justify-center" data-testid="suggestion-orari">Gestisci orari</Link>
+          <Link to="/orari" className="btn-secondary w-full justify-center mb-2" data-testid="suggestion-orari">Gestisci orari</Link>
+          <div className="border-t border-[color:var(--border)] pt-3 mt-3">
+            <div className="label-eyebrow mb-2">Report PDF rapidi</div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {["day", "week", "month"].map((p) => (
+                <button
+                  key={p}
+                  onClick={async () => {
+                    const token = localStorage.getItem("eh_token");
+                    const today = new Date().toISOString().slice(0,10);
+                    const resp = await fetch(`${API_BASE}/reports/appuntamenti.pdf?period=${p}&data=${today}`, { headers: { Authorization: `Bearer ${token}` } });
+                    if (!resp.ok) { alert("Errore download"); return; }
+                    const blob = await resp.blob();
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url; link.download = `appuntamenti-${p}-${today}.pdf`;
+                    document.body.appendChild(link); link.click(); link.remove();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="btn-secondary text-xs justify-center"
+                  data-testid={`dash-pdf-${p}`}
+                >
+                  <Download size={11} /> {p === "day" ? "Giorno" : p === "week" ? "Settimana" : "Mese"}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
