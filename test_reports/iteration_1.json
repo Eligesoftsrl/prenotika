@@ -1,0 +1,44 @@
+{
+  "summary": "First iteration testing of EligeHub SaaS (multi-tenant FastAPI + React, Italian UI). Comprehensive backend pytest suite (22 tests, 100% pass) covering auth, RBAC, multi-tenant isolation, CRUD (clienti/docenti/orari/appuntamenti), overlap prevention, disponibilita and dashboard stats. Frontend smoke + critical-flow tests via Playwright (login for 3 roles, role-based redirects, sidebar visibility per role, navigation to Dashboard/Clienti/Docenti/Orari/Appuntamenti/Studios, appuntamento create modal, logout). All core flows work end-to-end.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard", "issues": ["KPI card data-testid values do not match the names in review_request. Actual: kpi-clienti-totali, kpi-docenti, kpi-appuntamenti-oggi, kpi-appuntamenti-7-giorni (derived from label). Expected per spec: kpi-clienti, kpi-oggi, kpi-settimana. Functionality fine, but selectors used by future automation may break."]},
+      {"screen": "Dashboard", "issues": ["upcoming-list testid only renders when prossimi_appuntamenti is non-empty; the empty state uses a different element (with empty-create-appointment testid). Consider rendering upcoming-list container always for stable selector."]},
+      {"screen": "Appuntamento create modal", "issues": ["Modal uses browser-native HTML date input and time inputs (06/12/2026, 09:00 AM/10:00 AM) instead of shadcn/Italian-localized pickers. Time displays in 12-hour AM/PM in Chrome despite Italian UI."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Align dashboard KPI data-testid values with the documented contract (kpi-clienti, kpi-oggi, kpi-settimana) for stable E2E selectors.",
+    "(Optional) Always render the upcoming-list container (even when empty) so the testid is reliable.",
+    "(Optional) Replace native <input type=date|time> in Appuntamento modal with localized shadcn calendar/time pickers to match Italian UX and 24h convention."
+  ],
+  "critical_code_review_comments": [
+    "Backend: server.py is 800 lines - acceptable for a single-file MVP but consider splitting into routers (auth/studios/docenti/clienti/orari/appuntamenti/dashboard) as the codebase grows.",
+    "Backend: bcrypt hashes generated correctly ($2b$ format verified via successful logins); JWT HS256 with 24h expiry. JWT_SECRET stored in backend/.env (good).",
+    "Backend: CORS uses '*' with allow_credentials=True which is technically invalid per spec but works due to bearer-token auth (no cookies in use). If cookies are introduced later, explicit origins must be set.",
+    "Backend: studio_id scoping enforced in every protected route via _scope_studio_id; cross-tenant leakage verified absent.",
+    "Backend: Overlap check uses correct strict-inequality predicate {dal<al, al>dal} with stato != 'annullato'.",
+    "Backend: seed_super_admin_and_demo updates super_admin password if env changed - matches playbook expectation. Demo studio is only seeded if missing (idempotent).",
+    "Frontend: localStorage token key is 'eh_token' as documented.",
+    "Frontend: All /api calls use REACT_APP_BACKEND_URL via axios baseURL (verified)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "superadmin@eligehub.it/SuperAdmin123!, admin@demo.it/Admin123!, docente@demo.it/Docente123! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Pytest tests prefix all created entities with TEST_ and clean up. A TEST_Studio_Iso studio is created and deleted within test_create_and_delete_studio_and_isolation.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file at /app/backend/tests/backend_test.py covers 22 tests across 7 classes (Auth, RoleIsolation, StudiosAndScoping, ClientiCRUD, DocentiCRUD, Orari, Appuntamenti, Dashboard). Run with: pytest /app/backend/tests/backend_test.py -v. All passed on first run. Only cosmetic frontend issues remain (KPI testid naming and native date/time pickers). No mocked APIs. JWT bearer tokens stored in localStorage as 'eh_token'."
+}

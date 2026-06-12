@@ -1,54 +1,45 @@
-import { useEffect } from "react";
+import React from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
-import { HOME } from "@/constants/testIds";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import Layout from "@/components/Layout";
+import Login from "@/pages/Login";
+import Dashboard from "@/pages/Dashboard";
+import Docenti from "@/pages/Docenti";
+import Clienti from "@/pages/Clienti";
+import Orari from "@/pages/Orari";
+import Appuntamenti from "@/pages/Appuntamenti";
+import Studios from "@/pages/Studios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          data-testid={HOME.emergentLink}
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
+function RootRedirect() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-[color:var(--text-2)]">Caricamento…</div>;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === "super_admin") return <Navigate to="/studios" replace />;
+  return <Navigate to="/dashboard" replace />;
+}
 
 function App() {
   return (
     <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route path="/dashboard" element={<ProtectedRoute roles={["admin", "docente"]}><Dashboard /></ProtectedRoute>} />
+              <Route path="/docenti" element={<ProtectedRoute roles={["admin"]}><Docenti /></ProtectedRoute>} />
+              <Route path="/clienti" element={<ProtectedRoute roles={["admin", "docente"]}><Clienti /></ProtectedRoute>} />
+              <Route path="/orari" element={<ProtectedRoute roles={["admin", "docente"]}><Orari /></ProtectedRoute>} />
+              <Route path="/appuntamenti" element={<ProtectedRoute roles={["admin", "docente"]}><Appuntamenti /></ProtectedRoute>} />
+              <Route path="/studios" element={<ProtectedRoute roles={["super_admin"]}><Studios /></ProtectedRoute>} />
+            </Route>
+            <Route path="/" element={<RootRedirect />} />
+            <Route path="*" element={<RootRedirect />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </div>
   );
 }
