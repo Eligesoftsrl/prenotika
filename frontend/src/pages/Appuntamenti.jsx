@@ -18,6 +18,11 @@ function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); retu
 function fmtISO(d) { return d.toISOString().slice(0, 10); }
 function fmtShort(d) { return d.toLocaleDateString("it-IT", { day: "2-digit", month: "short" }); }
 function toMin(hhmm) { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; }
+function toHHMM(mins) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
 
 export default function Appuntamenti() {
   const { user } = useAuth();
@@ -27,8 +32,10 @@ export default function Appuntamenti() {
   const [docenti, setDocenti] = useState([]);
   const [clienti, setClienti] = useState([]);
   const [items, setItems] = useState([]);
-  const [filterDocente, setFilterDocente] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [orari, setOrari] = useState([]);
+  // Quando admin: nessuna preselezione (forza la scelta). Quando docente: sempre se stesso
+  const [selectedDocenteId, setSelectedDocenteId] = useState(user?.role === "docente" ? user.id : "");
+  const [loading, setLoading] = useState(false);
 
   const [showCreate, setShowCreate] = useState(false);
   const [createDefaults, setCreateDefaults] = useState(null);
@@ -38,22 +45,61 @@ export default function Appuntamenti() {
   const a = fmtISO(days[6]);
 
   useEffect(() => {
-    api.get("/docenti").then(({ data }) => setDocenti(data));
+    api.get("/docenti").then(({ data }) => {
+      setDocenti(data);
+      // Se docente -> userId; se admin senza selezione e c'è almeno un docente, suggerisci il primo automaticamente
+      if (isAdmin && !selectedDocenteId && data[0]) {
+        setSelectedDocenteId(data[0].id);
+      }
+    });
     api.get("/clienti").then(({ data }) => setClienti(data));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const docenteSel = docenti.find((d) => d.id === selectedDocenteId);
+  const slotMinuti = docenteSel?.slot_minuti || 60;
+
   const load = async () => {
+    if (!selectedDocenteId) { setItems([]); setOrari([]); return; }
     setLoading(true);
     try {
-      const params = { data_da: da, data_a: a };
-      if (filterDocente) params.docente_id = filterDocente;
-      const { data } = await api.get("/appuntamenti", { params });
-      setItems(data);
+      const [appResp, orResp] = await Promise.all([
+        api.get("/appuntamenti", { params: { data_da: da, data_a: a, docente_id: selectedDocenteId } }),
+        api.get("/orari", { params: { docente_id: selectedDocenteId } }),
+      ]);
+      setItems(appResp.data);
+      setOrari(orResp.data);
     } finally { setLoading(false); }
   };
-  useEffect(() => { load(); }, [da, a, filterDocente]);
+  useEffect(() => { load(); }, [da, a, selectedDocenteId]);
 
-  const docenteColor = (id) => docenti.find((d) => d.id === id)?.color || "#2C4C3B";
+  // Range orario: from min(orari.dal) to max(orari.al). Fallback 8-19 se nessuna disponibilità.
+  const dayRange = useMemo(() => {
+    if (orari.length === 0) return { startMin: 8 * 60, endMin: 19 * 60 };
+    let s = Infinity, e = -Infinity;
+    orari.forEach((o) => {
+      s = Math.min(s, toMin(o.dal));
+      e = Math.max(e, toMin(o.al));
+    });
+    // Allinea al multiplo di slotMinuti
+    s = Math.floor(s / slotMinuti) * slotMinuti;
+    e = Math.ceil(e / slotMinuti) * slotMinuti;
+    return { startMin: s, endMin: e };
+  }, [orari, slotMinuti]);
+
+  // Genera gli slot per ogni giorno: array di {dal, al, isAvailable, appointment|null}
+  const computeDaySlots = (date) => {
+    const giorno = (date.getDay() + 6) % 7; // 0=Mon
+    const dayOrari = orari.filter((o) => o.giorno === giorno);
+    const slots = [];
+    for (let m = dayRange.startMin; m + slotMinuti <= dayRange.endMin; m += slotMinuti) {
+      const dal = toHHMM(m);
+      const al = toHHMM(m + slotMinuti);
+      const isAvailable = dayOrari.some((o) => toMin(o.dal) <= m && m + slotMinuti <= toMin(o.al));
+      slots.push({ dal, al, m, isAvailable });
+    }
+    return slots;
+  };
 
   const itemsByDay = useMemo(() => {
     const map = {};
@@ -62,11 +108,17 @@ export default function Appuntamenti() {
     return map;
   }, [items, days]);
 
-  const onCellClick = (dayDate, hour) => {
-    if (!isAdmin && user?.role !== "docente") return;
-    const dal = `${String(hour).padStart(2, "0")}:00`;
-    const al = `${String(hour + 1).padStart(2, "0")}:00`;
-    setCreateDefaults({ data: fmtISO(dayDate), dal, al });
+  const findAppointment = (dayKey, slotM) => {
+    return itemsByDay[dayKey]?.find((ev) => {
+      const evStart = toMin(ev.dal);
+      const evEnd = toMin(ev.al);
+      return evStart < slotM + slotMinuti && evEnd > slotM && ev.stato !== "annullato";
+    });
+  };
+
+  const onCellClick = (dayDate, slot) => {
+    if (!slot.isAvailable) return;
+    setCreateDefaults({ data: fmtISO(dayDate), dal: slot.dal, al: slot.al });
     setShowCreate(true);
   };
 
@@ -82,108 +134,144 @@ export default function Appuntamenti() {
         <div>
           <div className="label-eyebrow mb-1.5">Agenda</div>
           <h1 className="font-display text-3xl sm:text-4xl font-black tracking-tight">Appuntamenti</h1>
-          <p className="text-[color:var(--text-2)] mt-1">Clicca una cella libera per creare un appuntamento.</p>
+          <p className="text-[color:var(--text-2)] mt-1">Calendario personalizzato del docente — celle verdi = libere, colorate = prenotate, grigie = fuori disponibilità.</p>
         </div>
-        <button onClick={() => { setCreateDefaults(null); setShowCreate(true); }} className="btn-primary" data-testid="appuntamento-create-button">
+        <button onClick={() => { setCreateDefaults(null); setShowCreate(true); }} className="btn-primary" disabled={!selectedDocenteId} data-testid="appuntamento-create-button">
           <Plus size={16} /> Nuovo appuntamento
         </button>
       </div>
 
-      {/* Toolbar */}
-      <div className="surface-card p-3 mb-4 flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2">
-          <button className="btn-secondary" onClick={() => setWeekStart(addDays(weekStart, -7))} data-testid="cal-prev"><ChevronLeft size={16} /></button>
-          <button className="btn-secondary" onClick={() => setWeekStart(startOfWeek(new Date()))} data-testid="cal-today">Oggi</button>
-          <button className="btn-secondary" onClick={() => setWeekStart(addDays(weekStart, 7))} data-testid="cal-next"><ChevronRight size={16} /></button>
-          <div className="ml-3 font-display font-bold text-base">
-            {fmtShort(days[0])} – {fmtShort(days[6])} {days[0].getFullYear()}
+      {/* Docente selector (admin only) */}
+      {isAdmin && (
+        <div className="surface-card p-4 mb-4">
+          <label className="label-eyebrow block mb-2">Docente</label>
+          <div className="flex items-center gap-3 flex-wrap">
+            <select className="input-base max-w-md" value={selectedDocenteId} onChange={(e) => setSelectedDocenteId(e.target.value)} data-testid="cal-docente-select">
+              <option value="">— Seleziona un docente —</option>
+              {docenti.map((d) => (<option key={d.id} value={d.id}>{d.nome} {d.cognome} ({d.slot_minuti || 60} min)</option>))}
+            </select>
+            {docenteSel && (
+              <div className="text-xs text-[color:var(--text-2)]">
+                Slot: <strong>{slotMinuti} min</strong> • Disponibilità: {orari.length ? `${toHHMM(dayRange.startMin)}–${toHHMM(dayRange.endMin)}` : "non configurata"}
+              </div>
+            )}
           </div>
         </div>
-        {isAdmin && (
-          <div className="flex items-center gap-2">
-            <span className="label-eyebrow">Filtra docente</span>
-            <select className="input-base" value={filterDocente} onChange={(e) => setFilterDocente(e.target.value)} data-testid="cal-filter-docente">
-              <option value="">Tutti</option>
-              {docenti.map((d) => (<option key={d.id} value={d.id}>{d.nome} {d.cognome}</option>))}
-            </select>
-          </div>
-        )}
-      </div>
+      )}
 
-      {/* Calendar */}
-      <div className="surface-card p-2 sm:p-4 overflow-x-auto">
-        <div className="min-w-[820px]">
-          {/* day header */}
-          <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))] gap-2 mb-2">
-            <div></div>
-            {days.map((d, i) => {
-              const isToday = fmtISO(d) === fmtISO(new Date());
-              return (
-                <div key={i} className={`text-center py-2 rounded-md ${isToday ? "bg-[color:var(--primary)] text-white" : "bg-[color:var(--surface-2)] text-[color:var(--text)]"}`}>
-                  <div className="text-[11px] uppercase tracking-[0.15em] font-bold opacity-80">{GIORNI[i]}</div>
-                  <div className="font-display font-bold text-base">{d.getDate()}</div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="relative">
-            {/* Hour grid */}
-            <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))] gap-2">
-              {HOURS.map((h) => (
-                <React.Fragment key={h}>
-                  <div className="text-right pr-2 text-[11px] text-[color:var(--text-2)] -mt-2">{`${String(h).padStart(2,'0')}:00`}</div>
-                  {days.map((d, i) => (
-                    <button
-                      key={`${h}-${i}`}
-                      onClick={() => onCellClick(d, h)}
-                      className="h-14 border-t border-[color:var(--border)] hover:bg-[color:var(--surface-2)] transition-colors"
-                      data-testid={`cal-cell-${fmtISO(d)}-${h}`}
-                    />
-                  ))}
-                </React.Fragment>
-              ))}
+      {/* Empty states */}
+      {!selectedDocenteId ? (
+        <div className="surface-card p-12 text-center">
+          <CalIcon className="mx-auto mb-3 text-[color:var(--border)]" size={42} />
+          <h3 className="font-display text-lg font-bold mb-1">Seleziona un docente</h3>
+          <p className="text-sm text-[color:var(--text-2)]">Ogni docente ha la sua durata standard e i suoi orari. Scegli sopra il docente di cui vuoi vedere il calendario.</p>
+        </div>
+      ) : orari.length === 0 ? (
+        <div className="surface-card p-12 text-center">
+          <CalIcon className="mx-auto mb-3 text-[color:var(--border)]" size={42} />
+          <h3 className="font-display text-lg font-bold mb-1">Nessuna disponibilità configurata</h3>
+          <p className="text-sm text-[color:var(--text-2)] mb-4">Imposta prima gli orari del docente per vedere il suo calendario.</p>
+          <a href={`/orari?docente=${selectedDocenteId}`} className="btn-primary inline-flex">Imposta orari</a>
+        </div>
+      ) : (
+        <>
+          {/* Toolbar */}
+          <div className="surface-card p-3 mb-4 flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <button className="btn-secondary" onClick={() => setWeekStart(addDays(weekStart, -7))} data-testid="cal-prev"><ChevronLeft size={16} /></button>
+              <button className="btn-secondary" onClick={() => setWeekStart(startOfWeek(new Date()))} data-testid="cal-today">Oggi</button>
+              <button className="btn-secondary" onClick={() => setWeekStart(addDays(weekStart, 7))} data-testid="cal-next"><ChevronRight size={16} /></button>
+              <div className="ml-3 font-display font-bold text-base">
+                {fmtShort(days[0])} – {fmtShort(days[6])} {days[0].getFullYear()}
+              </div>
             </div>
+            <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[#E5F0E9] border border-[#C8DDD0]" /> Libero</div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm" style={{background: docenteSel?.color || "#2C4C3B"}} /> Prenotato</div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[color:var(--surface-2)] border border-[color:var(--border)]" /> Non disponibile</div>
+            </div>
+          </div>
 
-            {/* Events overlay */}
-            <div className="absolute inset-0 grid grid-cols-[60px_repeat(7,minmax(0,1fr))] gap-2 pointer-events-none">
-              <div></div>
-              {days.map((d, i) => {
-                const dayKey = fmtISO(d);
-                const dayStartMin = HOURS[0] * 60;
-                const totalMin = (HOURS[HOURS.length - 1] + 1 - HOURS[0]) * 60;
-                return (
-                  <div key={i} className="relative">
-                    {itemsByDay[dayKey]?.map((ev) => {
-                      const top = ((toMin(ev.dal) - dayStartMin) / totalMin) * 100;
-                      const height = ((toMin(ev.al) - toMin(ev.dal)) / totalMin) * 100;
-                      const color = docenteColor(ev.docente_id);
+          {/* Calendar settimanale per-docente */}
+          <div className="surface-card p-2 sm:p-4 overflow-x-auto" data-testid="docente-calendar">
+            <div className="min-w-[820px]">
+              <div className="grid grid-cols-[70px_repeat(7,minmax(0,1fr))] gap-1.5 mb-2">
+                <div></div>
+                {days.map((d, i) => {
+                  const isToday = fmtISO(d) === fmtISO(new Date());
+                  return (
+                    <div key={i} className={`text-center py-2 rounded-md ${isToday ? "bg-[color:var(--primary)] text-white" : "bg-[color:var(--surface-2)] text-[color:var(--text)]"}`}>
+                      <div className="text-[11px] uppercase tracking-[0.15em] font-bold opacity-80">{GIORNI[i]}</div>
+                      <div className="font-display font-bold text-base">{d.getDate()}</div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Rows of slots */}
+              {(() => {
+                const refSlots = [];
+                for (let m = dayRange.startMin; m + slotMinuti <= dayRange.endMin; m += slotMinuti) {
+                  refSlots.push({ m, label: toHHMM(m) });
+                }
+                return refSlots.map(({ m, label }) => (
+                  <div key={m} className="grid grid-cols-[70px_repeat(7,minmax(0,1fr))] gap-1.5 mb-1.5">
+                    <div className="text-right pr-2 text-[11px] text-[color:var(--text-2)] flex items-center justify-end">{label}</div>
+                    {days.map((d, di) => {
+                      const slots = computeDaySlots(d);
+                      const slot = slots.find((s) => s.m === m);
+                      const dayKey = fmtISO(d);
+                      const ev = slot ? findAppointment(dayKey, m) : null;
+                      if (ev) {
+                        // Solo nello slot di START dell'appuntamento mostra il blocco; rowspan visuale by ratio
+                        const startsHere = toMin(ev.dal) === m;
+                        if (!startsHere) {
+                          return <div key={`${m}-${di}`} className="rounded-md" style={{ background: docenteSel?.color, opacity: 0.85, minHeight: 36 }} />;
+                        }
+                        return (
+                          <div
+                            key={`${m}-${di}`}
+                            className="rounded-md p-1.5 text-[11px] text-white shadow-sm relative group min-h-[36px]"
+                            style={{ background: docenteSel?.color || "#2C4C3B" }}
+                            data-testid={`appuntamento-${ev.id}`}
+                            title={`${ev.cliente_nome} • ${ev.dal}-${ev.al}${ev.note ? ` • ${ev.note}` : ""}`}
+                          >
+                            <div className="font-bold truncate leading-tight">{ev.cliente_nome}</div>
+                            <div className="text-[10px] opacity-90">{ev.dal}–{ev.al}</div>
+                            <button onClick={() => remove(ev.id)} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-white/80 hover:text-white" data-testid={`appuntamento-delete-${ev.id}`}><Trash2 size={11} /></button>
+                          </div>
+                        );
+                      }
+                      if (slot && slot.isAvailable) {
+                        return (
+                          <button
+                            key={`${m}-${di}`}
+                            onClick={() => onCellClick(d, slot)}
+                            className="rounded-md min-h-[36px] bg-[#E5F0E9] border border-[#C8DDD0] hover:bg-[#D2E5DA] hover:border-[#A6C8B3] transition-colors text-[11px] font-semibold text-[color:var(--success)]"
+                            data-testid={`cal-cell-${dayKey}-${slot.dal}`}
+                          >
+                            <span className="opacity-60 hover:opacity-100">+</span>
+                          </button>
+                        );
+                      }
                       return (
                         <div
-                          key={ev.id}
-                          className="absolute left-0.5 right-0.5 rounded-md p-1.5 pointer-events-auto text-[11px] text-white shadow-sm overflow-hidden hover:z-10 hover:scale-[1.02] transition-transform"
-                          style={{ top: `${top}%`, height: `${height}%`, background: color, minHeight: 30, opacity: ev.stato === "annullato" ? 0.4 : 1 }}
-                          data-testid={`appuntamento-${ev.id}`}
-                          title={`${ev.cliente_nome} • ${ev.dal}-${ev.al}`}
-                        >
-                          <div className="flex items-start justify-between gap-1">
-                            <div className="min-w-0">
-                              <div className="font-bold truncate leading-tight">{ev.cliente_nome}</div>
-                              <div className="text-[10px] opacity-90 truncate">{ev.dal} – {ev.al}</div>
-                              <div className="text-[10px] opacity-90 truncate">{ev.docente_nome}</div>
-                            </div>
-                            <button onClick={() => remove(ev.id)} className="text-white/80 hover:text-white shrink-0" data-testid={`appuntamento-delete-${ev.id}`}><Trash2 size={11} /></button>
-                          </div>
-                        </div>
+                          key={`${m}-${di}`}
+                          className="rounded-md min-h-[36px] bg-[color:var(--surface-2)] border border-dashed border-[color:var(--border)]"
+                          data-testid={`cal-cell-${dayKey}-${toHHMM(m)}-na`}
+                          title="Fuori disponibilità"
+                        />
                       );
                     })}
                   </div>
-                );
-              })}
+                ));
+              })()}
             </div>
           </div>
-        </div>
-      </div>
+
+          {loading && <div className="text-center text-[color:var(--text-2)] mt-3 text-sm">Caricamento…</div>}
+        </>
+      )}
 
       {showCreate && (
         <AppuntamentoModal
@@ -212,7 +300,8 @@ const GIORNI_LABEL = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
 function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdmin, currentDocenteId }) {
   const today = new Date().toISOString().slice(0, 10);
-  const initialDocente = isAdmin ? (docenti[0]?.id || "") : currentDocenteId;
+  // Se passato currentDocenteId, usa quello (anche per admin pre-seleziona dal calendario)
+  const initialDocente = currentDocenteId || (isAdmin ? (docenti[0]?.id || "") : "");
   const initialDocObj = docenti.find((d) => d.id === initialDocente);
   const initialSlot = initialDocObj?.slot_minuti || 60;
   const initialDal = defaults?.dal || "09:00";

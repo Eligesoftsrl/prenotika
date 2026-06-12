@@ -1,0 +1,37 @@
+{
+  "summary": "Iter 5 EligeHub frontend testing of /appuntamenti redesign (per-docente calendar). Tested admin (Marco Bianchi 60min preselected) + Sara Test30 (no orari) + docente@demo.it role + mobile. 12/13 specced behaviors PASS. 1 bug found: top 'Nuovo appuntamento' button does NOT preselect docente from calendar — it always falls back to docenti[0] for admin. Spec explicitly requires 'preseleziona il docente dal calendario (NON più il primo della lista)'.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Appuntamenti.jsx L284 -> AppuntamentoModal currentDocenteId prop",
+        "issue": "Top 'Nuovo appuntamento' button (and cell-click flow) does NOT preselect the docente currently shown in the calendar for admin. Reproduced by: login admin, select 'Sara Test30' in cal-docente-select, click [data-testid=appuntamento-create-button] -> modal opens with Marco Bianchi (first in dropdown) instead of Sara. Same bug affects cell-click flow (false positive in this round because Marco IS docenti[0]).",
+        "selector": "[data-testid=\"appuntamento-create-button\"] -> [data-testid=\"app-docente-select\"]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix /app/frontend/src/pages/Appuntamenti.jsx line 284: change `currentDocenteId={user?.role === \"docente\" ? user.id : \"\"}` to `currentDocenteId={user?.role === \"docente\" ? user.id : selectedDocenteId}` so the modal inherits the calendar's selected docente for admin (both top button and cell click). After fix, re-verify by selecting Sara Test30 -> click top button -> modal must show Sara Test30 (and slot 30 min)."
+  ],
+  "critical_code_review_comments": [
+    "Console hydration warning: option element contains <span> due to Emergent visual editor instrumentation (x-source-* attrs). Cosmetic dev-only noise — not blocking — but worth ignoring/suppressing.",
+    "Grid math verified: Marco Bianchi 60min slot, orari Lun-Ven 9-13 + 15-18 -> exact result 34 verdi + 28 grigie + 1 prenotato (Giulia Neri Ven 9-10). 9 rows (9:00..17:00).",
+    "Empty states work: no docente -> 'Seleziona un docente'; docente w/o orari -> 'Nessuna disponibilità configurata' + 'Imposta orari' link with correct href=/orari?docente=ID. Top button correctly disabled when no docente.",
+    "Mobile 390x844: calendar has horizontal overflow (clientW=348, scrollW=836) as designed — no functional bug.",
+    "Docente role: cal-docente-select correctly HIDDEN; calendar visible immediately for user's own data.",
+    "Slot info line displays slot_minuti correctly for both 60min (Marco) and 30min (Sara) docenti.",
+    "Cell click correctly opens modal pre-populated with data/dal/al (verified data=2026-06-08, dal=10:00, al=11:00 for Marco's 60min cell)."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (frontend-only iter)", "frontend": "92% (12/13 spec items pass; 1 high-priority docente-preselection bug)" },
+  "test_credentials": "admin@demo.it/Admin123!, docente@demo.it/Docente123!",
+  "seed_data_creation": "Sara Test30 docente (slot 30, no orari) already existed from prior iters — no cleanup needed by this agent.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Re-test the modal docente preselection bug specifically: after the main agent fixes Appuntamenti.jsx L284, (1) login admin, (2) navigate /appuntamenti, (3) select Sara Test30 in cal-docente-select, (4) click [data-testid=appuntamento-create-button], (5) assert [data-testid=app-docente-select] value === Sara's id and 'Durata standard: 30 minuti' is shown. Also re-test the same with a Marco green cell click on a NON-first docente if/when one is added. All other Iter 5 specs already verified PASS.",
+  "rca of the issue": "Root cause: Appuntamenti.jsx line 284 hard-codes `currentDocenteId={user?.role === \"docente\" ? user.id : \"\"}`. For admin role this ALWAYS passes empty string, so inside AppuntamentoModal (L304) `initialDocente = currentDocenteId || (isAdmin ? (docenti[0]?.id || \"\") : \"\")` falls back to docenti[0].id (first docente alphabetically/insertion-order). The spec explicitly says modal must preselect the calendar docente. Fix is a 1-line change passing `selectedDocenteId` instead of empty string. The cell-click flow also suffers from the same bug — it only worked in this test because the calendar docente Marco happened to coincide with docenti[0]."
+}
