@@ -1038,6 +1038,35 @@ async def report_appuntamenti_pdf(
         if a["docente_id"] in by_docente:
             by_docente[a["docente_id"]].append(a)
 
+    # Merge appuntamenti consecutivi stesso cliente, stesso docente, stessa data
+    def _merge_consecutive(rows: list[dict]) -> list[dict]:
+        if not rows:
+            return rows
+        # ordina per data, dal
+        rows = sorted(rows, key=lambda x: (x["data"], x["dal"]))
+        merged = []
+        cur = dict(rows[0])
+        for nxt in rows[1:]:
+            same_key = (
+                nxt["data"] == cur["data"]
+                and nxt["cliente_id"] == cur["cliente_id"]
+                and nxt["stato"] == cur.get("stato")
+                and nxt["dal"] == cur["al"]
+            )
+            if same_key:
+                cur["al"] = nxt["al"]
+                # concat note se diverse
+                if nxt.get("note") and nxt["note"] != cur.get("note"):
+                    cur["note"] = ((cur.get("note") or "") + " | " + nxt["note"]).strip(" |")
+            else:
+                merged.append(cur)
+                cur = dict(nxt)
+        merged.append(cur)
+        return merged
+
+    for did in list(by_docente.keys()):
+        by_docente[did] = _merge_consecutive(by_docente[did])
+
     # Build PDF
     buf = BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)

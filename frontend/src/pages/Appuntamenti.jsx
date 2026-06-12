@@ -39,8 +39,10 @@ export default function Appuntamenti() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [createDefaults, setCreateDefaults] = useState(null);
-  const [viewMode, setViewMode] = useState("week"); // "week" | "day"
+  const [viewMode, setViewMode] = useState("week"); // "week" | "day" | "month"
   const [selectedDay, setSelectedDay] = useState(new Date());
+  const [monthRef, setMonthRef] = useState(new Date());
+  const [monthItems, setMonthItems] = useState([]);
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const da = fmtISO(days[0]);
@@ -74,6 +76,41 @@ export default function Appuntamenti() {
     } finally { setLoading(false); }
   };
   useEffect(() => { load(); }, [da, a, selectedDocenteId]);
+
+  // Carica appuntamenti del MESE quando vista=month
+  useEffect(() => {
+    if (viewMode !== "month" || !selectedDocenteId) { setMonthItems([]); return; }
+    const y = monthRef.getFullYear();
+    const m = monthRef.getMonth();
+    const first = new Date(y, m, 1);
+    const last = new Date(y, m + 1, 0);
+    api.get("/appuntamenti", { params: { data_da: fmtISO(first), data_a: fmtISO(last), docente_id: selectedDocenteId } })
+      .then(({ data }) => setMonthItems(data))
+      .catch(() => setMonthItems([]));
+  }, [viewMode, selectedDocenteId, monthRef]);
+
+  // Costruisce griglia di 6 settimane (42 celle) per la vista mese
+  const monthGrid = useMemo(() => {
+    const y = monthRef.getFullYear();
+    const m = monthRef.getMonth();
+    const first = new Date(y, m, 1);
+    const gridStart = startOfWeek(first);
+    const cells = [];
+    for (let i = 0; i < 42; i++) {
+      const d = addDays(gridStart, i);
+      cells.push(d);
+    }
+    return cells;
+  }, [monthRef]);
+
+  const monthItemsByDay = useMemo(() => {
+    const map = {};
+    monthItems.forEach((it) => {
+      if (!map[it.data]) map[it.data] = [];
+      map[it.data].push(it);
+    });
+    return map;
+  }, [monthItems]);
 
   // Range orario: from min(orari.dal) to max(orari.al). Fallback 8-19 se nessuna disponibilità.
   const dayRange = useMemo(() => {
@@ -132,7 +169,10 @@ export default function Appuntamenti() {
 
   const downloadPdf = async (period) => {
     const params = new URLSearchParams({ period });
-    const refDate = period === "day" ? fmtISO(selectedDay) : fmtISO(weekStart);
+    let refDate;
+    if (period === "day") refDate = fmtISO(selectedDay);
+    else if (period === "month") refDate = fmtISO(viewMode === "month" ? monthRef : new Date());
+    else refDate = fmtISO(weekStart);
     params.set("data", refDate);
     if (selectedDocenteId) params.set("docente_id", selectedDocenteId);
     const token = localStorage.getItem("eh_token");
@@ -215,12 +255,19 @@ export default function Appuntamenti() {
                   <button className="btn-secondary" onClick={() => setWeekStart(addDays(weekStart, 7))} data-testid="cal-next"><ChevronRight size={16} /></button>
                   <div className="ml-2 font-display font-bold text-base">{fmtShort(days[0])} – {fmtShort(days[6])} {days[0].getFullYear()}</div>
                 </>
-              ) : (
+              ) : viewMode === "day" ? (
                 <>
                   <button className="btn-secondary" onClick={() => setSelectedDay(addDays(selectedDay, -1))} data-testid="day-prev"><ChevronLeft size={16} /></button>
                   <button className="btn-secondary" onClick={() => setSelectedDay(new Date())} data-testid="day-today">Oggi</button>
                   <button className="btn-secondary" onClick={() => setSelectedDay(addDays(selectedDay, 1))} data-testid="day-next"><ChevronRight size={16} /></button>
                   <div className="ml-2 font-display font-bold text-base">{selectedDay.toLocaleDateString("it-IT", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}</div>
+                </>
+              ) : (
+                <>
+                  <button className="btn-secondary" onClick={() => setMonthRef(new Date(monthRef.getFullYear(), monthRef.getMonth() - 1, 1))} data-testid="month-prev"><ChevronLeft size={16} /></button>
+                  <button className="btn-secondary" onClick={() => setMonthRef(new Date())} data-testid="month-today">Oggi</button>
+                  <button className="btn-secondary" onClick={() => setMonthRef(new Date(monthRef.getFullYear(), monthRef.getMonth() + 1, 1))} data-testid="month-next"><ChevronRight size={16} /></button>
+                  <div className="ml-2 font-display font-bold text-base capitalize">{monthRef.toLocaleDateString("it-IT", { month: "long", year: "numeric" })}</div>
                 </>
               )}
             </div>
@@ -229,6 +276,7 @@ export default function Appuntamenti() {
               <div className="flex p-0.5 rounded-md bg-[color:var(--surface-2)]">
                 <button onClick={() => setViewMode("week")} className={`px-2.5 py-1 text-xs font-semibold rounded-sm flex items-center gap-1 ${viewMode === "week" ? "bg-white shadow-sm" : "text-[color:var(--text-2)]"}`} data-testid="view-week"><LayoutGrid size={13} /> Settimana</button>
                 <button onClick={() => setViewMode("day")} className={`px-2.5 py-1 text-xs font-semibold rounded-sm flex items-center gap-1 ${viewMode === "day" ? "bg-white shadow-sm" : "text-[color:var(--text-2)]"}`} data-testid="view-day"><List size={13} /> Giorno</button>
+                <button onClick={() => setViewMode("month")} className={`px-2.5 py-1 text-xs font-semibold rounded-sm flex items-center gap-1 ${viewMode === "month" ? "bg-white shadow-sm" : "text-[color:var(--text-2)]"}`} data-testid="view-month"><CalIcon size={13} /> Mese</button>
               </div>
               {/* Report PDF */}
               <div className="flex items-center gap-1.5">
@@ -387,6 +435,48 @@ export default function Appuntamenti() {
 
           {loading && <div className="text-center text-[color:var(--text-2)] mt-3 text-sm">Caricamento…</div>}
         </>
+      )}
+
+      {viewMode === "month" && selectedDocenteId && orari.length > 0 && (
+        <div className="surface-card p-2 sm:p-4" data-testid="month-view">
+          <div className="grid grid-cols-7 gap-1 mb-2">
+            {GIORNI.map((g) => (
+              <div key={g} className="text-center py-1.5 text-[11px] uppercase tracking-[0.15em] font-bold text-[color:var(--text-2)]">{g}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {monthGrid.map((d, idx) => {
+              const dayKey = fmtISO(d);
+              const isCurrentMonth = d.getMonth() === monthRef.getMonth();
+              const isToday = dayKey === fmtISO(new Date());
+              const evs = monthItemsByDay[dayKey] || [];
+              return (
+                <button
+                  key={idx}
+                  onClick={() => { setSelectedDay(d); setViewMode("day"); }}
+                  className={`text-left min-h-[88px] sm:min-h-[110px] p-1.5 rounded-md border transition-colors ${
+                    isCurrentMonth ? "bg-[color:var(--surface)]" : "bg-[color:var(--surface-2)] opacity-60"
+                  } ${isToday ? "border-[color:var(--primary)] ring-1 ring-[color:var(--primary)]" : "border-[color:var(--border)]"} hover:border-[color:var(--primary)]`}
+                  data-testid={`month-cell-${dayKey}`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`font-display font-bold text-sm ${isToday ? "text-[color:var(--primary)]" : ""}`}>{d.getDate()}</span>
+                    {evs.length > 0 && <span className="text-[9px] font-bold px-1.5 rounded-full bg-[color:var(--primary)] text-white">{evs.length}</span>}
+                  </div>
+                  <div className="space-y-0.5">
+                    {evs.slice(0, 3).map((e) => (
+                      <div key={e.id} className="text-[10px] rounded px-1 py-0.5 truncate text-white" style={{ background: docenteSel?.color || "#2C4C3B" }} title={`${e.dal}-${e.al} ${e.cliente_nome}`}>
+                        <span className="font-bold">{e.dal}</span> {e.cliente_nome}
+                      </div>
+                    ))}
+                    {evs.length > 3 && <div className="text-[9px] text-[color:var(--text-2)] font-semibold">+{evs.length - 3} altri</div>}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <div className="text-xs text-[color:var(--text-2)] mt-3 text-center">Clicca un giorno per aprire la vista dettagliata.</div>
+        </div>
       )}
 
       {showCreate && (

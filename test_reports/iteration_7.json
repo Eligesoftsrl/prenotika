@@ -1,0 +1,31 @@
+{
+  "summary": "Iter 8 EligeHub testing: backend PDF /api/reports/appuntamenti.pdf _merge_consecutive (3 contigui stesso cliente/docente/data -> 1 riga, stati diversi NON uniti, gap NON uniti, clienti diversi NON uniti, note diverse concatenate con ' | ') + frontend vista Mese (view-month) su /appuntamenti, griglia 6x7 con 42 celle month-cell-YYYY-MM-DD, header Lun..Dom, oggi evidenziato con primary, badge count + max 3 blocchetti + '+N altri', dimming opacity-60 per giorni fuori mese, navigazione month-prev/today/next, click cella -> view='day' con selectedDay corretto, etichetta 'Giugno 2026' capitalize, PDF report Mese usa monthRef (verificato URL data=2026-08-01 dopo 2 click next da giugno). 8/8 nuovi test backend PASS + 11/11 iter7 regression PASS. Frontend specced behaviors tutti verificati.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter8_merge.py",
+    "/app/test_reports/pytest/iter8_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend _merge_consecutive (server.py:1042-1065) implementation corretta: chiave (data, cliente_id, stato, dal==al precedente), accumula 'al', concatena note con ' | ' solo se diverse, applicata per-docente prima del rendering tabella. Tutti i casi limite testati (3 contigui merge, stato differente blocca merge, gap blocca, clienti diversi, note diverse concat).",
+    "Frontend Appuntamenti.jsx: monthRef e monthItems gestiti correttamente, useEffect ricarica appuntamenti del mese quando viewMode=month o monthRef cambiano, monthGrid useMemo calcola 42 celle (6 settimane) partendo dal Lunedì della settimana del 1° del mese, monthItemsByDay raggruppa per data ISO. Render mostra header GIORNI (Lun..Dom), badge count, primi 3 eventi 'HH:MM Cliente' colorati con colore docente, '+N altri' se >3, dimming opacity-60 per giorni fuori mese, ring+primary border per today. Click cella imposta selectedDay e viewMode='day'.",
+    "downloadPdf (Appuntamenti.jsx:174): in modalità month, period=month, refDate=fmtISO(viewMode==='month' ? monthRef : new Date()) — verificato via network capture che PDF Mese richiama /api/reports/appuntamenti.pdf?period=month&data=2026-08-01 dopo navigazione a Agosto via month-next×2 (oggi=12/06/2026). Funzionalità coerente con spec.",
+    "Pre-existing hydration warning '<span> cannot be a child of <option>' caused by Emergent visual editor instrumentation — non iter8-introduced, cosmetic dev-only.",
+    "Toolbar mese mostra label tramite toLocaleDateString it-IT { month: 'long', year: 'numeric' } con classe CSS 'capitalize'. textContent rimane 'giugno 2026' (lowercase) ma reso visualmente come 'Giugno 2026' come da spec."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter8_merge.py"
+  ],
+  "success_rate": { "backend": "100% (8/8 nuovi + 11/11 iter7 regression)", "frontend": "100% (tutti i comportamenti iter8 verificati)" },
+  "test_credentials": "admin@demo.it/Admin123!, docente@demo.it/Docente123!, superadmin@eligehub.it/SuperAdmin123!",
+  "seed_data_creation": "Dati di test creati e ripuliti (cleanup in finally): appuntamenti con date offset oggi+120..+124 per evitare collisioni con demo data. Tutti gli appt sono cancellati via DELETE /api/appuntamenti/{id} a fine test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 8 completamente verificato. Backend test file: /app/backend/tests/test_iter8_merge.py copre tutti gli scenari merge + regressione PDF day/week/month + role scoping. Il test usa REACT_APP_BACKEND_URL fallback hardcoded così funziona anche senza env var. NOTA: le API /api/clienti, /api/docenti e /api/appuntamenti POST/PATCH usano 'id' (non '_id') nei response JSON — il test normalizza con helper _id(). Demo data: Marco Bianchi docente con slot 60min, Luca Verdi e altri clienti, appuntamenti esistenti Ven 12/06/2026 09-12 (Giulia Neri) e Ven 19/06/2026 14-17 (Luca Verdi - già con merge applicato visibile nel month-cell). Pre-existing hydration warning su <option><span> dall'Emergent visual editor — non bloccante.",
+  "rca of the issue": "Nessun issue. Implementazione iter8 conforme allo spec."
+}
