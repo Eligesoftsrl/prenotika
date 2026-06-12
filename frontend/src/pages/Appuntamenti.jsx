@@ -281,7 +281,7 @@ export default function Appuntamenti() {
           docenti={docenti}
           clienti={clienti}
           isAdmin={isAdmin}
-          currentDocenteId={user?.role === "docente" ? user.id : ""}
+          currentDocenteId={user?.role === "docente" ? user.id : selectedDocenteId}
         />
       )}
     </div>
