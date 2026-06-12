@@ -114,6 +114,7 @@ class DocenteCreate(BaseModel):
     specializzazione: Optional[str] = None
     color: Optional[str] = None
     slot_minuti: Optional[int] = 60
+    materia_ids: Optional[List[str]] = None
 
 class DocenteUpdate(BaseModel):
     nome: Optional[str] = None
@@ -124,6 +125,7 @@ class DocenteUpdate(BaseModel):
     slot_minuti: Optional[int] = None
     active: Optional[bool] = None
     password: Optional[str] = None
+    materia_ids: Optional[List[str]] = None
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -410,6 +412,18 @@ async def create_docente(body: DocenteCreate, user: dict = Depends(require_role(
         "created_at": now_utc().isoformat(),
     }
     await db.users.insert_one(doc)
+    # Sincronizza materie associate
+    if body.materia_ids:
+        for mid in body.materia_ids:
+            existing = await db.docente_materie.find_one({"studio_id": sid, "docente_id": doc["_id"], "materia_id": mid})
+            if not existing:
+                await db.docente_materie.insert_one({
+                    "_id": new_id(),
+                    "studio_id": sid,
+                    "docente_id": doc["_id"],
+                    "materia_id": mid,
+                    "created_at": now_utc().isoformat(),
+                })
     return _from_mongo(doc)
 
 @api.patch("/docenti/{docente_id}", response_model=UserPublic)
@@ -418,11 +432,26 @@ async def update_docente(docente_id: str, body: DocenteUpdate, user: dict = Depe
     target = await db.users.find_one({"_id": docente_id, "studio_id": sid, "role": "docente"})
     if not target:
         raise HTTPException(status_code=404, detail="Docente non trovato")
-    updates = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
-    if "password" in updates:
+    updates = body.model_dump(exclude_unset=True)
+    materia_ids = updates.pop("materia_ids", None)
+    if "password" in updates and updates["password"]:
         updates["password_hash"] = hash_password(updates.pop("password"))
+    elif "password" in updates:
+        updates.pop("password")
+    updates = {k: v for k, v in updates.items() if v is not None}
     if updates:
         await db.users.update_one({"_id": docente_id}, {"$set": updates})
+    # Sincronizza materie (se passato esplicitamente, anche [] per svuotare)
+    if materia_ids is not None:
+        await db.docente_materie.delete_many({"studio_id": sid, "docente_id": docente_id})
+        for mid in materia_ids:
+            await db.docente_materie.insert_one({
+                "_id": new_id(),
+                "studio_id": sid,
+                "docente_id": docente_id,
+                "materia_id": mid,
+                "created_at": now_utc().isoformat(),
+            })
     fresh = await db.users.find_one({"_id": docente_id})
     return _from_mongo(fresh)
 

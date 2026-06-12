@@ -226,6 +226,8 @@ function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdm
   });
   const [alunni, setAlunni] = useState([]);
   const [loadingAlunni, setLoadingAlunni] = useState(false);
+  const [freeSlots, setFreeSlots] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [mode, setMode] = useState("existing"); // "existing" | "new"
   const [nuovoCliente, setNuovoCliente] = useState({ nome: "", cognome: "", email: "", cellulare: "" });
   const [recurrenceDates, setRecurrenceDates] = useState([]); // selected ISO dates
@@ -257,6 +259,17 @@ function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdm
     setForm((f) => ({ ...f, al: addMinutes(f.dal, slot) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.docente_id]);
+
+  // Carica gli slot liberi quando cambia docente o data
+  useEffect(() => {
+    if (!form.docente_id || !form.data) { setFreeSlots([]); return; }
+    setLoadingSlots(true);
+    api.get("/disponibilita", { params: { docente_id: form.docente_id, data: form.data, slot_minuti: slot } })
+      .then(({ data }) => setFreeSlots(data.slots || []))
+      .catch(() => setFreeSlots([]))
+      .finally(() => setLoadingSlots(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.docente_id, form.data, slot]);
 
   const onDalChange = (v) => {
     setForm((f) => ({ ...f, dal: v, al: addMinutes(v, slot) }));
@@ -352,6 +365,36 @@ function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdm
             <label className="block text-sm font-medium mb-1.5">Alle ore</label>
             <input type="time" className="input-base" value={form.al} onChange={(e) => setForm({ ...form, al: e.target.value })} required data-testid="app-al-input" />
           </div>
+        </div>
+
+        {/* Slot liberi (chip) */}
+        <div>
+          <div className="label-eyebrow mb-2 flex items-center justify-between">
+            <span>Slot liberi del giorno</span>
+            {loadingSlots && <span className="text-[10px] normal-case tracking-normal text-[color:var(--text-2)]">caricamento…</span>}
+          </div>
+          {!loadingSlots && freeSlots.length === 0 ? (
+            <div className="text-xs text-[color:var(--warning)] bg-[#FDF1E3] border border-[#EBD1A3] rounded-md px-3 py-2" data-testid="no-slots-warning">
+              Nessuno slot libero per il docente in questa data. Verifica gli orari di disponibilità del docente o scegli un altro giorno.
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5" data-testid="free-slots">
+              {freeSlots.map((s) => {
+                const active = form.dal === s.dal && form.al === s.al;
+                return (
+                  <button
+                    type="button"
+                    key={`${s.dal}-${s.al}`}
+                    onClick={() => setForm((f) => ({ ...f, dal: s.dal, al: s.al }))}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors ${active ? "bg-[color:var(--primary)] border-[color:var(--primary)] text-white" : "bg-[color:var(--surface)] border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-2)]"}`}
+                    data-testid={`free-slot-${s.dal}`}
+                  >
+                    {s.dal}–{s.al}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Studente: existing / new tabs */}

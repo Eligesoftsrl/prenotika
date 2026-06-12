@@ -1,0 +1,43 @@
+{
+  "summary": "Iter 4 EligeHub: tested (1) materia_ids sync on POST/PATCH /docenti, (2) Materie tag picker in Docenti form, (3) Slot liberi chips in Appuntamento modal, (4) Modal layout fix. Backend: 11/11 iter4 tests pass + 57/57 full regression (after one-time TEST_ cleanup). Frontend: Slot liberi feature WORKS perfectly; Materie tag picker WORKS (3 demo tags, no Specializzazione field); EDIT loads existing tags. CRITICAL: Modal cut bug STILL PRESENT - at viewport 1024x600 the title 'Nuovo docente' (y=-50) and close button X (y=-54) are ABOVE the visible viewport; same on mobile 390x844 (title y=-94). Body scroll works internally but the FIXED header escapes the viewport - user cannot see title or click X. Spec requirement 'header rimane visibile' NOT satisfied.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Modal helper in Docenti.jsx (~L270-292)",
+        "issue": "At 1024x600 the modal positions itself at y=-68 (modal height=576). Header (title + close X) appears at y=-50/-54 — ABOVE the viewport — making the title invisible and the close X unreachable by click. Same on mobile 390x844: modal y=-115, h=809, title y=-94. Internal body scroll works (scrollHeight=581 > clientHeight=505) but the entire fixed header is pushed above the visible area, which contradicts iter4 spec 'header rimane visibile'.",
+        "selector": "[data-testid=\"modal\"] h3, [data-testid=\"modal-close\"]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter4_features.py",
+    "/app/test_reports/pytest/iter4_results.xml",
+    "/app/test_reports/pytest/iter4_full.xml"
+  ],
+  "action_items": [
+    "Fix Modal in /app/frontend/src/pages/Docenti.jsx (~L278-291): the combination of 'fixed inset-0 flex items-center justify-center p-3' with child 'max-h-[calc(100vh-1.5rem)]' is producing a NEGATIVE y position when content's natural height exceeds the constrained max-h. Suggested fix: change wrapper to 'fixed inset-0 z-50 overflow-y-auto' with inner 'min-h-full flex items-start sm:items-center justify-center p-3 sm:p-6' (the same pattern that worked in iter3 docs L217-219), and let the modal grow naturally - the page (modal backdrop layer) scrolls instead of the inner body. Alternatively keep current structure but use 'items-start' and add 'mt-3' so header is always at top of viewport. Verify at 1024x600 and 390x844 that the title 'Nuovo docente' and X button are visible/clickable."
+  ],
+  "critical_code_review_comments": [
+    "Backend update_docente refactor (server.py L429-456) correctly separates materia_ids and password handling. Verified: PATCH with materia_ids=[] clears, PATCH without materia_ids leaves untouched, PATCH only password works (login with new pwd succeeds), PATCH combo works.",
+    "Backend create_docente correctly syncs docente_materie when materia_ids provided (verified 2 associations created).",
+    "Backend cascade DELETE docente still removes docente_materie (verified by recreating docente with same email - no leftover associations).",
+    "Frontend Slot Liberi (Appuntamenti.jsx): chips render correctly, free-slot-{HH:MM} testid present, no-slots-warning testid present, click chip populates app-dal-input/app-al-input, active chip highlighted with bg-[color:var(--primary)] (dark green), switching docente reloads (verified by re-selecting Marco Bianchi triggered re-fetch).",
+    "Frontend Materie tag picker (Docenti.jsx): N tags rendered (3 in demo: Geografia/Italiano/Matematica), data-testid='docente-materia-tag-{id}', toggle on/off works, no 'Specializzazione' free text field remains.",
+    "Frontend body overflow lock: document.body.style.overflow='hidden' is correctly applied when modal opens (verified).",
+    "Minor: when bounding_box reports negative y the title remains in DOM but visually hidden — assistive technologies might still expose it, but mouse users cannot reach the X button. Critical UX issue."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter4_features.py (new, 11 tests)"
+  ],
+  "success_rate": { "backend": "100% (57/57 after cleanup)", "frontend": "85% (Slot liberi & Materie tags work; Modal cut bug REMAINS)" },
+  "test_credentials": "admin@demo.it/Admin123!, docente@demo.it/Docente123!, superadmin@eligehub.it/SuperAdmin123!",
+  "seed_data_creation": "test_iter4 fixtures create TEST_Iter4_MatA/MatB materie + temporary TEST_iter4_* docenti and clean them up after each test. One-time cleanup of leftover TEST_UIBulk cliente from iter3 was needed.",
+  "retest_needed": true,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "Run REACT_APP_BACKEND_URL=https://timeslot-manager-23.preview.emergentagent.com python -m pytest /app/backend/tests/ -v. 57 backend tests (22 iter1 + 11 iter2 + 13 iter3 + 11 iter4). The remaining frontend bug is purely CSS layout in Modal helper (Docenti.jsx ~L278-291). To reproduce: login as admin, set viewport 1024x600, navigate /docenti, click 'Nuovo docente', inspect modal title position - it's above viewport (y<0). New iter4 testids verified: docente-materia-tag-{id}, docente-materie-tags, free-slot-{HH:MM} (e.g., free-slot-09:00), no-slots-warning, free-slots, app-docente-select, app-data-input, app-dal-input, app-al-input.",
+  "rca of the issue": "Modal cut bug RCA: The Modal helper at Docenti.jsx ~L278-291 uses 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6' as outer container plus inner '.relative.w-full.max-w-lg.flex.flex-col.max-h-[calc(100vh-1.5rem)]'. When the form's natural content height exceeds the calc(100vh - 1.5rem) constraint, max-h does clamp the modal's height to 576px at 1024x600 — but bounding_box shows the modal positioned at y=-68 (not y=12). This means the flex items-center is computing center using the modal's NATURAL height (which exceeds 576), then applying max-h after positioning — so the modal gets clipped at the top relative to viewport even though its rendered height equals the constraint. The fix used in iter3 (which worked) was 'overflow-y-auto' on the outer container + 'items-start sm:items-center' inner — this lets the page scroll the modal into view when content is tall. Current iter4 implementation removed overflow-y-auto, causing the bug. Mitigation: revert to outer 'fixed inset-0 z-50 overflow-y-auto' + inner 'min-h-full flex items-start sm:items-center justify-center p-3 sm:p-6'."
+}

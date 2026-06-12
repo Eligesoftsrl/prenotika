@@ -7,12 +7,14 @@ const COLORS = ["#2C4C3B", "#D96C4A", "#4C6B8B", "#D4A373", "#8B5A2B", "#4A5D23"
 const DURATE = [15, 30, 45, 60, 90, 120];
 
 function emptyForm() {
-  return { nome: "", cognome: "", email: "", password: "", telefono: "", specializzazione: "", color: COLORS[0], slot_minuti: 60 };
+  return { nome: "", cognome: "", email: "", password: "", telefono: "", color: COLORS[0], slot_minuti: 60, materia_ids: [] };
 }
 
 export default function Docenti() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
+  const [materie, setMaterie] = useState([]);
+  const [docMaterie, setDocMaterie] = useState({});
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -23,8 +25,18 @@ export default function Docenti() {
   const load = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/docenti");
-      setItems(data);
+      const [docs, mat] = await Promise.all([api.get("/docenti"), api.get("/materie")]);
+      setItems(docs.data);
+      setMaterie(mat.data);
+      // Fetch materie per ciascun docente in parallelo
+      const map = {};
+      await Promise.all(docs.data.map(async (d) => {
+        try {
+          const { data } = await api.get(`/docenti/${d.id}/materie`);
+          map[d.id] = data;
+        } catch { map[d.id] = []; }
+      }));
+      setDocMaterie(map);
     } finally {
       setLoading(false);
     }
@@ -39,15 +51,29 @@ export default function Docenti() {
     setShowModal(true);
   };
 
-  const openEdit = (d) => {
+  const openEdit = async (d) => {
     setEditing(d);
+    // fetch materie associate del docente
+    let mids = [];
+    try {
+      const { data } = await api.get(`/docenti/${d.id}/materie`);
+      mids = data.map((m) => m.id);
+    } catch {}
     setForm({
       nome: d.nome, cognome: d.cognome, email: d.email,
-      password: "", telefono: d.telefono || "", specializzazione: d.specializzazione || "",
+      password: "", telefono: d.telefono || "",
       color: d.color || COLORS[0], slot_minuti: d.slot_minuti || 60,
+      materia_ids: mids,
     });
     setError("");
     setShowModal(true);
+  };
+
+  const toggleMateria = (mid) => {
+    setForm((f) => ({
+      ...f,
+      materia_ids: f.materia_ids.includes(mid) ? f.materia_ids.filter((x) => x !== mid) : [...f.materia_ids, mid],
+    }));
   };
 
   const onSubmit = async (e) => {
@@ -108,7 +134,7 @@ export default function Docenti() {
             <div className="hidden md:block">
               <table className="table-clean w-full">
                 <thead>
-                  <tr><th>Docente</th><th>Email</th><th>Specializzazione</th><th>Durata app.</th><th>Stato</th><th></th></tr>
+                  <tr><th>Docente</th><th>Email</th><th>Materie</th><th>Durata app.</th><th>Stato</th><th></th></tr>
                 </thead>
                 <tbody>
                   {items.map((d) => (
@@ -122,7 +148,13 @@ export default function Docenti() {
                         </div>
                       </td>
                       <td className="text-[color:var(--text-2)]">{d.email}</td>
-                      <td>{d.specializzazione || "—"}</td>
+                      <td>
+                        <div className="flex flex-wrap gap-1 max-w-[220px]">
+                          {(docMaterie[d.id] || []).length === 0 ? <span className="text-[color:var(--text-2)]">—</span> :
+                            (docMaterie[d.id] || []).map((m) => (<span key={m.id} className="pill">{m.descrizione}</span>))
+                          }
+                        </div>
+                      </td>
                       <td className="text-[color:var(--text-2)]">{d.slot_minuti || 60} min</td>
                       <td><span className={`pill ${d.active ? 'pill-success' : 'pill-error'}`}>{d.active ? 'Attivo' : 'Inattivo'}</span></td>
                       <td className="text-right">
@@ -152,10 +184,10 @@ export default function Docenti() {
                       <div className="text-xs text-[color:var(--text-2)] truncate">{d.email}</div>
                     </div>
                   </div>
-                  <div className="mt-2.5 text-sm text-[color:var(--text-2)] flex items-center gap-3 flex-wrap">
-                    {d.specializzazione && <span>{d.specializzazione}</span>}
+                  <div className="mt-2.5 text-sm text-[color:var(--text-2)] flex items-center gap-2 flex-wrap">
                     {d.telefono && <span>{d.telefono}</span>}
                     <span className="pill">{d.slot_minuti || 60} min</span>
+                    {(docMaterie[d.id] || []).map((m) => (<span key={m.id} className="pill">{m.descrizione}</span>))}
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <button onClick={() => navigate(`/orari?docente=${d.id}`)} className="btn-secondary text-xs justify-center"><CalendarClock size={13} /> Calendario</button>
@@ -182,14 +214,38 @@ export default function Docenti() {
             <Field label={editing ? "Nuova password (opzionale)" : "Password"} type="password" required={!editing} value={form.password} onChange={(v) => setForm({ ...form, password: v })} testid="docente-password-input" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Telefono" value={form.telefono} onChange={(v) => setForm({ ...form, telefono: v })} testid="docente-telefono-input" />
-              <Field label="Specializzazione" value={form.specializzazione} onChange={(v) => setForm({ ...form, specializzazione: v })} testid="docente-spec-input" />
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Durata standard appuntamento</label>
+                <select className="input-base" value={form.slot_minuti} onChange={(e) => setForm({ ...form, slot_minuti: e.target.value })} data-testid="docente-durata-select">
+                  {DURATE.map((m) => (<option key={m} value={m}>{m} minuti</option>))}
+                </select>
+              </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Durata standard appuntamento</label>
-              <select className="input-base" value={form.slot_minuti} onChange={(e) => setForm({ ...form, slot_minuti: e.target.value })} data-testid="docente-durata-select">
-                {DURATE.map((m) => (<option key={m} value={m}>{m} minuti</option>))}
-              </select>
-              <div className="text-xs text-[color:var(--text-2)] mt-1">Verrà usata come fascia standard nella creazione di un appuntamento.</div>
+              <label className="block text-sm font-medium mb-1.5">Materie insegnate</label>
+              {materie.length === 0 ? (
+                <div className="text-xs text-[color:var(--text-2)] bg-[color:var(--surface-2)] border border-[color:var(--border)] rounded-md px-3 py-2">
+                  Nessuna materia nel catalogo. Vai in <strong>Materie</strong> per crearle, poi torna qui per associarle.
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2" data-testid="docente-materie-tags">
+                  {materie.map((m) => {
+                    const active = form.materia_ids.includes(m.id);
+                    return (
+                      <button
+                        type="button"
+                        key={m.id}
+                        onClick={() => toggleMateria(m.id)}
+                        className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${active ? "bg-[color:var(--primary)] border-[color:var(--primary)] text-white" : "bg-[color:var(--surface)] border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-2)]"}`}
+                        data-testid={`docente-materia-tag-${m.id}`}
+                      >
+                        {active ? "✓ " : "+ "}{m.descrizione}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="text-xs text-[color:var(--text-2)] mt-1.5">Clicca su una materia per associarla / disassociarla.</div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Colore (per il calendario)</label>
@@ -213,15 +269,21 @@ export default function Docenti() {
 
 export function Modal({ title, onClose, children, size = "md" }) {
   const maxW = size === "lg" ? "max-w-2xl" : size === "xl" ? "max-w-3xl" : "max-w-lg";
+  // Block body scroll while modal is open
+  React.useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto" data-testid="modal">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative min-h-full flex items-start sm:items-center justify-center p-4 sm:p-6">
-        <div className={`relative w-full ${maxW} surface-card p-6 anim-fade-up my-auto shadow-xl`}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display text-xl font-bold">{title}</h3>
-            <button onClick={onClose} className="btn-secondary" data-testid="modal-close"><X size={16} /></button>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6" data-testid="modal">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className={`relative w-full ${maxW} surface-card shadow-xl anim-fade-up flex flex-col max-h-[calc(100vh-1.5rem)]`}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[color:var(--border)] shrink-0">
+          <h3 className="font-display text-xl font-bold pr-4">{title}</h3>
+          <button onClick={onClose} className="btn-secondary shrink-0" data-testid="modal-close" aria-label="Chiudi"><X size={16} /></button>
+        </div>
+        <div className="px-6 py-5 overflow-y-auto flex-1">
           {children}
         </div>
       </div>
