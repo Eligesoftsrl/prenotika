@@ -1,0 +1,85 @@
+{
+  "theme": "LIGHT",
+  "archetype": "Organic & Earthy",
+  "brand_vibe": "Trust, Calm, Professional, Modern Productivity",
+  "colors": {
+    "background": "#FBF9F6",
+    "surface": "#FFFFFF",
+    "surface_secondary": "#F4F1EA",
+    "primary": "#2C4C3B",
+    "primary_hover": "#3C634D",
+    "secondary": "#D96C4A",
+    "secondary_hover": "#C25C3C",
+    "text_primary": "#1E1E1E",
+    "text_secondary": "#5C5C5C",
+    "border": "#E4E0D6",
+    "success": "#3E7B5B",
+    "warning": "#E29548",
+    "error": "#B94A48",
+    "calendar_colors": [
+      "#4A5D23",
+      "#D96C4A",
+      "#4C6B8B",
+      "#D4A373",
+      "#8B5A2B"
+    ]
+  },
+  "typography": {
+    "heading_font": "Cabinet Grotesk",
+    "body_font": "Outfit",
+    "rules": {
+      "h1": "text-4xl sm:text-5xl font-black tracking-tight leading-none",
+      "h2": "text-2xl sm:text-3xl font-bold tracking-tight",
+      "h3": "text-xl font-semibold",
+      "h4": "text-lg font-semibold",
+      "body": "text-base leading-relaxed text-[#5C5C5C]",
+      "label": "text-xs uppercase tracking-[0.2em] font-bold text-[#5C5C5C]"
+    }
+  },
+  "layout": {
+    "spacing_system": "Generous spacing for containers (p-6, p-8) to create breathing room. Dense spacing (gap-4) for data tables and calendar grids.",
+    "grid": "Control Room Grid Mode. Use grid-cols-1 md:grid-cols-3 lg:grid-cols-4 for KPI cards. For calendars, use explicit CSS Grid with 7 columns (days) and multiple rows (hours).",
+    "radius": "Subtle roundness. Use rounded-lg (8px) for cards, rounded-md for inputs/buttons.",
+    "borders": "1px solid border-[#E4E0D6] on cards and structural elements. Expose grid lines in calendar view with border-r and border-b."
+  },
+  "components": {
+    "buttons": "Primary: bg-[#2C4C3B] text-white hover:bg-[#3C634D] shadow-sm. Secondary: bg-transparent border border-[#E4E0D6] text-[#1E1E1E] hover:bg-[#F4F1EA].",
+    "kpi_cards": "Flat background (#FFFFFF), 1px subtle border (#E4E0D6), no heavy shadow. Hover: slight lift (-translate-y-1) and shadow-sm. Include a subtle icon.",
+    "tables": "Dense. Header row: bg-[#F4F1EA] text-xs uppercase tracking-[0.2em] font-bold text-[#5C5C5C]. Row hover: bg-[#FBF9F6]. On mobile, convert table rows to vertical cards.",
+    "sidebar_nav": "bg-[#FBF9F6] border-r border-[#E4E0D6] p-6. Links: flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-[#5C5C5C] hover:bg-[#F4F1EA] hover:text-[#1E1E1E]. Active link: bg-[#E4E0D6] text-[#1E1E1E].",
+    "login_auth": "Split screen layout. Left: Hero image with subtle overlay. Right: Centered login form with generous padding (p-12), clear H1, and clean inputs.",
+    "modals": "Glassmorphism overlay (bg-black/20 backdrop-blur-sm). Modal content: bg-[#FFFFFF] rounded-xl border border-[#E4E0D6] shadow-xl p-6. Top right close button.",
+    "forms": "Inputs: border border-[#E4E0D6] rounded-md focus:border-[#2C4C3B] focus:ring-1 focus:ring-[#2C4C3B]. Labels: text-sm font-medium mb-1.5 block.",
+    "empty_states": "Centered content. Soft illustration or large subtle icon (text-[#E4E0D6]), h3 heading, and descriptive text followed by a call-to-action button.",
+    "schedule_editor": "Weekly recurring editor. Columns for Mon-Sun. Time slots visually represented as distinct, draggable/clickable blocks (bg-[#F4F1EA] border-[#E4E0D6]). Selected slots use bg-[#2C4C3B] text-white.",
+    "calendar_grid": "Weekly/Monthly view resembling Cal.com. Absolute positioning or CSS grid for events. Color-code events by 'docente'. Highlight current time with a terracotta (#D96C4A) horizontal line."
+  },
+  "animations": {
+    "interactive_elements": "transition-all duration-200 ease-in-out for hover/focus states.",
+    "page_transitions": "Framer Motion staggered fade-up. opacity: 0 to 1, y: 10 to 0.",
+    "calendar_events": "Hover: scale-105 or z-10 elevation with a subtle shadow."
+  },
+  "accessibility": {
+    "contrast": "Ensure 4.5:1 minimum contrast. White text on Primary (#2C4C3B) is accessible. Secondary action texts must be dark.",
+    "focus": "All focusable elements must have focus-visible:ring-2 focus-visible:ring-[#2C4C3B] focus-visible:outline-none.",
+    "testing": "All interactive elements MUST include data-testid (e.g., data-testid='login-form-submit-button', data-testid='nav-link-dashboard')."
+  },
+  "icons": {
+    "library": "lucide-react",
+    "style": "Stroke width 1.5, simple and un-intrusive."
+  },
+  "image_urls": {
+    "login_background": "https://images.pexels.com/photos/18903446/pexels-photo-18903446.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "avatar_placeholder_docente_1": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODF8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc4MTI2MDQxNHww&ixlib=rb-4.1.0&q=85",
+    "avatar_placeholder_docente_2": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODF8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc4MTI2MDQxNHww&ixlib=rb-4.1.0&q=85"
+  },
+  "instructions_to_main_agent": [
+    "STRICT RULE: Do NOT use Inter, Roboto, Lato, or Open Sans. Import 'Cabinet Grotesk' via Fontshare (or standard @font-face) for headings, and 'Outfit' via Google Fonts for body text.",
+    "STRICT RULE: Avoid all generic SaaS gradients (e.g., purple to teal). Stick strictly to the Organic & Earthy palette provided.",
+    "LANGUAGE: The entire user interface must be in Italian ('Dashboard', 'Appuntamenti', 'Docenti', 'Clienti', 'Impostazioni', 'Esci', etc.).",
+    "RESPONSIVE: Must be mobile-first. Data tables MUST convert to stacked cards on mobile devices. Calendar grids must allow horizontal scroll or switch to a daily view on mobile.",
+    "CALENDAR/SCHEDULE: The core feature is the appointment calendar and schedule editor. Implement a sophisticated grid (like Cal.com) where 'docenti' can mark availability blocks and admins can schedule 'appuntamenti'.",
+    "DB STRUCTURE: Revise the provided Python backend DB to include explicit Primary Keys (UUIDs or Auto-increment IDs) for robust relations.",
+    "TESTING: Every button, link, and form input MUST have a kebab-case data-testid attribute based on its role."
+  ]
+}
