@@ -186,7 +186,7 @@ export default function Appuntamenti() {
               </div>
             </div>
             <div className="flex items-center gap-3 text-xs">
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[#E5F0E9] border border-[#C8DDD0]" /> Libero</div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[#3E7B5B]" /> Libero</div>
               <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm" style={{background: docenteSel?.color || "#2C4C3B"}} /> Prenotato</div>
               <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[color:var(--surface-2)] border border-[color:var(--border)]" /> Non disponibile</div>
             </div>
@@ -223,22 +223,22 @@ export default function Appuntamenti() {
                       const dayKey = fmtISO(d);
                       const ev = slot ? findAppointment(dayKey, m) : null;
                       if (ev) {
-                        // Solo nello slot di START dell'appuntamento mostra il blocco; rowspan visuale by ratio
-                        const startsHere = toMin(ev.dal) === m;
-                        if (!startsHere) {
-                          return <div key={`${m}-${di}`} className="rounded-md" style={{ background: docenteSel?.color, opacity: 0.85, minHeight: 36 }} />;
-                        }
                         return (
                           <div
                             key={`${m}-${di}`}
-                            className="rounded-md p-1.5 text-[11px] text-white shadow-sm relative group min-h-[36px]"
+                            className="rounded-md p-1 text-[10px] text-white shadow-sm relative group min-h-[44px] flex flex-col items-center justify-center text-center"
                             style={{ background: docenteSel?.color || "#2C4C3B" }}
-                            data-testid={`appuntamento-${ev.id}`}
+                            data-testid={`appuntamento-${ev.id}-${toHHMM(m)}`}
                             title={`${ev.cliente_nome} • ${ev.dal}-${ev.al}${ev.note ? ` • ${ev.note}` : ""}`}
                           >
-                            <div className="font-bold truncate leading-tight">{ev.cliente_nome}</div>
-                            <div className="text-[10px] opacity-90">{ev.dal}–{ev.al}</div>
-                            <button onClick={() => remove(ev.id)} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-white/80 hover:text-white" data-testid={`appuntamento-delete-${ev.id}`}><Trash2 size={11} /></button>
+                            <div className="font-bold leading-tight whitespace-nowrap">
+                              <span className="text-[11px]">{toHHMM(m)}</span>
+                              <span className="opacity-80 text-[9px]">/{toHHMM(m + slotMinuti)}</span>
+                            </div>
+                            <div className="font-semibold truncate w-full leading-tight mt-0.5">{ev.cliente_nome}</div>
+                            {toMin(ev.dal) === m && (
+                              <button onClick={() => remove(ev.id)} className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 text-white/85 hover:text-white" data-testid={`appuntamento-delete-${ev.id}`}><Trash2 size={11} /></button>
+                            )}
                           </div>
                         );
                       }
@@ -247,17 +247,19 @@ export default function Appuntamenti() {
                           <button
                             key={`${m}-${di}`}
                             onClick={() => onCellClick(d, slot)}
-                            className="rounded-md min-h-[36px] bg-[#E5F0E9] border border-[#C8DDD0] hover:bg-[#D2E5DA] hover:border-[#A6C8B3] transition-colors text-[11px] font-semibold text-[color:var(--success)]"
+                            className="rounded-md min-h-[44px] bg-[#3E7B5B] hover:bg-[#356B4F] transition-colors text-white font-bold flex items-center justify-center"
                             data-testid={`cal-cell-${dayKey}-${slot.dal}`}
                           >
-                            <span className="opacity-60 hover:opacity-100">+</span>
+                            <span className="text-[11px] whitespace-nowrap">
+                              {slot.dal}<span className="opacity-80 text-[9px]">/{slot.al}</span>
+                            </span>
                           </button>
                         );
                       }
                       return (
                         <div
                           key={`${m}-${di}`}
-                          className="rounded-md min-h-[36px] bg-[color:var(--surface-2)] border border-dashed border-[color:var(--border)]"
+                          className="rounded-md min-h-[44px] bg-[color:var(--surface-2)] border border-dashed border-[color:var(--border)]"
                           data-testid={`cal-cell-${dayKey}-${toHHMM(m)}-na`}
                           title="Fuori disponibilità"
                         />
