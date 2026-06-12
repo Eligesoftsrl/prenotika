@@ -98,6 +98,7 @@ class UserBase(BaseModel):
     telefono: Optional[str] = None
     specializzazione: Optional[str] = None
     color: Optional[str] = None
+    slot_minuti: Optional[int] = 60
     active: bool = True
 
 class UserPublic(UserBase):
@@ -112,6 +113,7 @@ class DocenteCreate(BaseModel):
     telefono: Optional[str] = None
     specializzazione: Optional[str] = None
     color: Optional[str] = None
+    slot_minuti: Optional[int] = 60
 
 class DocenteUpdate(BaseModel):
     nome: Optional[str] = None
@@ -119,6 +121,7 @@ class DocenteUpdate(BaseModel):
     telefono: Optional[str] = None
     specializzazione: Optional[str] = None
     color: Optional[str] = None
+    slot_minuti: Optional[int] = None
     active: Optional[bool] = None
     password: Optional[str] = None
 
@@ -363,6 +366,7 @@ async def create_docente(body: DocenteCreate, user: dict = Depends(require_role(
         "telefono": body.telefono,
         "specializzazione": body.specializzazione,
         "color": body.color or "#2C4C3B",
+        "slot_minuti": body.slot_minuti or 60,
         "active": True,
         "created_at": now_utc().isoformat(),
     }
@@ -392,14 +396,77 @@ async def delete_docente(docente_id: str, user: dict = Depends(require_role("adm
     await db.users.delete_one({"_id": docente_id})
     await db.orari.delete_many({"docente_id": docente_id})
     await db.appuntamenti.delete_many({"docente_id": docente_id})
+    await db.docente_clienti.delete_many({"docente_id": docente_id})
+    return
+
+# ---- Associazione Alunni <-> Docente (N:M, tabella "pubblico" originale) ----
+@api.get("/docenti/{docente_id}/alunni", response_model=List[Cliente])
+async def list_alunni_docente(docente_id: str, user: dict = Depends(require_role("admin", "docente"))):
+    sid = _scope_studio_id(user)
+    docente = await db.users.find_one({"_id": docente_id, "studio_id": sid, "role": "docente"})
+    if not docente:
+        raise HTTPException(status_code=404, detail="Docente non trovato")
+    if user["role"] == "docente" and user["id"] != docente_id:
+        raise HTTPException(status_code=403, detail="Non autorizzato")
+    links = await db.docente_clienti.find({"studio_id": sid, "docente_id": docente_id}).to_list(2000)
+    cli_ids = [link["cliente_id"] for link in links]
+    if not cli_ids:
+        return []
+    clienti = await db.clienti.find({"_id": {"$in": cli_ids}}).sort("cognome", 1).to_list(2000)
+    return [_from_mongo(c) for c in clienti]
+
+@api.post("/docenti/{docente_id}/alunni/{cliente_id}", status_code=201)
+async def associa_alunno(docente_id: str, cliente_id: str, user: dict = Depends(require_role("admin"))):
+    sid = _scope_studio_id(user)
+    docente = await db.users.find_one({"_id": docente_id, "studio_id": sid, "role": "docente"})
+    if not docente:
+        raise HTTPException(status_code=404, detail="Docente non trovato")
+    cliente = await db.clienti.find_one({"_id": cliente_id, "studio_id": sid})
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente non trovato")
+    existing = await db.docente_clienti.find_one({"studio_id": sid, "docente_id": docente_id, "cliente_id": cliente_id})
+    if existing:
+        return {"message": "Già associato"}
+    await db.docente_clienti.insert_one({
+        "_id": new_id(),
+        "studio_id": sid,
+        "docente_id": docente_id,
+        "cliente_id": cliente_id,
+        "created_at": now_utc().isoformat(),
+    })
+    return {"message": "Alunno associato al docente"}
+
+@api.delete("/docenti/{docente_id}/alunni/{cliente_id}", status_code=204)
+async def disassocia_alunno(docente_id: str, cliente_id: str, user: dict = Depends(require_role("admin"))):
+    sid = _scope_studio_id(user)
+    await db.docente_clienti.delete_many({"studio_id": sid, "docente_id": docente_id, "cliente_id": cliente_id})
     return
 
 # -----------------------------------------------------------------------------
 # Clienti routes (admin)
 # -----------------------------------------------------------------------------
 @api.get("/clienti", response_model=List[Cliente])
-async def list_clienti(user: dict = Depends(require_role("admin", "docente"))):
+async def list_clienti(
+    docente_id: Optional[str] = None,
+    user: dict = Depends(require_role("admin", "docente")),
+):
     sid = _scope_studio_id(user)
+    # Se è docente, mostra solo i propri alunni associati
+    if user["role"] == "docente":
+        links = await db.docente_clienti.find({"studio_id": sid, "docente_id": user["id"]}).to_list(2000)
+        ids = [link["cliente_id"] for link in links]
+        if not ids:
+            return []
+        items = await db.clienti.find({"_id": {"$in": ids}}).sort("cognome", 1).to_list(2000)
+        return [_from_mongo(x) for x in items]
+    # Admin: opzionalmente filtra per docente_id (alunni associati)
+    if docente_id:
+        links = await db.docente_clienti.find({"studio_id": sid, "docente_id": docente_id}).to_list(2000)
+        ids = [link["cliente_id"] for link in links]
+        if not ids:
+            return []
+        items = await db.clienti.find({"_id": {"$in": ids}}).sort("cognome", 1).to_list(2000)
+        return [_from_mongo(x) for x in items]
     items = await db.clienti.find({"studio_id": sid}).sort("cognome", 1).to_list(2000)
     return [_from_mongo(x) for x in items]
 
@@ -434,6 +501,7 @@ async def delete_cliente(cliente_id: str, user: dict = Depends(require_role("adm
     if not target:
         raise HTTPException(status_code=404, detail="Cliente non trovato")
     await db.clienti.delete_one({"_id": cliente_id})
+    await db.docente_clienti.delete_many({"cliente_id": cliente_id})
     return
 
 # -----------------------------------------------------------------------------
@@ -663,13 +731,15 @@ def _to_hhmm(mins: int) -> str:
 async def disponibilita(
     docente_id: str,
     data: str,  # YYYY-MM-DD
-    slot_minuti: int = 60,
+    slot_minuti: Optional[int] = None,
     user: dict = Depends(require_role("admin", "docente")),
 ):
     sid = _scope_studio_id(user)
     docente = await db.users.find_one({"_id": docente_id, "studio_id": sid, "role": "docente"})
     if not docente:
         raise HTTPException(status_code=404, detail="Docente non trovato")
+    if slot_minuti is None:
+        slot_minuti = int(docente.get("slot_minuti") or 60)
     try:
         d = date.fromisoformat(data)
     except Exception:
@@ -726,6 +796,7 @@ async def ensure_indexes():
     await db.clienti.create_index([("studio_id", 1), ("cognome", 1)])
     await db.orari.create_index([("studio_id", 1), ("docente_id", 1), ("giorno", 1)])
     await db.appuntamenti.create_index([("studio_id", 1), ("docente_id", 1), ("data", 1)])
+    await db.docente_clienti.create_index([("studio_id", 1), ("docente_id", 1), ("cliente_id", 1)], unique=True)
 
 async def seed_super_admin_and_demo():
     super_email = os.environ["SUPER_ADMIN_EMAIL"].lower().strip()
@@ -785,6 +856,7 @@ async def seed_super_admin_and_demo():
             "studio_id": studio_id,
             "specializzazione": "Matematica",
             "color": "#2C4C3B",
+            "slot_minuti": 60,
             "active": True,
             "created_at": now_utc().isoformat(),
         })
@@ -795,11 +867,41 @@ async def seed_super_admin_and_demo():
                 {"_id": new_id(), "studio_id": studio_id, "docente_id": docente_id, "giorno": g, "dal": "15:00", "al": "18:00"},
             ])
         # Seed a couple of demo clienti
+        cli1_id = new_id()
+        cli2_id = new_id()
         await db.clienti.insert_many([
-            {"_id": new_id(), "studio_id": studio_id, "nome": "Luca", "cognome": "Verdi", "email": "luca.verdi@example.com", "cellulare": "+39 333 1111111", "created_at": now_utc().isoformat()},
-            {"_id": new_id(), "studio_id": studio_id, "nome": "Giulia", "cognome": "Neri", "email": "giulia.neri@example.com", "cellulare": "+39 333 2222222", "created_at": now_utc().isoformat()},
+            {"_id": cli1_id, "studio_id": studio_id, "nome": "Luca", "cognome": "Verdi", "email": "luca.verdi@example.com", "cellulare": "+39 333 1111111", "created_at": now_utc().isoformat()},
+            {"_id": cli2_id, "studio_id": studio_id, "nome": "Giulia", "cognome": "Neri", "email": "giulia.neri@example.com", "cellulare": "+39 333 2222222", "created_at": now_utc().isoformat()},
+        ])
+        # Associate both demo clienti to the demo docente (relazione "pubblico")
+        await db.docente_clienti.insert_many([
+            {"_id": new_id(), "studio_id": studio_id, "docente_id": docente_id, "cliente_id": cli1_id, "created_at": now_utc().isoformat()},
+            {"_id": new_id(), "studio_id": studio_id, "docente_id": docente_id, "cliente_id": cli2_id, "created_at": now_utc().isoformat()},
         ])
         logger.info("Seeded demo studio + admin + docente + clienti")
+
+    # Patch: assicurati che il docente demo abbia gli alunni associati anche su DB già esistenti
+    demo_studio_after = await db.studios.find_one({"nome": os.environ["DEMO_STUDIO_NAME"]})
+    if demo_studio_after:
+        sid = demo_studio_after["_id"]
+        demo_docente = await db.users.find_one({"studio_id": sid, "role": "docente"})
+        if demo_docente:
+            # ensure slot_minuti
+            if not demo_docente.get("slot_minuti"):
+                await db.users.update_one({"_id": demo_docente["_id"]}, {"$set": {"slot_minuti": 60}})
+            # ensure alunni links
+            existing_links = await db.docente_clienti.count_documents({"studio_id": sid, "docente_id": demo_docente["_id"]})
+            if existing_links == 0:
+                clienti = await db.clienti.find({"studio_id": sid}).to_list(50)
+                for c in clienti:
+                    await db.docente_clienti.insert_one({
+                        "_id": new_id(),
+                        "studio_id": sid,
+                        "docente_id": demo_docente["_id"],
+                        "cliente_id": c["_id"],
+                        "created_at": now_utc().isoformat(),
+                    })
+                logger.info("Patched demo: linked %d alunni to demo docente", len(clienti))
 
 @app.on_event("startup")
 async def on_startup():

@@ -200,18 +200,56 @@ export default function Appuntamenti() {
   );
 }
 
+function addMinutes(hhmm, minutes) {
+  const [h, m] = hhmm.split(":").map(Number);
+  const total = h * 60 + m + minutes;
+  const hh = Math.floor(total / 60) % 24;
+  const mm = total % 60;
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
 function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdmin, currentDocenteId }) {
   const today = new Date().toISOString().slice(0, 10);
+  const initialDocente = isAdmin ? (docenti[0]?.id || "") : currentDocenteId;
+  const initialDocObj = docenti.find((d) => d.id === initialDocente);
+  const initialSlot = initialDocObj?.slot_minuti || 60;
+  const initialDal = defaults?.dal || "09:00";
   const [form, setForm] = useState({
-    docente_id: isAdmin ? (docenti[0]?.id || "") : currentDocenteId,
-    cliente_id: clienti[0]?.id || "",
+    docente_id: initialDocente,
+    cliente_id: "",
     data: defaults?.data || today,
-    dal: defaults?.dal || "09:00",
-    al: defaults?.al || "10:00",
+    dal: initialDal,
+    al: defaults?.al || addMinutes(initialDal, initialSlot),
     note: "",
   });
+  const [alunni, setAlunni] = useState([]);
+  const [loadingAlunni, setLoadingAlunni] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const docenteSel = docenti.find((d) => d.id === form.docente_id);
+  const slot = docenteSel?.slot_minuti || 60;
+
+  // When docente changes: load his alunni, reset cliente, recalc 'al'
+  useEffect(() => {
+    if (!form.docente_id) { setAlunni([]); return; }
+    setLoadingAlunni(true);
+    api.get(`/docenti/${form.docente_id}/alunni`).then(({ data }) => {
+      setAlunni(data);
+      // Auto-select first alunno if cliente_id not in list
+      if (!data.find((c) => c.id === form.cliente_id)) {
+        setForm((f) => ({ ...f, cliente_id: data[0]?.id || "" }));
+      }
+    }).finally(() => setLoadingAlunni(false));
+    // Recalc 'al' based on new docente's slot
+    setForm((f) => ({ ...f, al: addMinutes(f.dal, slot) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.docente_id]);
+
+  // When 'dal' changes, auto recompute 'al' using docente slot
+  const onDalChange = (v) => {
+    setForm((f) => ({ ...f, dal: v, al: addMinutes(v, slot) }));
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault(); setBusy(true); setError("");
@@ -222,6 +260,8 @@ function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdm
       setError(formatApiError(err?.response?.data?.detail) || "Errore");
     } finally { setBusy(false); }
   };
+
+  const noAlunni = !loadingAlunni && alunni.length === 0 && !!form.docente_id;
 
   return (
     <Modal title="Nuovo appuntamento" onClose={onClose}>
@@ -235,11 +275,17 @@ function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdm
           </div>
         )}
         <div>
-          <label className="block text-sm font-medium mb-1.5">Cliente *</label>
-          <select className="input-base" value={form.cliente_id} onChange={(e) => setForm({ ...form, cliente_id: e.target.value })} required data-testid="app-cliente-select">
-            <option value="">Seleziona…</option>
-            {clienti.map((c) => (<option key={c.id} value={c.id}>{c.cognome} {c.nome}</option>))}
+          <label className="block text-sm font-medium mb-1.5">Alunno *</label>
+          <select className="input-base" value={form.cliente_id} onChange={(e) => setForm({ ...form, cliente_id: e.target.value })} required data-testid="app-cliente-select" disabled={noAlunni}>
+            <option value="">{loadingAlunni ? "Caricamento…" : "Seleziona…"}</option>
+            {alunni.map((c) => (<option key={c.id} value={c.id}>{c.cognome} {c.nome}</option>))}
           </select>
+          {noAlunni && (
+            <div className="text-xs text-[color:var(--warning)] mt-1">Questo docente non ha alunni associati. Associa prima un alunno dalla scheda del docente.</div>
+          )}
+          {docenteSel && (
+            <div className="text-xs text-[color:var(--text-2)] mt-1">Durata standard: <strong>{slot} minuti</strong></div>
+          )}
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div>
@@ -248,7 +294,7 @@ function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdm
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Dalle</label>
-            <input type="time" className="input-base" value={form.dal} onChange={(e) => setForm({ ...form, dal: e.target.value })} required data-testid="app-dal-input" />
+            <input type="time" className="input-base" value={form.dal} onChange={(e) => onDalChange(e.target.value)} required data-testid="app-dal-input" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Alle</label>

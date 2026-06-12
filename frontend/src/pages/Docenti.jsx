@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, formatApiError } from "@/lib/api";
-import { Plus, Edit2, Trash2, X, GraduationCap } from "lucide-react";
+import { Plus, Edit2, Trash2, X, GraduationCap, CalendarClock, Users as UsersIcon } from "lucide-react";
 
 const COLORS = ["#2C4C3B", "#D96C4A", "#4C6B8B", "#D4A373", "#8B5A2B", "#4A5D23"];
+const DURATE = [15, 30, 45, 60, 90, 120];
 
 function emptyForm() {
-  return { nome: "", cognome: "", email: "", password: "", telefono: "", specializzazione: "", color: COLORS[0] };
+  return { nome: "", cognome: "", email: "", password: "", telefono: "", specializzazione: "", color: COLORS[0], slot_minuti: 60 };
 }
 
 export default function Docenti() {
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -41,7 +44,7 @@ export default function Docenti() {
     setForm({
       nome: d.nome, cognome: d.cognome, email: d.email,
       password: "", telefono: d.telefono || "", specializzazione: d.specializzazione || "",
-      color: d.color || COLORS[0],
+      color: d.color || COLORS[0], slot_minuti: d.slot_minuti || 60,
     });
     setError("");
     setShowModal(true);
@@ -51,13 +54,13 @@ export default function Docenti() {
     e.preventDefault();
     setBusy(true); setError("");
     try {
+      const payload = { ...form, slot_minuti: Number(form.slot_minuti) };
       if (editing) {
-        const payload = { ...form };
         if (!payload.password) delete payload.password;
         delete payload.email; // email immutable
         await api.patch(`/docenti/${editing.id}`, payload);
       } else {
-        await api.post("/docenti", form);
+        await api.post("/docenti", payload);
       }
       setShowModal(false);
       await load();
@@ -105,7 +108,7 @@ export default function Docenti() {
             <div className="hidden md:block">
               <table className="table-clean w-full">
                 <thead>
-                  <tr><th>Docente</th><th>Email</th><th>Specializzazione</th><th>Telefono</th><th>Stato</th><th></th></tr>
+                  <tr><th>Docente</th><th>Email</th><th>Specializzazione</th><th>Durata app.</th><th>Stato</th><th></th></tr>
                 </thead>
                 <tbody>
                   {items.map((d) => (
@@ -120,10 +123,12 @@ export default function Docenti() {
                       </td>
                       <td className="text-[color:var(--text-2)]">{d.email}</td>
                       <td>{d.specializzazione || "—"}</td>
-                      <td className="text-[color:var(--text-2)]">{d.telefono || "—"}</td>
+                      <td className="text-[color:var(--text-2)]">{d.slot_minuti || 60} min</td>
                       <td><span className={`pill ${d.active ? 'pill-success' : 'pill-error'}`}>{d.active ? 'Attivo' : 'Inattivo'}</span></td>
                       <td className="text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-1.5 flex-wrap">
+                          <button onClick={() => navigate(`/orari?docente=${d.id}`)} className="btn-secondary text-xs" title="Calendario disponibilità" data-testid={`docente-calendar-${d.id}`}><CalendarClock size={13} /> <span className="hidden lg:inline">Calendario</span></button>
+                          <button onClick={() => navigate(`/docenti/${d.id}/alunni`)} className="btn-secondary text-xs" title="Alunni associati" data-testid={`docente-alunni-${d.id}`}><UsersIcon size={13} /> <span className="hidden lg:inline">Alunni</span></button>
                           <button onClick={() => openEdit(d)} className="btn-secondary text-xs" data-testid={`docente-edit-${d.id}`}><Edit2 size={13} /></button>
                           <button onClick={() => remove(d)} className="btn-danger" data-testid={`docente-delete-${d.id}`}><Trash2 size={13} /></button>
                         </div>
@@ -149,10 +154,13 @@ export default function Docenti() {
                   <div className="mt-2.5 text-sm text-[color:var(--text-2)] flex items-center gap-3 flex-wrap">
                     {d.specializzazione && <span>{d.specializzazione}</span>}
                     {d.telefono && <span>{d.telefono}</span>}
+                    <span className="pill">{d.slot_minuti || 60} min</span>
                   </div>
-                  <div className="mt-3 flex gap-2">
-                    <button onClick={() => openEdit(d)} className="btn-secondary text-xs flex-1 justify-center"><Edit2 size={13} /> Modifica</button>
-                    <button onClick={() => remove(d)} className="btn-danger flex-1 justify-center"><Trash2 size={13} /> Elimina</button>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button onClick={() => navigate(`/orari?docente=${d.id}`)} className="btn-secondary text-xs justify-center"><CalendarClock size={13} /> Calendario</button>
+                    <button onClick={() => navigate(`/docenti/${d.id}/alunni`)} className="btn-secondary text-xs justify-center"><UsersIcon size={13} /> Alunni</button>
+                    <button onClick={() => openEdit(d)} className="btn-secondary text-xs justify-center"><Edit2 size={13} /> Modifica</button>
+                    <button onClick={() => remove(d)} className="btn-danger justify-center"><Trash2 size={13} /> Elimina</button>
                   </div>
                 </div>
               ))}
@@ -173,6 +181,13 @@ export default function Docenti() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Telefono" value={form.telefono} onChange={(v) => setForm({ ...form, telefono: v })} testid="docente-telefono-input" />
               <Field label="Specializzazione" value={form.specializzazione} onChange={(v) => setForm({ ...form, specializzazione: v })} testid="docente-spec-input" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Durata standard appuntamento</label>
+              <select className="input-base" value={form.slot_minuti} onChange={(e) => setForm({ ...form, slot_minuti: e.target.value })} data-testid="docente-durata-select">
+                {DURATE.map((m) => (<option key={m} value={m}>{m} minuti</option>))}
+              </select>
+              <div className="text-xs text-[color:var(--text-2)] mt-1">Verrà usata come fascia standard nella creazione di un appuntamento.</div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Colore (per il calendario)</label>

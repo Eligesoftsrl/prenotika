@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api, formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Plus, Trash2, Clock } from "lucide-react";
@@ -21,9 +22,11 @@ function toMin(hhmm) { const [h, m] = hhmm.split(":").map(Number); return h * 60
 export default function Orari() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+  const [searchParams] = useSearchParams();
+  const queryDocente = searchParams.get("docente");
 
   const [docenti, setDocenti] = useState([]);
-  const [docenteId, setDocenteId] = useState(user?.role === "docente" ? user.id : "");
+  const [docenteId, setDocenteId] = useState(user?.role === "docente" ? user.id : (queryDocente || ""));
   const [orari, setOrari] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -38,6 +41,7 @@ export default function Orari() {
         if (!docenteId && data[0]) setDocenteId(data[0].id);
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
   const load = async () => {

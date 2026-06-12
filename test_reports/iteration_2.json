@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 2 testing of EligeHub SaaS new features: slot_minuti per docente, N:M docente-alunni associations (table 'pubblico'), Calendario/Alunni quick buttons. Backend: 33/33 pytest tests pass (22 regression iter1 + 11 new for iter2). Frontend: all 6 critical UI flows pass via Playwright (Durata column+select, DocenteAlunni page, /orari?docente=X preselect, Appuntamento form Durata standard text, cliente select restricted to associated alunni, auto-recalc 'Al' on 'Dal' change with slot_minuti=60, docente sees only own alunni in /clienti).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "DocenteAlunni page header", "issues": ["Title shows 'Docente' label then docente name is rendered after async load -- briefly shows just 'Docente' before name appears. Works correctly after load."]},
+      {"screen": "Appuntamento create modal", "issues": ["Still uses native HTML date/time inputs (same note from iter1); functionality OK, including auto-recalc 'Al' but UX is browser-default."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_iter2_features.py",
+    "/app/test_reports/pytest/iter2_full.xml"
+  ],
+  "action_items": [
+    "(Optional) Replace native date/time inputs in Appuntamento modal with localized shadcn pickers (italian dd/mm/yyyy + 24h)."
+  ],
+  "critical_code_review_comments": [
+    "Backend: docente_clienti collection has unique index on (studio_id, docente_id, cliente_id) and cascade cleanup in DELETE /docenti/{id} and DELETE /clienti/{id} (verified in tests).",
+    "Backend: POST /docenti/{id}/alunni/{cliente_id} is idempotent (returns {'message':'Già associato'} on duplicate; does NOT raise 409). Status code remains 201 for the path even on duplicate; consider returning 200 in that case for clarity but current behavior is acceptable.",
+    "Backend: GET /clienti?docente_id=X is admin-only filter; docente role ignores the param and always returns own alunni (correctly enforced).",
+    "Backend: /disponibilita falls back to docente.slot_minuti when slot_minuti query param is absent (verified with default=60 vs explicit=30 -- twice as many slots).",
+    "Backend: DocenteUpdate.slot_minuti correctly accepts None (skipped) and integer values via Pydantic model_dump(exclude_unset=True).",
+    "Frontend: DocenteAlunni.jsx wraps fetch in async, but the page title shows 'Docente' before name resolves. Consider rendering 'Caricamento...' for title until docente is loaded, or include skeleton.",
+    "Frontend: Appuntamenti.jsx onDalChange uses slot_minuti from selected docente -> Al correctly recalculated; useEffect on form.docente_id reloads alunni list properly (validated by test asserting Verdi+Neri appear in select)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter2_features.py (new, 11 tests)"
+  ],
+  "success_rate": {"backend": "100% (33/33)", "frontend": "100% (6/6 critical flows)"},
+  "test_credentials": "admin@demo.it/Admin123!, docente@demo.it/Docente123!, superadmin@eligehub.it/SuperAdmin123!",
+  "seed_data_creation": "Test fixtures create TEST_ prefixed docenti and clienti and clean them up afterwards. Demo seed (Marco Bianchi + Luca Verdi + Giulia Neri + 2 associations) is verified present by both backend and UI tests.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run all backend tests: REACT_APP_BACKEND_URL=https://timeslot-manager-23.preview.emergentagent.com pytest /app/backend/tests/ -v. The env var is required because backend_test.py reads it without a default. 33 tests cover auth, RBAC, multi-tenant, CRUD, overlap, disponibilita, dashboard, slot_minuti, docente-alunni N:M, cascade cleanup. UI testids: login-email-input, login-password-input, login-submit-button, logout-button, docente-row-{id}, docente-calendar-{id}, docente-alunni-{id}, docente-durata-select, docente-alunni-page, alunno-row-{id}, alunno-remove-{id}, associa-alunno-button, associa-cliente-select, app-docente-select, app-cliente-select, app-dal-input, app-al-input.",
+  "rca of the issue": "N/A - no bugs found"
+}
