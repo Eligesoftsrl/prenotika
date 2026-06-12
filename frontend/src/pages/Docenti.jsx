@@ -276,15 +276,19 @@ export function Modal({ title, onClose, children, size = "md" }) {
     return () => { document.body.style.overflow = prev; };
   }, []);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6" data-testid="modal">
+    <div className="fixed inset-0 z-50" data-testid="modal">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative w-full ${maxW} surface-card shadow-xl anim-fade-up flex flex-col max-h-[calc(100vh-1.5rem)]`}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[color:var(--border)] shrink-0">
-          <h3 className="font-display text-xl font-bold pr-4">{title}</h3>
-          <button onClick={onClose} className="btn-secondary shrink-0" data-testid="modal-close" aria-label="Chiudi"><X size={16} /></button>
-        </div>
-        <div className="px-6 py-5 overflow-y-auto flex-1">
-          {children}
+      <div className="absolute inset-0 overflow-y-auto">
+        <div className="min-h-full flex items-start sm:items-center justify-center p-3 sm:p-6">
+          <div className={`relative w-full ${maxW} surface-card shadow-xl anim-fade-up flex flex-col`}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[color:var(--border)] sticky top-0 bg-[color:var(--surface)] rounded-t-[12px] z-10">
+              <h3 className="font-display text-xl font-bold pr-4">{title}</h3>
+              <button onClick={onClose} className="btn-secondary shrink-0" data-testid="modal-close" aria-label="Chiudi"><X size={16} /></button>
+            </div>
+            <div className="px-6 py-5">
+              {children}
+            </div>
+          </div>
         </div>
       </div>
     </div>
