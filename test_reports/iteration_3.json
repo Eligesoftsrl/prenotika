@@ -1,0 +1,45 @@
+{
+  "summary": "Iter 3 EligeHub: Materie CRUD admin, N:M docente-materie associations, POST /appuntamenti/bulk with recurrence + inline new student. Backend: 46/46 pytest pass (22 iter1 + 11 iter2 + 13 iter3). Frontend: Materie page CRUD works, Docente Materie navigation works, Appuntamento modal tabs (Studente in archivio / Nuovo studente) switch correctly, 6 recurrence checkboxes at +7..+42 days are correct, submit button text becomes 'Registra (3)' when 2 recurrences selected with '+2 prenotazioni aggiuntive' helper text, mobile modal has overflow-y-auto + items-start sm:items-center centering classes, Materie link hidden for docente role, Nuovo studente validation blocks empty nome/cognome. One UX bug discovered: bulk result screen is auto-closed when count_skipped===0.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "AppuntamentoModal (Appuntamenti.jsx ~L296-303)",
+        "issue": "After successful bulk submit with count_skipped===0, onSaved() is called immediately AFTER setResult(data), which closes the parent modal before the result screen (data-testid='bulk-result') can be rendered. Spec says 'mostra schermata risultato con count_created/count_skipped' which implies result must always be shown until user clicks 'Chiudi'. Currently the user only sees the result when at least one slot was skipped.",
+        "selector": "[data-testid=\"bulk-result\"]",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter3_features.py",
+    "/app/test_reports/pytest/iter3_full.xml",
+    "/app/test_reports/pytest/iter3_results.xml"
+  ],
+  "action_items": [
+    "Fix Appuntamenti.jsx onSubmit (~L298-300): remove the automatic onSaved() call when count_skipped===0, so the result screen is always shown. onSaved() should only run when user clicks 'Chiudi' (already handled by Modal onClose at L311/L324)."
+  ],
+  "critical_code_review_comments": [
+    "Backend POST /appuntamenti/bulk returns 200 with full result body (cliente_id, docente_id, created[], skipped[{data,dal,al,motivo}], count_created, count_skipped). Overlaps are skipped with motivo 'Slot occupato' instead of raising 409 -- intentional per spec.",
+    "Backend correctly forces self when docente role calls bulk (ignores docente_id from body) -- verified.",
+    "Backend creates new cliente inline and auto-associates docente_clienti when nuovo_cliente provided -- verified to appear in GET /clienti and GET /docenti/{id}/alunni.",
+    "Backend cascade deletes on DELETE /materie/{id} and DELETE /docenti/{id} clean docente_materie -- verified.",
+    "Backend unique index on (studio_id, descrizione) for materie enforced (duplicate returns 400) and (studio_id, docente_id, materia_id) for docente_materie (idempotent).",
+    "Frontend AppuntamentoModal: 6 recurrence dates correctly computed as +7,+14,+21,+28,+35,+42 days from main date. Submit button text correctly shows 'Registra (N+1)' where N = recurrence count. '+N prenotazioni aggiuntive' helper present.",
+    "Frontend Modal helper (Docenti.jsx ~L217-219) uses 'fixed inset-0 z-50 overflow-y-auto' with inner 'flex items-start sm:items-center justify-center' -- centering + scroll fix verified on 390x844 mobile viewport.",
+    "Frontend sidebar correctly hides 'Materie' nav link for docente role (only admin sees it in Layout.jsx L30).",
+    "Minor: Modal in Appuntamenti.jsx is rendered as a sibling of the regular form via the Modal helper from Docenti.jsx -- import path crosses page boundaries. Consider extracting Modal to /components/ui/Modal.jsx for reusability."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter3_features.py (new, 13 tests covering Materie CRUD, docente_materie N:M, bulk appuntamenti)"
+  ],
+  "success_rate": { "backend": "100% (46/46)", "frontend": "92% (11/12 critical flows pass; 1 UX bug on success result screen)" },
+  "test_credentials": "admin@demo.it/Admin123!, docente@demo.it/Docente123!, superadmin@eligehub.it/SuperAdmin123!",
+  "seed_data_creation": "Test fixtures create TEST_* prefixed materie/docenti/clienti and clean them up afterwards. Bulk-created TEST_UIBulk cliente from frontend test may remain - cleanup via DELETE /clienti?prefix=TEST_ or manual.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run all backend tests: REACT_APP_BACKEND_URL=https://timeslot-manager-23.preview.emergentagent.com python -m pytest /app/backend/tests/ -v. 46 tests total. The bulk endpoint POST /appuntamenti/bulk is fully verified. New iter3 testids: nav-link-materie, materie-page, materia-create-button, materia-descrizione-input, materia-prezzo-input, materia-submit-button, materia-form, materia-row-{id}, materia-edit-{id}, materia-delete-{id}, materia-form-error, docente-materie-{id}, docente-materie-page, docente-materia-row-{id}, docente-materia-remove-{id}, associa-materia-button, associa-materia-select, associa-materia-submit, mode-existing-button, mode-new-button, new-nome-input, new-cognome-input, new-email-input, new-tel-input, recurrence-{ISO}, bulk-result, bulk-result-close, app-form-error.",
+  "rca of the issue": "Bulk result screen auto-closed bug RCA: In Appuntamenti.jsx onSubmit (lines 296-300), after `setResult(data)` (which would render the result screen on next render), the code calls `onSaved()` synchronously when count_skipped===0. The parent's onSaved typically calls setShowCreate(false), which unmounts the AppuntamentoModal entirely before React can render the result branch. Fix: simply remove the conditional `onSaved()` call inside try block; let user explicitly click 'Chiudi' which already triggers `setResult(null); onSaved();` at lines 311/324."
+}

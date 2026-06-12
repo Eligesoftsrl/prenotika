@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, formatApiError } from "@/lib/api";
-import { Plus, Edit2, Trash2, X, GraduationCap, CalendarClock, Users as UsersIcon } from "lucide-react";
+import { Plus, Edit2, Trash2, X, GraduationCap, CalendarClock, Users as UsersIcon, BookOpen } from "lucide-react";
 
 const COLORS = ["#2C4C3B", "#D96C4A", "#4C6B8B", "#D4A373", "#8B5A2B", "#4A5D23"];
 const DURATE = [15, 30, 45, 60, 90, 120];
@@ -129,6 +129,7 @@ export default function Docenti() {
                         <div className="flex justify-end gap-1.5 flex-wrap">
                           <button onClick={() => navigate(`/orari?docente=${d.id}`)} className="btn-secondary text-xs" title="Calendario disponibilità" data-testid={`docente-calendar-${d.id}`}><CalendarClock size={13} /> <span className="hidden lg:inline">Calendario</span></button>
                           <button onClick={() => navigate(`/docenti/${d.id}/alunni`)} className="btn-secondary text-xs" title="Alunni associati" data-testid={`docente-alunni-${d.id}`}><UsersIcon size={13} /> <span className="hidden lg:inline">Alunni</span></button>
+                          <button onClick={() => navigate(`/docenti/${d.id}/materie`)} className="btn-secondary text-xs" title="Materie insegnate" data-testid={`docente-materie-${d.id}`}><BookOpen size={13} /> <span className="hidden lg:inline">Materie</span></button>
                           <button onClick={() => openEdit(d)} className="btn-secondary text-xs" data-testid={`docente-edit-${d.id}`}><Edit2 size={13} /></button>
                           <button onClick={() => remove(d)} className="btn-danger" data-testid={`docente-delete-${d.id}`}><Trash2 size={13} /></button>
                         </div>
@@ -159,8 +160,9 @@ export default function Docenti() {
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <button onClick={() => navigate(`/orari?docente=${d.id}`)} className="btn-secondary text-xs justify-center"><CalendarClock size={13} /> Calendario</button>
                     <button onClick={() => navigate(`/docenti/${d.id}/alunni`)} className="btn-secondary text-xs justify-center"><UsersIcon size={13} /> Alunni</button>
+                    <button onClick={() => navigate(`/docenti/${d.id}/materie`)} className="btn-secondary text-xs justify-center"><BookOpen size={13} /> Materie</button>
                     <button onClick={() => openEdit(d)} className="btn-secondary text-xs justify-center"><Edit2 size={13} /> Modifica</button>
-                    <button onClick={() => remove(d)} className="btn-danger justify-center"><Trash2 size={13} /> Elimina</button>
+                    <button onClick={() => remove(d)} className="btn-danger justify-center col-span-2"><Trash2 size={13} /> Elimina</button>
                   </div>
                 </div>
               ))}
@@ -209,16 +211,19 @@ export default function Docenti() {
   );
 }
 
-export function Modal({ title, onClose, children }) {
+export function Modal({ title, onClose, children, size = "md" }) {
+  const maxW = size === "lg" ? "max-w-2xl" : size === "xl" ? "max-w-3xl" : "max-w-lg";
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg surface-card p-6 anim-fade-up max-h-[90vh] overflow-y-auto" data-testid="modal">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-xl font-bold">{title}</h3>
-          <button onClick={onClose} className="btn-secondary" data-testid="modal-close"><X size={16} /></button>
+    <div className="fixed inset-0 z-50 overflow-y-auto" data-testid="modal">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative min-h-full flex items-start sm:items-center justify-center p-4 sm:p-6">
+        <div className={`relative w-full ${maxW} surface-card p-6 anim-fade-up my-auto shadow-xl`}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display text-xl font-bold">{title}</h3>
+            <button onClick={onClose} className="btn-secondary" data-testid="modal-close"><X size={16} /></button>
+          </div>
+          {children}
         </div>
-        {children}
       </div>
     </div>
   );

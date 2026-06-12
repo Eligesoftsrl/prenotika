@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { LayoutDashboard, Calendar, Users, GraduationCap, Clock, Building2, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, Calendar, Users, GraduationCap, Clock, Building2, LogOut, Menu, X, BookOpen } from "lucide-react";
 
 const ROLE_LABEL = {
   super_admin: "Super Admin",
@@ -27,6 +27,7 @@ export default function Layout() {
           ? [
               { to: "/docenti", icon: GraduationCap, label: "Docenti", testid: "nav-link-docenti" },
               { to: "/clienti", icon: Users, label: "Clienti", testid: "nav-link-clienti" },
+              { to: "/materie", icon: BookOpen, label: "Materie", testid: "nav-link-materie" },
             ]
           : []),
       ];

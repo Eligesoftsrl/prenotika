@@ -200,6 +200,42 @@ class AppuntamentoUpdate(BaseModel):
     note: Optional[str] = None
     stato: Optional[Literal["confermato", "annullato", "completato"]] = None
 
+# --- Materie & bulk-booking models ---
+class MateriaBase(BaseModel):
+    descrizione: str
+    prezzo: Optional[float] = None
+
+class MateriaCreate(MateriaBase):
+    pass
+
+class MateriaUpdate(BaseModel):
+    descrizione: Optional[str] = None
+    prezzo: Optional[float] = None
+
+class Materia(MateriaBase):
+    id: str
+    studio_id: str
+    created_at: datetime
+
+class NewClienteInline(BaseModel):
+    nome: str
+    cognome: str
+    email: Optional[EmailStr] = None
+    cellulare: Optional[str] = None
+
+class BulkSlot(BaseModel):
+    data: str  # YYYY-MM-DD
+    dal: str
+    al: str
+
+class BulkAppuntamentoCreate(BaseModel):
+    docente_id: Optional[str] = None     # admin may set; docente uses self
+    cliente_id: Optional[str] = None     # either select existing
+    nuovo_cliente: Optional[NewClienteInline] = None  # OR create new inline
+    slots: List[BulkSlot]
+    note: Optional[str] = None
+    associa_alunno: bool = True
+
 class Appuntamento(AppuntamentoBase):
     id: str
     studio_id: str
@@ -332,6 +368,9 @@ async def delete_studio(studio_id: str, _: dict = Depends(require_role("super_ad
     await db.clienti.delete_many({"studio_id": studio_id})
     await db.orari.delete_many({"studio_id": studio_id})
     await db.appuntamenti.delete_many({"studio_id": studio_id})
+    await db.docente_clienti.delete_many({"studio_id": studio_id})
+    await db.materie.delete_many({"studio_id": studio_id})
+    await db.docente_materie.delete_many({"studio_id": studio_id})
     return
 
 # -----------------------------------------------------------------------------
@@ -397,6 +436,7 @@ async def delete_docente(docente_id: str, user: dict = Depends(require_role("adm
     await db.orari.delete_many({"docente_id": docente_id})
     await db.appuntamenti.delete_many({"docente_id": docente_id})
     await db.docente_clienti.delete_many({"docente_id": docente_id})
+    await db.docente_materie.delete_many({"docente_id": docente_id})
     return
 
 # ---- Associazione Alunni <-> Docente (N:M, tabella "pubblico" originale) ----
@@ -718,6 +758,189 @@ async def dashboard_stats(user: dict = Depends(require_role("admin", "docente"))
     }
 
 # -----------------------------------------------------------------------------
+# Materie (admin) + associazione N:M con docenti (riproduce combomat)
+# -----------------------------------------------------------------------------
+@api.get("/materie", response_model=List[Materia])
+async def list_materie(user: dict = Depends(require_role("admin", "docente"))):
+    sid = _scope_studio_id(user)
+    items = await db.materie.find({"studio_id": sid}).sort("descrizione", 1).to_list(500)
+    return [_from_mongo(x) for x in items]
+
+@api.post("/materie", response_model=Materia, status_code=201)
+async def create_materia(body: MateriaCreate, user: dict = Depends(require_role("admin"))):
+    sid = _scope_studio_id(user)
+    desc = body.descrizione.strip()
+    if not desc:
+        raise HTTPException(status_code=400, detail="Descrizione richiesta")
+    existing = await db.materie.find_one({"studio_id": sid, "descrizione": desc})
+    if existing:
+        raise HTTPException(status_code=400, detail="Materia già esistente")
+    doc = {
+        "_id": new_id(),
+        "studio_id": sid,
+        "descrizione": desc,
+        "prezzo": body.prezzo,
+        "created_at": now_utc().isoformat(),
+    }
+    await db.materie.insert_one(doc)
+    return _from_mongo(doc)
+
+@api.patch("/materie/{materia_id}", response_model=Materia)
+async def update_materia(materia_id: str, body: MateriaUpdate, user: dict = Depends(require_role("admin"))):
+    sid = _scope_studio_id(user)
+    target = await db.materie.find_one({"_id": materia_id, "studio_id": sid})
+    if not target:
+        raise HTTPException(status_code=404, detail="Materia non trovata")
+    updates = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    if updates:
+        await db.materie.update_one({"_id": materia_id}, {"$set": updates})
+    fresh = await db.materie.find_one({"_id": materia_id})
+    return _from_mongo(fresh)
+
+@api.delete("/materie/{materia_id}", status_code=204)
+async def delete_materia(materia_id: str, user: dict = Depends(require_role("admin"))):
+    sid = _scope_studio_id(user)
+    target = await db.materie.find_one({"_id": materia_id, "studio_id": sid})
+    if not target:
+        raise HTTPException(status_code=404, detail="Materia non trovata")
+    await db.materie.delete_one({"_id": materia_id})
+    await db.docente_materie.delete_many({"materia_id": materia_id})
+    return
+
+@api.get("/docenti/{docente_id}/materie", response_model=List[Materia])
+async def list_materie_docente(docente_id: str, user: dict = Depends(require_role("admin", "docente"))):
+    sid = _scope_studio_id(user)
+    docente = await db.users.find_one({"_id": docente_id, "studio_id": sid, "role": "docente"})
+    if not docente:
+        raise HTTPException(status_code=404, detail="Docente non trovato")
+    links = await db.docente_materie.find({"studio_id": sid, "docente_id": docente_id}).to_list(500)
+    mat_ids = [link["materia_id"] for link in links]
+    if not mat_ids:
+        return []
+    items = await db.materie.find({"_id": {"$in": mat_ids}}).sort("descrizione", 1).to_list(500)
+    return [_from_mongo(x) for x in items]
+
+@api.post("/docenti/{docente_id}/materie/{materia_id}", status_code=201)
+async def associa_materia(docente_id: str, materia_id: str, user: dict = Depends(require_role("admin"))):
+    sid = _scope_studio_id(user)
+    docente = await db.users.find_one({"_id": docente_id, "studio_id": sid, "role": "docente"})
+    materia = await db.materie.find_one({"_id": materia_id, "studio_id": sid})
+    if not docente or not materia:
+        raise HTTPException(status_code=404, detail="Docente o materia non trovati")
+    existing = await db.docente_materie.find_one({"studio_id": sid, "docente_id": docente_id, "materia_id": materia_id})
+    if existing:
+        return {"message": "Già associata"}
+    await db.docente_materie.insert_one({
+        "_id": new_id(),
+        "studio_id": sid,
+        "docente_id": docente_id,
+        "materia_id": materia_id,
+        "created_at": now_utc().isoformat(),
+    })
+    return {"message": "Materia associata"}
+
+@api.delete("/docenti/{docente_id}/materie/{materia_id}", status_code=204)
+async def disassocia_materia(docente_id: str, materia_id: str, user: dict = Depends(require_role("admin"))):
+    sid = _scope_studio_id(user)
+    await db.docente_materie.delete_many({"studio_id": sid, "docente_id": docente_id, "materia_id": materia_id})
+    return
+
+# -----------------------------------------------------------------------------
+# Bulk booking con ricorrenza + creazione cliente al volo
+# -----------------------------------------------------------------------------
+@api.post("/appuntamenti/bulk")
+async def bulk_appuntamenti(body: BulkAppuntamentoCreate, user: dict = Depends(require_role("admin", "docente"))):
+    sid = _scope_studio_id(user)
+    # Docente scope
+    docente_id = body.docente_id
+    if user["role"] == "docente":
+        docente_id = user["id"]
+    if not docente_id:
+        raise HTTPException(status_code=400, detail="docente_id richiesto")
+    docente = await db.users.find_one({"_id": docente_id, "studio_id": sid, "role": "docente"})
+    if not docente:
+        raise HTTPException(status_code=404, detail="Docente non trovato")
+
+    # Risolvi cliente: esistente o nuovo
+    cliente_id = body.cliente_id
+    if not cliente_id and body.nuovo_cliente:
+        nc = body.nuovo_cliente
+        cliente_id = new_id()
+        await db.clienti.insert_one({
+            "_id": cliente_id,
+            "studio_id": sid,
+            "nome": nc.nome.strip(),
+            "cognome": nc.cognome.strip(),
+            "email": nc.email,
+            "cellulare": nc.cellulare,
+            "created_at": now_utc().isoformat(),
+        })
+    if not cliente_id:
+        raise HTTPException(status_code=400, detail="Specificare un cliente esistente o i dati per un nuovo cliente")
+
+    cliente = await db.clienti.find_one({"_id": cliente_id, "studio_id": sid})
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente non trovato")
+
+    # Auto-associate cliente al docente se richiesto
+    if body.associa_alunno:
+        existing_link = await db.docente_clienti.find_one({"studio_id": sid, "docente_id": docente_id, "cliente_id": cliente_id})
+        if not existing_link:
+            await db.docente_clienti.insert_one({
+                "_id": new_id(),
+                "studio_id": sid,
+                "docente_id": docente_id,
+                "cliente_id": cliente_id,
+                "created_at": now_utc().isoformat(),
+            })
+
+    if not body.slots:
+        raise HTTPException(status_code=400, detail="Nessuno slot specificato")
+
+    created = []
+    skipped = []
+    for s in body.slots:
+        try:
+            _validate_time_range(s.dal, s.al)
+        except HTTPException as e:
+            skipped.append({"data": s.data, "dal": s.dal, "al": s.al, "motivo": e.detail})
+            continue
+        overlap = await db.appuntamenti.find_one({
+            "studio_id": sid,
+            "docente_id": docente_id,
+            "data": s.data,
+            "stato": {"$ne": "annullato"},
+            "dal": {"$lt": s.al},
+            "al": {"$gt": s.dal},
+        })
+        if overlap:
+            skipped.append({"data": s.data, "dal": s.dal, "al": s.al, "motivo": "Slot occupato"})
+            continue
+        doc = {
+            "_id": new_id(),
+            "studio_id": sid,
+            "docente_id": docente_id,
+            "cliente_id": cliente_id,
+            "data": s.data,
+            "dal": s.dal,
+            "al": s.al,
+            "note": body.note,
+            "stato": "confermato",
+            "created_at": now_utc().isoformat(),
+        }
+        await db.appuntamenti.insert_one(doc)
+        created.append({"data": s.data, "dal": s.dal, "al": s.al, "id": doc["_id"]})
+
+    return {
+        "cliente_id": cliente_id,
+        "docente_id": docente_id,
+        "created": created,
+        "skipped": skipped,
+        "count_created": len(created),
+        "count_skipped": len(skipped),
+    }
+
+# -----------------------------------------------------------------------------
 # Public availability check: free slots for a docente on a given date
 # -----------------------------------------------------------------------------
 def _to_minutes(hhmm: str) -> int:
@@ -797,6 +1020,8 @@ async def ensure_indexes():
     await db.orari.create_index([("studio_id", 1), ("docente_id", 1), ("giorno", 1)])
     await db.appuntamenti.create_index([("studio_id", 1), ("docente_id", 1), ("data", 1)])
     await db.docente_clienti.create_index([("studio_id", 1), ("docente_id", 1), ("cliente_id", 1)], unique=True)
+    await db.materie.create_index([("studio_id", 1), ("descrizione", 1)], unique=True)
+    await db.docente_materie.create_index([("studio_id", 1), ("docente_id", 1), ("materia_id", 1)], unique=True)
 
 async def seed_super_admin_and_demo():
     super_email = os.environ["SUPER_ADMIN_EMAIL"].lower().strip()

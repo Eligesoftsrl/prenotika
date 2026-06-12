@@ -208,6 +208,8 @@ function addMinutes(hhmm, minutes) {
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
+const GIORNI_LABEL = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+
 function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdmin, currentDocenteId }) {
   const today = new Date().toISOString().slice(0, 10);
   const initialDocente = isAdmin ? (docenti[0]?.id || "") : currentDocenteId;
@@ -224,91 +226,199 @@ function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdm
   });
   const [alunni, setAlunni] = useState([]);
   const [loadingAlunni, setLoadingAlunni] = useState(false);
+  const [mode, setMode] = useState("existing"); // "existing" | "new"
+  const [nuovoCliente, setNuovoCliente] = useState({ nome: "", cognome: "", email: "", cellulare: "" });
+  const [recurrenceDates, setRecurrenceDates] = useState([]); // selected ISO dates
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
 
   const docenteSel = docenti.find((d) => d.id === form.docente_id);
   const slot = docenteSel?.slot_minuti || 60;
 
-  // When docente changes: load his alunni, reset cliente, recalc 'al'
+  // Calcolare le prossime 6 settimane: stessa data + 7,14,21,28,35,42 giorni
+  const dateObj = new Date(form.data + "T00:00:00");
+  const weekday = (dateObj.getDay() + 6) % 7; // 0=Mon
+  const recurrenceOptions = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(dateObj);
+    d.setDate(d.getDate() + 7 * (i + 1));
+    return d.toISOString().slice(0, 10);
+  });
+
   useEffect(() => {
     if (!form.docente_id) { setAlunni([]); return; }
     setLoadingAlunni(true);
     api.get(`/docenti/${form.docente_id}/alunni`).then(({ data }) => {
       setAlunni(data);
-      // Auto-select first alunno if cliente_id not in list
       if (!data.find((c) => c.id === form.cliente_id)) {
         setForm((f) => ({ ...f, cliente_id: data[0]?.id || "" }));
       }
     }).finally(() => setLoadingAlunni(false));
-    // Recalc 'al' based on new docente's slot
     setForm((f) => ({ ...f, al: addMinutes(f.dal, slot) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.docente_id]);
 
-  // When 'dal' changes, auto recompute 'al' using docente slot
   const onDalChange = (v) => {
     setForm((f) => ({ ...f, dal: v, al: addMinutes(v, slot) }));
   };
 
+  const toggleRecurrence = (iso) => {
+    setRecurrenceDates((prev) => prev.includes(iso) ? prev.filter((x) => x !== iso) : [...prev, iso]);
+  };
+
   const onSubmit = async (e) => {
-    e.preventDefault(); setBusy(true); setError("");
+    e.preventDefault(); setBusy(true); setError(""); setResult(null);
     try {
-      await api.post("/appuntamenti", form);
-      onSaved();
+      const slots = [{ data: form.data, dal: form.dal, al: form.al }];
+      recurrenceDates.forEach((d) => slots.push({ data: d, dal: form.dal, al: form.al }));
+      const payload = {
+        docente_id: form.docente_id,
+        slots,
+        note: form.note || null,
+        associa_alunno: true,
+      };
+      if (mode === "new") {
+        if (!nuovoCliente.nome.trim() || !nuovoCliente.cognome.trim()) {
+          setError("Nome e cognome del nuovo studente sono obbligatori");
+          setBusy(false);
+          return;
+        }
+        payload.nuovo_cliente = {
+          nome: nuovoCliente.nome.trim(),
+          cognome: nuovoCliente.cognome.trim(),
+          email: nuovoCliente.email || null,
+          cellulare: nuovoCliente.cellulare || null,
+        };
+      } else {
+        if (!form.cliente_id) { setError("Seleziona uno studente"); setBusy(false); return; }
+        payload.cliente_id = form.cliente_id;
+      }
+      const { data } = await api.post("/appuntamenti/bulk", payload);
+      setResult(data);
+      if (data.count_skipped === 0) {
+        onSaved();
+      }
     } catch (err) {
       setError(formatApiError(err?.response?.data?.detail) || "Errore");
     } finally { setBusy(false); }
   };
 
   const noAlunni = !loadingAlunni && alunni.length === 0 && !!form.docente_id;
+  const giornoLabel = GIORNI_LABEL[weekday];
+
+  if (result) {
+    return (
+      <Modal title="Risultato prenotazione" onClose={() => { setResult(null); onSaved(); }} size="md">
+        <div className="space-y-3" data-testid="bulk-result">
+          <div className="p-3 rounded-lg bg-[#E5F0E9] border border-[#C8DDD0] text-[color:var(--success)]">
+            <div className="font-semibold">{result.count_created} appuntamento/i creato/i con successo</div>
+          </div>
+          {result.count_skipped > 0 && (
+            <div className="p-3 rounded-lg bg-[#FDF1E3] border border-[#EBD1A3] text-[#B0721F]">
+              <div className="font-semibold mb-1">{result.count_skipped} slot saltati:</div>
+              <ul className="text-xs list-disc ml-5 space-y-0.5">
+                {result.skipped.map((s, i) => (<li key={i}>{s.data} {s.dal}-{s.al}: {s.motivo}</li>))}
+              </ul>
+            </div>
+          )}
+          <button onClick={() => { setResult(null); onSaved(); }} className="btn-primary w-full justify-center" data-testid="bulk-result-close">Chiudi</button>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
-    <Modal title="Nuovo appuntamento" onClose={onClose}>
-      <form onSubmit={onSubmit} className="space-y-3.5" data-testid="appuntamento-form">
+    <Modal title="Nuovo appuntamento" onClose={onClose} size="lg">
+      <form onSubmit={onSubmit} className="space-y-4" data-testid="appuntamento-form">
         {isAdmin && (
           <div>
             <label className="block text-sm font-medium mb-1.5">Docente *</label>
             <select className="input-base" value={form.docente_id} onChange={(e) => setForm({ ...form, docente_id: e.target.value })} required data-testid="app-docente-select">
               {docenti.map((d) => (<option key={d.id} value={d.id}>{d.nome} {d.cognome}</option>))}
             </select>
+            {docenteSel && (
+              <div className="text-xs text-[color:var(--text-2)] mt-1">Durata standard: <strong>{slot} minuti</strong></div>
+            )}
           </div>
         )}
-        <div>
-          <label className="block text-sm font-medium mb-1.5">Alunno *</label>
-          <select className="input-base" value={form.cliente_id} onChange={(e) => setForm({ ...form, cliente_id: e.target.value })} required data-testid="app-cliente-select" disabled={noAlunni}>
-            <option value="">{loadingAlunni ? "Caricamento…" : "Seleziona…"}</option>
-            {alunni.map((c) => (<option key={c.id} value={c.id}>{c.cognome} {c.nome}</option>))}
-          </select>
-          {noAlunni && (
-            <div className="text-xs text-[color:var(--warning)] mt-1">Questo docente non ha alunni associati. Associa prima un alunno dalla scheda del docente.</div>
-          )}
-          {docenteSel && (
-            <div className="text-xs text-[color:var(--text-2)] mt-1">Durata standard: <strong>{slot} minuti</strong></div>
-          )}
-        </div>
+
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="block text-sm font-medium mb-1.5">Data</label>
-            <input type="date" className="input-base" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} required data-testid="app-data-input" />
+            <input type="date" className="input-base" value={form.data} onChange={(e) => { setForm({ ...form, data: e.target.value }); setRecurrenceDates([]); }} required data-testid="app-data-input" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">Dalle</label>
+            <label className="block text-sm font-medium mb-1.5">Dalle ore</label>
             <input type="time" className="input-base" value={form.dal} onChange={(e) => onDalChange(e.target.value)} required data-testid="app-dal-input" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">Alle</label>
+            <label className="block text-sm font-medium mb-1.5">Alle ore</label>
             <input type="time" className="input-base" value={form.al} onChange={(e) => setForm({ ...form, al: e.target.value })} required data-testid="app-al-input" />
           </div>
         </div>
+
+        {/* Studente: existing / new tabs */}
+        <div>
+          <div className="flex gap-1.5 mb-3 p-1 rounded-lg bg-[color:var(--surface-2)]">
+            <button type="button" onClick={() => setMode("existing")} className={`flex-1 py-1.5 px-3 text-sm rounded-md font-medium ${mode === "existing" ? "bg-white shadow-sm" : "text-[color:var(--text-2)]"}`} data-testid="mode-existing-button">Studente in archivio</button>
+            <button type="button" onClick={() => setMode("new")} className={`flex-1 py-1.5 px-3 text-sm rounded-md font-medium ${mode === "new" ? "bg-white shadow-sm" : "text-[color:var(--text-2)]"}`} data-testid="mode-new-button">Nuovo studente</button>
+          </div>
+
+          {mode === "existing" ? (
+            <div>
+              <select className="input-base" value={form.cliente_id} onChange={(e) => setForm({ ...form, cliente_id: e.target.value })} disabled={noAlunni} data-testid="app-cliente-select">
+                <option value="">{loadingAlunni ? "Caricamento…" : "Seleziona uno studente associato…"}</option>
+                {alunni.map((c) => (<option key={c.id} value={c.id}>{c.cognome} {c.nome}</option>))}
+              </select>
+              {noAlunni && (
+                <div className="text-xs text-[color:var(--warning)] mt-1.5">Nessun alunno associato. Crea un nuovo studente qui sotto o associane uno dalla scheda del docente.</div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              <div className="grid grid-cols-2 gap-2.5">
+                <input className="input-base" placeholder="Nome" value={nuovoCliente.nome} onChange={(e) => setNuovoCliente({ ...nuovoCliente, nome: e.target.value })} data-testid="new-nome-input" />
+                <input className="input-base" placeholder="Cognome" value={nuovoCliente.cognome} onChange={(e) => setNuovoCliente({ ...nuovoCliente, cognome: e.target.value })} data-testid="new-cognome-input" />
+              </div>
+              <input type="email" className="input-base" placeholder="Email (opzionale)" value={nuovoCliente.email} onChange={(e) => setNuovoCliente({ ...nuovoCliente, email: e.target.value })} data-testid="new-email-input" />
+              <input className="input-base" placeholder="Telefono (opzionale)" value={nuovoCliente.cellulare} onChange={(e) => setNuovoCliente({ ...nuovoCliente, cellulare: e.target.value })} data-testid="new-tel-input" />
+              <div className="text-xs text-[color:var(--text-2)]">Lo studente verrà creato e automaticamente associato al docente.</div>
+            </div>
+          )}
+        </div>
+
+        {/* Ricorrenza */}
+        <div className="border-t border-[color:var(--border)] pt-3.5">
+          <div className="label-eyebrow mb-2">Vuoi prenotare anche i prossimi {giornoLabel}? (stesso orario)</div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {recurrenceOptions.map((iso) => {
+              const checked = recurrenceDates.includes(iso);
+              const d = new Date(iso + "T00:00:00");
+              const label = d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+              return (
+                <label key={iso} className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer border ${checked ? "border-[color:var(--primary)] bg-[color:var(--primary)]/5" : "border-[color:var(--border)]"}`} data-testid={`recurrence-${iso}`}>
+                  <input type="checkbox" checked={checked} onChange={() => toggleRecurrence(iso)} className="accent-[color:var(--primary)]" />
+                  <span className="text-sm font-medium">{label}</span>
+                </label>
+              );
+            })}
+          </div>
+          {recurrenceDates.length > 0 && (
+            <div className="text-xs text-[color:var(--text-2)] mt-2">+{recurrenceDates.length} prenotazione/i aggiuntive verranno create. Gli slot già occupati saranno saltati automaticamente.</div>
+          )}
+        </div>
+
         <div>
           <label className="block text-sm font-medium mb-1.5">Note</label>
-          <textarea rows={3} className="input-base" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} data-testid="app-note-input" />
+          <textarea rows={2} className="input-base" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} data-testid="app-note-input" />
         </div>
+
         {error && <div className="text-sm text-[color:var(--error)] bg-[#FBEFEF] border border-[#E5C4C4] px-3 py-2 rounded-lg" data-testid="app-form-error">{error}</div>}
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-2 pt-1 sticky bottom-0 bg-[color:var(--surface)]">
           <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center" data-testid="app-cancel-button">Annulla</button>
-          <button type="submit" disabled={busy} className="btn-primary flex-1 justify-center" data-testid="app-submit-button">{busy ? "Salvataggio…" : "Crea appuntamento"}</button>
+          <button type="submit" disabled={busy} className="btn-primary flex-1 justify-center" data-testid="app-submit-button">
+            {busy ? "Salvataggio…" : `Registra${recurrenceDates.length > 0 ? ` (${recurrenceDates.length + 1})` : ""}`}
+          </button>
         </div>
       </form>
     </Modal>
