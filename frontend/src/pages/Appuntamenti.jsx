@@ -295,9 +295,6 @@ function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdm
       }
       const { data } = await api.post("/appuntamenti/bulk", payload);
       setResult(data);
-      if (data.count_skipped === 0) {
-        onSaved();
-      }
     } catch (err) {
       setError(formatApiError(err?.response?.data?.detail) || "Errore");
     } finally { setBusy(false); }
