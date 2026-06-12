@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Widgets Statistics start -->
+                <section id="widgets-Statistics">
+                    <div class="row">
+                        <div class="col-12 mt-1 mb-2">
+
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-xl-2 col-md-4 col-sm-6">
+                            <div class="card  text-center">
+                                <div class="card-content">
+                                    <div class="card-body">
+                                        <div class="badge-circle badge-circle-lg badge-circle-light-info mx-auto my-1">
+                                            <i class="bx bx-user-check font-medium-5"></i>
+                                        </div>
+                                        <p class="text-muted mb-0 line-ellipsis"><a href="/nuovo_cliente">NUOVO STUDENTE</a></p>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-2 col-md-4 col-sm-6">
+                            <div class="card text-center">
+                                <div class="card-content">
+                                    <div class="card-body">
+                                        <div class="badge-circle badge-circle-lg badge-circle-light-warning mx-auto my-1">
+                                            <i class="bx bxs-user-plus font-medium-5"></i>
+                                        </div>
+                                        <p class="text-muted mb-0 line-ellipsis"><a href="/nuovo_docente">NUOVO DOCENTE</a></p>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-2 col-md-4 col-sm-6">
+                            <div class="card text-center">
+                                <div class="card-content">
+                                    <div class="card-body">
+                                        <div class="badge-circle badge-circle-lg badge-circle-light-danger mx-auto my-1">
+                                            <i class="bx bxs-calendar-event font-medium-5"></i>
+                                        </div>
+                                        <p class="text-muted mb-0 line-ellipsis"><a href="/trova_docente">NUOVO APPUNTAMENTO</a></p>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-2 col-md-4 col-sm-6">
+                            <div class="card text-center">
+                                <div class="card-content">
+                                    <div class="card-body">
+                                        <div class="badge-circle badge-circle-lg badge-circle-light-primary mx-auto my-1">
+                                            <i class="bx bxs-report font-medium-5"></i>
+                                        </div>
+                                        <p class="text-muted mb-0 line-ellipsis"><a href="/plan_doc">GENERA PLANNING</a></p>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-xl-2 col-md-4 col-sm-6">
+                            <div class="card text-center">
+                                <div class="card-content">
+                                    <div class="card-body">
+                                        <div class="badge-circle badge-circle-lg badge-circle-light-primary mx-auto my-1">
+                                            <i class="bx bxs-user-pin font-medium-5"></i>
+                                        </div>
+                                        <p class="text-muted mb-0 line-ellipsis"><a href="/lista_clienti">LISTA STUDENTI</a></p>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-xl-2 col-md-4 col-sm-6">
+                            <div class="card text-center">
+                                <div class="card-content">
+                                    <div class="card-body">
+                                        <div class="badge-circle badge-circle-lg badge-circle-light-primary mx-auto my-1">
+                                            <i class="bx bxs-book font-medium-5"></i>
+                                        </div>
+                                        <p class="text-muted mb-0 line-ellipsis"><a href="/lista_docenti">LISTA DOCENTI</a></p>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+
+                    </div>
+                </section>
+                <!-- Widgets Statistics End -->
+<!-- Knowledge base Jumbotron start -->
+          <section class="kb-search">
+              <div class="row">
+                  <div class="col-12">
+                      <div class="card faq-bg bg-transparent shadow-none kb-header">
+                          <div class="card-content">
+                              <div class="card-body text-center">
+                                  <h1 class=" mb-2 kb-title">Cerca singolo docente</h1>
+                                  <p class=" mb-3">
+                                      Inserisci numero di cellulare o ricerca per nome, cognome.
+                                  </p>
+                                  <form method="post" action="/cerca">
+                                      <fieldset class="form-group position-relative w-50 mx-auto kb-search-width">
+                                          <input type="text" class="form-control form-control-lg round pl-2" id="searchbar" name="Search" placeholder="Inserisci parola chiave...">
+                                          <button class="btn btn-primary round position-absolute d-none d-sm-block"> Cerca </button>
+                                      </fieldset>
+                                  </form>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </section>
+          <!-- Knowledge base Jumbotron ends -->
+
+{% endblock %}

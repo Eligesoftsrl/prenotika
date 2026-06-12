@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section id="multiple-column-form">
+                    <div class="row match-height">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title">Modifica Componente Segreteria</h4>
+                                </div>
+                                <div class="card-content">
+                                    <div class="card-body">
+                                    <div align="center"><strong>{{risposta}}</strong><br></div>
+
+
+                                    <form method="post"  action="/{{cliente.id}}/edit_team" name="Cliente"  class="form">
+
+                                        <div class="form-body">
+                                                    <div class="row">
+
+                                                                                        <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="last-name-column" value="{{cliente.nome}}" class="form-control" placeholder="Nome" name="Nome" >
+                                                                                                <label for="last-name-column">Nome</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                         <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="prerequisiti"  value="{{cliente.cognome}}" class="form-control" placeholder="Cognome" name="Cognome">
+                                                                                                <label for="prerequisiti">Cognome</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                         <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="sblocchi"  value="{{cliente.username}}"  class="form-control" placeholder="Username" name="Username">
+                                                                                                <label for="sblocchi">Username</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                          <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="password" id="modalita"  value=""  class="form-control" placeholder="Password" name="Password">
+                                                                                                <label for="modalita">Password</label>
+                                                                                            </div>
+                                                                                        </div>
+
+
+
+
+
+                                                                                          <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="sconto"  value="{{cliente.email}}" class="form-control" placeholder="Email" name="Email" >
+                                                                                                <label for="sconto">Email</label>
+                                                                                            </div>
+                                                                                        </div>
+
+
+
+                                                                                          <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="ore"  value="{{cliente.cellulare}}" class="form-control" placeholder="Cellulare" name="Cellulare"  >
+                                                                                                <label for="ore">Cellulare</label>
+                                                                                            </div>
+                                                                                        </div>
+
+
+                                                                                        <div class="col-md-6 col-12">
+                                                                                          <div class="form-label-group">
+                                                                                              <select class="form-control" name="Ruolo">
+                                                                                                  <option>{{cliente.ruolo}}</option>
+                                                                                                  <option>--Seleziona Ruolo--</option>
+                                                                                                  <option>Admin</option>
+                                                                                                  <option>Staff</option>
+                                                                                              </select>
+                                                                                              <label for="ore">Ruolo</label>
+                                                                                          </div>
+                                                                                      </div>
+                                                                                      <div class="col-md-6 col-12"></div>
+                                                                                       <div class="col-md-6 col-12"></div>
+                                                                                      <div class="col-md-6 col-12 d-flex justify-content-end">
+                                                                                          <button type="submit" class="btn btn-primary btn-block block-page  text-nowrap mr-1 mb-1"  style="width:30%;">Modifica Ora</button>
+                                                                                      </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </form>
+
+
+
+
+
+
+
+
+
+
+
+
+                                   </div>
+                               </div>
+                        </div>
+                    </div>
+</section>
+
+{% endblock %}

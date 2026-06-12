@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section id="multiple-column-form">
+                    <div class="row match-height">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title">Nuova News</h4>
+                                </div>
+                                <div class="card-content">
+                                    <div class="card-body">
+                                    <div align="center">{{risposta}}</div>
+
+
+                                    <form method="post"  action="/crea_news" name="News"  enctype="multipart/form-data" class="form">
+
+                                        <div class="form-body">
+                                                    <div class="row">
+
+                                                                                        <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="last-name-column" class="form-control" placeholder="Titolo" name="Titolo" required>
+                                                                                                <label for="last-name-column">Titolo</label>
+                                                                                            </div>
+                                                                                        </div>
+
+
+                                                                                       <div class="col-md-6 col-12">
+                                                                                          <div class="form-label-group" style="margin-bottom: 0.5rem;">
+                                                                                              <select id="Tipo" class="form-control" name="Tipologia">
+                                                                                               <option>News</option>
+                                                                                              <option>Promo</option>
+                                                                                              </select>
+                                                                                              <label for="Tipo">Tipologia</label>
+                                                                                          </div>
+
+                                                                                       </div>
+
+                                                                                       <div class="col-md-6 col-12">
+                                                                                         <div class="form-label-group">
+                                                                                             <input type="text" name="Data" id="datan" value="{{day}}" class="form-control pickadate" placeholder="Seleziona Date" required>
+                                                                                             <label for="datan">Data</label>
+                                                                                         </div>
+                                                                                     </div>
+
+                                                                                          <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="file" name="file" id="allegato" class="form-control" placeholder="Allegato" >
+                                                                                                <label for="allegato">Allegato(jpg, png, gif e pdf)</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                        <div class="col-md-12 col-12">
+                                                                                           <div class="form-label-group" style="margin-bottom: 0.5rem;">
+                                                                                               <textarea  id="textarea-note" class="form-control char-textarea" placeholder="Testo" name="Testo"></textarea>
+                                                                                               <label for="textarea-note">Testo</label>
+                                                                                           </div>
+
+                                                                                        </div>
+
+                                                                                        <div class="col-md-6 col-12"></div>
+                                                                                       <div class="col-md-6 col-12 d-flex justify-content-end">
+                                                                                           <button type="submit" class="btn btn-primary btn-block block-page  text-nowrap mr-1 mb-1"  style="width:30%;">Inserisci Ora</button>
+                                                                                       </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </form>
+
+
+
+
+
+
+
+
+
+
+
+
+                                   </div>
+                               </div>
+                        </div>
+                    </div>
+</section>
+
+{% endblock %}

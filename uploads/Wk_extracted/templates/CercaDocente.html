@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+                     {% block content %}
+
+                     <!-- // Basic multiple Column Form section start -->
+                                    <section id="multiple-column-form">
+                                        <div class="row match-height">
+                                            <div class="col-12">
+                                                <div class="card">
+                                                    <div class="card-header">
+                                                        <h4 class="card-title">Ricerca Docente</h4>
+                                                    </div>
+                                                    <div class="card-content">
+                                                        <div class="card-body">
+                                                            <div align="center"><strong>{{risposta}}</strong><br></div>
+
+                                                                <form method="post"  action="/go_week" name="Prodotto"  class="form">
+
+                                                                <div class="form-body">
+                                                                    <div class="row">
+
+                                                                        <div class="col-md-6 col-12">
+                                                                            <div class="form-label-group">
+                                                                                <input id="number" list="browsers" class="form-control"  name="Docente" autocomplete="off">
+                                                                                <datalist id="browsers">
+                                                                                    {% for pro in listapro: %}
+                                                                                    <option data-value="{{pro.id}}" value="{{pro.nome}} {{pro.cognome}}"></option>
+                                                                                    {% endfor %}
+
+                                                                                </datalist>
+
+                                                                                <label for="browsers">Seleziona Docente</label>
+                                                                                <input type="hidden" name="Selezione" id="Selezione">
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div class="col-md-6 col-12">
+
+                                                                        </div>
+
+
+
+
+
+
+
+
+
+                                                                        <div class="col-md-6 col-12"></div>
+                                                                       <div class="col-md-6 col-12 d-flex justify-content-end">
+
+                                                                            <input id="submit" type="submit" class="btn btn-primary btn-block block-page  text-nowrap mr-1 mb-1"  style="width:30%;" value="Cerca Ora">
+
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </form>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                        </div>
+
+
+
+
+                                                    </div>
+
+
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </section>
+                                    <!-- // Basic multiple Column Form section end -->
+
+
+
+
+                     {% endblock %}

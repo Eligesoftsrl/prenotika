@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+                     {% block content %}
+
+                     <!-- // Basic multiple Column Form section start -->
+                                    <section id="multiple-column-form">
+                                        <div class="row match-height">
+                                            <div class="col-12">
+                                                <div class="card">
+                                                    <div class="card-header">
+                                                        <h4 class="card-title">Modifica messaggi sms</h4>
+                                                    </div>
+                                                    <div class="card-content">
+                                                        <div class="card-body">
+                                                            <div align="center"><strong>{{risposta | safe}}</strong><br><br></div>
+
+                                                                <form method="post"  action="/{{prodotto.id}}/edit_messaggio" name="Prodotto"  class="form">
+
+                                                                <div class="form-body">
+                                                                    <div class="row">
+
+                                                                        <div class="col-md-6 col-12">
+                                                                            <div class="form-label-group">
+                                                                                <input type="text" id="Desc" class="form-control" placeholder="Testo Sms" name="Descrizione" value="{{prodotto.nome}}" required />
+                                                                                <label for="Desc">Testo Sms</label>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-md-6 col-12">
+                                                                            <div class="form-label-group">
+                                                                                <input type="text" id="Price" class="form-control" placeholder="Codice" name="Prezzo" value="{{prodotto.prezzo}}" readonly />
+                                                                                <label for="Price">Codice</label>
+                                                                            </div>
+                                                                        </div>
+
+
+
+
+
+
+                                                                        <div class="col-md-6 col-12"></div>
+                                                                       <div class="col-md-6 col-12 d-flex justify-content-end">
+                                                                           <button type="submit" class="btn btn-primary btn-block block-page  text-nowrap mr-1 mb-1"  style="width:30%;">Modifica Ora</button>
+                                                                       </div>
+                                                                    </div>
+                                                                </div>
+                                                            </form>
+
+                                                        </div>
+
+
+
+
+                                                    </div>
+
+
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </section>
+                                    <!-- // Basic multiple Column Form section end -->
+
+
+
+                     {% endblock %}

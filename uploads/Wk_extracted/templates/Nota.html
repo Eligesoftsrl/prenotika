@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section id="multiple-column-form">
+                    <div class="row match-height">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title">Inserisci una nuova Nota per: {{cliente.nome}} {{cliente.cognome}}</h4>
+                                </div>
+                                <div class="card-content">
+                                    <div class="card-body">
+                                    <div align="center">{{risposta}}</div>
+
+
+                                    <form method="post"  action="/crea_nota" name="Nota"  class="form">
+
+                                        <div class="form-body">
+                                                    <div class="row">
+
+
+                                                         <div class="col-md-12 col-12">
+                                                            <div class="form-label-group" style="margin-bottom: 0.5rem;">
+                                                                <textarea  id="textarea-note" rows="10" class="form-control char-textarea" placeholder="Eventuali Note" name="Note"></textarea>
+                                                                <label for="textarea-note">Eventuali Note</label>
+                                                            </div>
+
+                                                        </div>
+
+
+                                                        <div class="col-md-12 col-12">
+                                                           <div class="form-label-group" style="margin-bottom: 0.5rem;">
+                                                               <select id="Tag" class="form-control" name="Tag">
+                                                                <option value="">--Seleziona Tag--</option>
+                                                               <option>Amministrativa</option>
+                                                               <option>Comportamentale</option>
+                                                               <option>Didattica</option>
+
+
+                                                               </select>
+                                                               <label for="Tag">Tag</label>
+                                                           </div>
+
+                                                       </div>
+
+
+                                                             <div class="col-md-12 col-12">
+                                                        <input type="hidden" name="Idcliente" value="{{cliente.id}}">
+                                                             </div>
+                                                        <div class="col-12 d-flex justify-content-end">
+
+                                                            <button type="submit" class="btn btn-primary mr-1 mb-1">Inserisci Note</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </form>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                   </div>
+                               </div>
+                        </div>
+                    </div>
+</section>
+
+{% endblock %}
