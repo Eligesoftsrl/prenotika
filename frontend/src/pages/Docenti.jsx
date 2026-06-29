@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, formatApiError } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { Plus, Edit2, Trash2, X, GraduationCap, CalendarClock, Users as UsersIcon, BookOpen } from "lucide-react";
+import { tipologiaLabels } from "@/lib/tipologia";
 
 const COLORS = ["#2C4C3B", "#D96C4A", "#4C6B8B", "#D4A373", "#8B5A2B", "#4A5D23"];
 const DURATE = [15, 30, 45, 60, 90, 120];
@@ -12,6 +14,8 @@ function emptyForm() {
 
 export default function Docenti() {
   const navigate = useNavigate();
+  const { studio } = useAuth();
+  const L = tipologiaLabels(studio?.tipologia);
   const [items, setItems] = useState([]);
   const [materie, setMaterie] = useState([]);
   const [docMaterie, setDocMaterie] = useState({});
@@ -58,7 +62,7 @@ export default function Docenti() {
     try {
       const { data } = await api.get(`/docenti/${d.id}/materie`);
       mids = data.map((m) => m.id);
-    } catch {}
+    } catch { /* docente senza materie */ }
     setForm({
       nome: d.nome, cognome: d.cognome, email: d.email,
       password: "", telefono: d.telefono || "",
@@ -108,11 +112,11 @@ export default function Docenti() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <div className="label-eyebrow mb-1.5">Team</div>
-          <h1 className="font-display text-3xl sm:text-4xl font-black tracking-tight">Docenti</h1>
-          <p className="text-[color:var(--text-2)] mt-1">Gestisci il team del tuo centro studi.</p>
+          <h1 className="font-display text-3xl sm:text-4xl font-black tracking-tight">{L.docenti}</h1>
+          <p className="text-[color:var(--text-2)] mt-1">Gestisci il team del tuo {studio?.tipologia === "studio_medico" ? "studio medico" : studio?.tipologia === "studio_legale" ? "studio legale" : "centro studi"}.</p>
         </div>
         <button onClick={openCreate} className="btn-primary" data-testid="docente-create-button">
-          <Plus size={16} /> Nuovo docente
+          <Plus size={16} /> Nuovo {L.docente.toLowerCase()}
         </button>
       </div>
 
@@ -134,7 +138,7 @@ export default function Docenti() {
             <div className="hidden md:block">
               <table className="table-clean w-full">
                 <thead>
-                  <tr><th>Docente</th><th>Email</th><th>Materie</th><th>Durata app.</th><th>Stato</th><th></th></tr>
+                  <tr><th>{L.docente}</th><th>Email</th><th>{L.materie}</th><th>Durata app.</th><th>Stato</th><th></th></tr>
                 </thead>
                 <tbody>
                   {items.map((d) => (
@@ -160,8 +164,10 @@ export default function Docenti() {
                       <td className="text-right">
                         <div className="flex justify-end gap-1.5 flex-wrap">
                           <button onClick={() => navigate(`/orari?docente=${d.id}`)} className="btn-secondary text-xs" title="Calendario disponibilità" data-testid={`docente-calendar-${d.id}`}><CalendarClock size={13} /> <span className="hidden lg:inline">Calendario</span></button>
-                          <button onClick={() => navigate(`/docenti/${d.id}/alunni`)} className="btn-secondary text-xs" title="Alunni associati" data-testid={`docente-alunni-${d.id}`}><UsersIcon size={13} /> <span className="hidden lg:inline">Alunni</span></button>
-                          <button onClick={() => navigate(`/docenti/${d.id}/materie`)} className="btn-secondary text-xs" title="Materie insegnate" data-testid={`docente-materie-${d.id}`}><BookOpen size={13} /> <span className="hidden lg:inline">Materie</span></button>
+                          {L.needs_association && (
+                            <button onClick={() => navigate(`/docenti/${d.id}/alunni`)} className="btn-secondary text-xs" title={`${L.clienti} associati`} data-testid={`docente-alunni-${d.id}`}><UsersIcon size={13} /> <span className="hidden lg:inline">{L.clienti}</span></button>
+                          )}
+                          <button onClick={() => navigate(`/docenti/${d.id}/materie`)} className="btn-secondary text-xs" title={L.materie} data-testid={`docente-materie-${d.id}`}><BookOpen size={13} /> <span className="hidden lg:inline">{L.materie}</span></button>
                           <button onClick={() => openEdit(d)} className="btn-secondary text-xs" data-testid={`docente-edit-${d.id}`}><Edit2 size={13} /></button>
                           <button onClick={() => remove(d)} className="btn-danger" data-testid={`docente-delete-${d.id}`}><Trash2 size={13} /></button>
                         </div>
@@ -191,8 +197,10 @@ export default function Docenti() {
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <button onClick={() => navigate(`/orari?docente=${d.id}`)} className="btn-secondary text-xs justify-center"><CalendarClock size={13} /> Calendario</button>
-                    <button onClick={() => navigate(`/docenti/${d.id}/alunni`)} className="btn-secondary text-xs justify-center"><UsersIcon size={13} /> Alunni</button>
-                    <button onClick={() => navigate(`/docenti/${d.id}/materie`)} className="btn-secondary text-xs justify-center"><BookOpen size={13} /> Materie</button>
+                    {L.needs_association && (
+                      <button onClick={() => navigate(`/docenti/${d.id}/alunni`)} className="btn-secondary text-xs justify-center"><UsersIcon size={13} /> {L.clienti}</button>
+                    )}
+                    <button onClick={() => navigate(`/docenti/${d.id}/materie`)} className="btn-secondary text-xs justify-center"><BookOpen size={13} /> {L.materie}</button>
                     <button onClick={() => openEdit(d)} className="btn-secondary text-xs justify-center"><Edit2 size={13} /> Modifica</button>
                     <button onClick={() => remove(d)} className="btn-danger justify-center col-span-2"><Trash2 size={13} /> Elimina</button>
                   </div>
@@ -222,10 +230,10 @@ export default function Docenti() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Materie insegnate</label>
+              <label className="block text-sm font-medium mb-1.5">{L.materie_label}</label>
               {materie.length === 0 ? (
                 <div className="text-xs text-[color:var(--text-2)] bg-[color:var(--surface-2)] border border-[color:var(--border)] rounded-md px-3 py-2">
-                  Nessuna materia nel catalogo. Vai in <strong>Materie</strong> per crearle, poi torna qui per associarle.
+                  Nessuna voce nel catalogo {L.materie.toLowerCase()}. Vai in <strong>{L.materie}</strong> per crearle, poi torna qui per associarle.
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-2" data-testid="docente-materie-tags">

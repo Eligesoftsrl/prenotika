@@ -1,0 +1,60 @@
+{
+  "summary": "Iter 9 EligeHub multi-verticale: 9/11 backend tests PASS (test_iter9_tipologia.py), 8/8 smoke UI checks PASS (sidebar labels per tipologia, docenti page titoli/bottoni 'Nuovo medico/avvocato', riga docente in centro_studi senza btn Studenti/Alunni, Studios super_admin con colonna Tipologia + form con 3 opzioni). 2 BUG BACKEND CRITICI rilevati: (A) POST /api/studios non persiste body.tipologia (sempre default 'centro_studi'); (B) GET /api/appuntamenti hydration setta materia_descrizione ma response_model=Appuntamento lo strippa (manca field nel model) — frontend calendario settimana/giorno/mese NON riceverà materia_descrizione anche se appuntamento ha materia_id.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/studios",
+        "issue": "Body.tipologia ignorato: server.py:343-353 costruisce studio_doc senza includere 'tipologia', risultato sempre default 'centro_studi'. Fix: aggiungere 'tipologia': body.tipologia in studio_doc.",
+        "priority": "HIGH"
+      },
+      {
+        "endpoint": "GET /api/appuntamenti",
+        "issue": "Hydration in _hydrate_appuntamenti (server.py:670) imposta d['materia_descrizione'] correttamente, ma il response_model=List[Appuntamento] lo strippa perché classe Appuntamento (server.py:246-251) non dichiara il field 'materia_descrizione: Optional[str] = None'. Conseguenza: frontend calendario week/day/month non potrà mostrare etichetta materia. Fix: aggiungere materia_descrizione nel modello Appuntamento.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Calendar week/day/month materia label",
+        "issue": "Bloccato dal BUG backend GET /api/appuntamenti (materia_descrizione strippato). Anche se il form modal salva materia_id correttamente nel DB, l'etichetta non viene re-renderizzata nel calendario perché l'API non la restituisce. Verifica: PDF (path indipendente) mostra correttamente la materia.",
+        "affected_selectors": [".week-cell", ".day-pill", ".month-cell"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter9_tipologia.py",
+    "/app/test_reports/pytest/iter9_results.xml"
+  ],
+  "action_items": [
+    "FIX server.py create_studio: aggiungere 'tipologia': body.tipologia nel dict studio_doc (riga ~343).",
+    "FIX server.py modello Appuntamento (riga ~246): aggiungere 'materia_descrizione: Optional[str] = None' come field opzionale così FastAPI non lo strippa dalla risposta hydrated.",
+    "Dopo i fix, ri-eseguire pytest /app/backend/tests/test_iter9_tipologia.py per validare 11/11 PASS."
+  ],
+  "critical_code_review_comments": [
+    "server.py:343-353 (create_studio): manca il campo tipologia nell'insert. Il body lo accetta (StudioCreate(StudioBase) include tipologia con default centro_studi) ma viene scartato. La patch update_many a startup (riga 1343) maschera l'effetto solo per studi che esistevano prima.",
+    "server.py:246-251 (class Appuntamento): manca dichiarazione di materia_descrizione, mentre cliente_nome/docente_nome sono già presenti come Optional. Stesso pattern da applicare.",
+    "Logica list_clienti per tipologia (server.py:523-551) implementata correttamente: centro_studi → pool unico; studio_legale/medico → docente vede solo associati, admin opzionalmente filtra. Verificato per tutti i 3 ruoli demo.",
+    "Bulk endpoint associazione condizionale (server.py:932-945): needs_association = tipologia in ('studio_legale','studio_medico'). Verificato che in centro_studi NON crea docente_clienti link e in studio_legale SÌ lo crea.",
+    "PDF Report (server.py:1126-1139): tabella ha 8 colonne ['Data','Giorno','Dalle','Alle','Cliente','Materia','Stato','Note'] con colWidths=[22,22,13,13,42,28,20,24]mm — totale ~184mm su A4 (180mm utili) leggermente sopra il margine ma reportlab gestisce con shrink. Funzionante.",
+    "Merge function (server.py:1064-1088): chiave include materia_id confronto. Verificato: 2 appt contigui con materia diversa NON vengono uniti (entrambe le descrizioni materia appaiono nel PDF).",
+    "Seed Studio Legale Demo + Studio Medico Demo (server.py:1346-1397) idempotente (find by nome). 1 cliente + 1 docente_clienti link creati per ciascuno → giusto per studio_legale/medico (associazione obbligatoria)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter9_tipologia.py"
+  ],
+  "success_rate": {
+    "backend": "82% (9/11 PASS, 2 fail = 2 bug backend reali)",
+    "frontend": "100% smoke (8/8 check sidebar/labels/forms/columns per tipologia)"
+  },
+  "test_credentials": "Tutti come da /app/memory/test_credentials.md (superadmin, admin@demo.it/admin@legale.it/admin@medico.it, docente@demo.it/avv@legale.it/med@medico.it).",
+  "seed_data_creation": "Tutti i dati di test (clienti TEST_, appuntamenti +200/+225 giorni offset, studio TEST_Iter9_Legale) sono creati e ripuliti via DELETE in finally. Verifica finale: 0 studi residui con prefisso 'TEST_'.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter9 backend: tests in /app/backend/tests/test_iter9_tipologia.py. Helper _ensure_docente_materie() necessario perché Marco Bianchi (docente demo centro_studi) NON ha docente_materie seedato di default — il test crea associazioni al volo e non le rimuove (ma sono idempotenti). I 2 bug rilevati (POST /studios tipologia, Appuntamento.materia_descrizione field) sono fix triviali da 2 righe ciascuno in server.py. Test PDF richiede pypdf installato (già fatto: pip install pypdf -q).",
+  "rca of the issue": "BUG 1 (POST /studios tipologia non persiste): Quando E1 ha aggiunto Tipologia al modello StudioBase, ha modificato la pipe di seed (idempotenza) e quella di list_clienti, ma ha dimenticato di aggiungere 'tipologia': body.tipologia in create_studio.studio_doc dict. Riproduzione: superadmin POST /api/studios con tipologia='studio_legale' → response.tipologia='centro_studi'. Mitigazione: aggiungere 1 riga al dict studio_doc.  ||  BUG 2 (Appuntamento.materia_descrizione strippato): hydrate setta correttamente la chiave ma FastAPI applica response_model=List[Appuntamento] e Appuntamento non dichiara il field opzionale → strippato. Riproduzione: POST appuntamento con materia_id valido, GET /api/appuntamenti → response item ha materia_id ma NON materia_descrizione. Mitigazione: aggiungere `materia_descrizione: Optional[str] = None` nella class Appuntamento (subito dopo docente_nome)."
+}

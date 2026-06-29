@@ -69,6 +69,7 @@ def create_access_token(user_id: str, role: str, studio_id: Optional[str]) -> st
 # Models
 # -----------------------------------------------------------------------------
 Role = Literal["super_admin", "admin", "docente"]
+Tipologia = Literal["centro_studi", "studio_legale", "studio_medico"]
 
 class StudioBase(BaseModel):
     nome: str
@@ -77,6 +78,7 @@ class StudioBase(BaseModel):
     email: Optional[EmailStr] = None
     piva: Optional[str] = None
     note: Optional[str] = None
+    tipologia: Tipologia = "centro_studi"
 
 class StudioCreate(StudioBase):
     admin_nome: str
@@ -188,6 +190,7 @@ class AppuntamentoBase(BaseModel):
     dal: str        # HH:MM
     al: str         # HH:MM
     note: Optional[str] = None
+    materia_id: Optional[str] = None
     stato: Literal["confermato", "annullato", "completato"] = "confermato"
 
 class AppuntamentoCreate(AppuntamentoBase):
@@ -200,6 +203,7 @@ class AppuntamentoUpdate(BaseModel):
     dal: Optional[str] = None
     al: Optional[str] = None
     note: Optional[str] = None
+    materia_id: Optional[str] = None
     stato: Optional[Literal["confermato", "annullato", "completato"]] = None
 
 # --- Materie & bulk-booking models ---
@@ -236,6 +240,7 @@ class BulkAppuntamentoCreate(BaseModel):
     nuovo_cliente: Optional[NewClienteInline] = None  # OR create new inline
     slots: List[BulkSlot]
     note: Optional[str] = None
+    materia_id: Optional[str] = None
     associa_alunno: bool = True
 
 class Appuntamento(AppuntamentoBase):
@@ -520,7 +525,13 @@ async def list_clienti(
     user: dict = Depends(require_role("admin", "docente")),
 ):
     sid = _scope_studio_id(user)
-    # Se è docente, mostra solo i propri alunni associati
+    studio = await db.studios.find_one({"_id": sid})
+    tipologia = (studio or {}).get("tipologia", "centro_studi")
+    # In centro_studi non c'è associazione studente-docente: tutti vedono tutti
+    if tipologia == "centro_studi":
+        items = await db.clienti.find({"studio_id": sid}).sort("cognome", 1).to_list(2000)
+        return [_from_mongo(x) for x in items]
+    # Se è docente in studio_legale/medico, mostra solo i propri clienti associati
     if user["role"] == "docente":
         links = await db.docente_clienti.find({"studio_id": sid, "docente_id": user["id"]}).to_list(2000)
         ids = [link["cliente_id"] for link in links]
@@ -528,7 +539,7 @@ async def list_clienti(
             return []
         items = await db.clienti.find({"_id": {"$in": ids}}).sort("cognome", 1).to_list(2000)
         return [_from_mongo(x) for x in items]
-    # Admin: opzionalmente filtra per docente_id (alunni associati)
+    # Admin: opzionalmente filtra per docente_id (clienti associati)
     if docente_id:
         links = await db.docente_clienti.find({"studio_id": sid, "docente_id": docente_id}).to_list(2000)
         ids = [link["cliente_id"] for link in links]
@@ -642,8 +653,12 @@ async def _hydrate_appuntamenti(items: List[dict]) -> List[dict]:
         return []
     cliente_ids = list({i["cliente_id"] for i in items})
     docente_ids = list({i["docente_id"] for i in items})
+    materia_ids = list({i.get("materia_id") for i in items if i.get("materia_id")})
     clienti = {c["_id"]: c async for c in db.clienti.find({"_id": {"$in": cliente_ids}})}
     docenti = {u["_id"]: u async for u in db.users.find({"_id": {"$in": docente_ids}})}
+    materie = {}
+    if materia_ids:
+        materie = {m["_id"]: m async for m in db.materie.find({"_id": {"$in": materia_ids}})}
     out = []
     for it in items:
         d = _from_mongo(it)
@@ -651,6 +666,8 @@ async def _hydrate_appuntamenti(items: List[dict]) -> List[dict]:
         u = docenti.get(it["docente_id"])
         d["cliente_nome"] = f"{c['nome']} {c['cognome']}" if c else None
         d["docente_nome"] = f"{u['nome']} {u['cognome']}" if u else None
+        mid = it.get("materia_id")
+        d["materia_descrizione"] = materie.get(mid, {}).get("descrizione") if mid else None
         out.append(d)
     return out
 
@@ -712,6 +729,7 @@ async def create_appuntamento(body: AppuntamentoCreate, user: dict = Depends(req
         "dal": body.dal,
         "al": body.al,
         "note": body.note,
+        "materia_id": body.materia_id,
         "stato": body.stato,
         "created_at": now_utc().isoformat(),
     }
@@ -911,8 +929,11 @@ async def bulk_appuntamenti(body: BulkAppuntamentoCreate, user: dict = Depends(r
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente non trovato")
 
-    # Auto-associate cliente al docente se richiesto
-    if body.associa_alunno:
+    # Auto-associate cliente al docente se richiesto (solo per tipologie con associazione)
+    studio = await db.studios.find_one({"_id": sid})
+    tipologia = (studio or {}).get("tipologia", "centro_studi")
+    needs_association = tipologia in ("studio_legale", "studio_medico")
+    if body.associa_alunno and needs_association:
         existing_link = await db.docente_clienti.find_one({"studio_id": sid, "docente_id": docente_id, "cliente_id": cliente_id})
         if not existing_link:
             await db.docente_clienti.insert_one({
@@ -954,6 +975,7 @@ async def bulk_appuntamenti(body: BulkAppuntamentoCreate, user: dict = Depends(r
             "dal": s.dal,
             "al": s.al,
             "note": body.note,
+            "materia_id": body.materia_id,
             "stato": "confermato",
             "created_at": now_utc().isoformat(),
         }
@@ -1051,6 +1073,7 @@ async def report_appuntamenti_pdf(
                 nxt["data"] == cur["data"]
                 and nxt["cliente_id"] == cur["cliente_id"]
                 and nxt["stato"] == cur.get("stato")
+                and nxt.get("materia_id") == cur.get("materia_id")
                 and nxt["dal"] == cur["al"]
             )
             if same_key:
@@ -1100,7 +1123,7 @@ async def report_appuntamenti_pdf(
         if not list_d:
             story.append(Paragraph("Nessun appuntamento nel periodo selezionato.", body))
         else:
-            data_rows = [["Data", "Giorno", "Dalle", "Alle", "Cliente", "Stato", "Note"]]
+            data_rows = [["Data", "Giorno", "Dalle", "Alle", "Cliente", "Materia", "Stato", "Note"]]
             for a in list_d:
                 dt = date.fromisoformat(a["data"])
                 data_rows.append([
@@ -1109,10 +1132,11 @@ async def report_appuntamenti_pdf(
                     a["dal"],
                     a["al"],
                     a.get("cliente_nome") or "—",
+                    a.get("materia_descrizione") or "—",
                     a.get("stato", "confermato"),
                     (a.get("note") or "")[:60],
                 ])
-            tbl = Table(data_rows, colWidths=[22*mm, 24*mm, 14*mm, 14*mm, 50*mm, 22*mm, 34*mm], repeatRows=1)
+            tbl = Table(data_rows, colWidths=[22*mm, 22*mm, 13*mm, 13*mm, 42*mm, 28*mm, 20*mm, 24*mm], repeatRows=1)
             tbl.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2C4C3B")),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -1264,6 +1288,7 @@ async def seed_super_admin_and_demo():
             "telefono": "+39 02 1234567",
             "email": "info@demo.it",
             "piva": "IT01234567890",
+            "tipologia": "centro_studi",
             "note": "Studio demo precaricato",
             "active": True,
             "created_at": now_utc().isoformat(),
@@ -1314,7 +1339,62 @@ async def seed_super_admin_and_demo():
         ])
         logger.info("Seeded demo studio + admin + docente + clienti")
 
-    # Patch: assicurati che il docente demo abbia gli alunni associati anche su DB già esistenti
+    # Patch: garantisci che gli studi esistenti abbiano un valore di tipologia
+    await db.studios.update_many({"tipologia": {"$exists": False}}, {"$set": {"tipologia": "centro_studi"}})
+
+    # Seed 2 ulteriori studi demo per tipologie diverse
+    for nome, tip, admin_email, admin_pwd, prof_email, prof_pwd, prof_nome, prof_cognome, spec in [
+        ("Studio Legale Demo", "studio_legale", "admin@legale.it", "Admin123!", "avv@legale.it", "Avv123!", "Carlo", "Russo", "Diritto civile"),
+        ("Studio Medico Demo", "studio_medico", "admin@medico.it", "Admin123!", "med@medico.it", "Med123!", "Laura", "Conti", "Cardiologia"),
+    ]:
+        existing = await db.studios.find_one({"nome": nome})
+        if existing:
+            continue
+        sid_new = new_id()
+        await db.studios.insert_one({
+            "_id": sid_new, "nome": nome, "sede": "Via Demo 2, Milano", "telefono": "+39 02 7654321",
+            "email": "info@demo.it", "piva": None, "tipologia": tip,
+            "note": "Studio demo precaricato", "active": True, "created_at": now_utc().isoformat(),
+        })
+        await db.users.insert_one({
+            "_id": new_id(), "nome": "Admin", "cognome": nome.split()[1], "email": admin_email,
+            "password_hash": hash_password(admin_pwd), "role": "admin", "studio_id": sid_new,
+            "active": True, "created_at": now_utc().isoformat(),
+        })
+        prof_id = new_id()
+        await db.users.insert_one({
+            "_id": prof_id, "nome": prof_nome, "cognome": prof_cognome, "email": prof_email,
+            "password_hash": hash_password(prof_pwd), "role": "docente", "studio_id": sid_new,
+            "color": "#4C6B8B" if tip == "studio_legale" else "#D96C4A",
+            "slot_minuti": 30 if tip == "studio_medico" else 60,
+            "active": True, "created_at": now_utc().isoformat(),
+        })
+        # spec/materia
+        mat_id = new_id()
+        await db.materie.insert_one({
+            "_id": mat_id, "studio_id": sid_new, "descrizione": spec, "prezzo": None,
+            "created_at": now_utc().isoformat(),
+        })
+        await db.docente_materie.insert_one({
+            "_id": new_id(), "studio_id": sid_new, "docente_id": prof_id, "materia_id": mat_id,
+            "created_at": now_utc().isoformat(),
+        })
+        # disponibilità Lun-Ven 9-13
+        for g in range(0, 5):
+            await db.orari.insert_one({"_id": new_id(), "studio_id": sid_new, "docente_id": prof_id, "giorno": g, "dal": "09:00", "al": "13:00"})
+        # cliente di esempio
+        cli_id = new_id()
+        client_label = "Mario Bianchi" if tip == "studio_legale" else "Anna Verdi"
+        n, cn = client_label.split()
+        await db.clienti.insert_one({
+            "_id": cli_id, "studio_id": sid_new, "nome": n, "cognome": cn,
+            "email": None, "cellulare": "+39 333 0000000", "created_at": now_utc().isoformat(),
+        })
+        await db.docente_clienti.insert_one({
+            "_id": new_id(), "studio_id": sid_new, "docente_id": prof_id, "cliente_id": cli_id,
+            "created_at": now_utc().isoformat(),
+        })
+        logger.info("Seeded %s with admin %s", nome, admin_email)
     demo_studio_after = await db.studios.find_one({"nome": os.environ["DEMO_STUDIO_NAME"]})
     if demo_studio_after:
         sid = demo_studio_after["_id"]

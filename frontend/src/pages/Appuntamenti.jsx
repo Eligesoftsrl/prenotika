@@ -3,6 +3,7 @@ import { api, formatApiError, API_BASE } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Plus, ChevronLeft, ChevronRight, Calendar as CalIcon, Trash2, Download, LayoutGrid, List } from "lucide-react";
 import { Modal } from "./Docenti";
+import { tipologiaLabels } from "@/lib/tipologia";
 
 const GIORNI = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 7); // 7..20
@@ -25,7 +26,8 @@ function toHHMM(mins) {
 }
 
 export default function Appuntamenti() {
-  const { user } = useAuth();
+  const { user, studio } = useAuth();
+  const L = tipologiaLabels(studio?.tipologia);
   const isAdmin = user?.role === "admin";
 
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date()));
@@ -338,6 +340,9 @@ export default function Appuntamenti() {
                               <span className="opacity-80 text-[9px]">/{toHHMM(m + slotMinuti)}</span>
                             </div>
                             <div className="font-semibold truncate w-full leading-tight mt-0.5">{ev.cliente_nome}</div>
+                            {ev.materia_descrizione && (
+                              <div className="text-[9px] opacity-80 truncate w-full leading-tight">{ev.materia_descrizione}</div>
+                            )}
                             {toMin(ev.dal) === m && (
                               <button onClick={() => remove(ev.id)} className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 text-white/85 hover:text-white" data-testid={`appuntamento-delete-${ev.id}`}><Trash2 size={11} /></button>
                             )}
@@ -404,6 +409,7 @@ export default function Appuntamenti() {
                             </div>
                             <div className="px-4 py-3 bg-[color:var(--surface-2)] text-center border-x border-b border-[color:var(--border)] rounded-b-lg">
                               <div className="font-semibold">{ev.cliente_nome}</div>
+                              {ev.materia_descrizione && <div className="text-xs text-[color:var(--text)] mt-0.5"><span className="pill">{ev.materia_descrizione}</span></div>}
                               {ev.note && <div className="text-xs text-[color:var(--text-2)] mt-1">{ev.note}</div>}
                             </div>
                           </div>
@@ -465,8 +471,8 @@ export default function Appuntamenti() {
                   </div>
                   <div className="space-y-0.5">
                     {evs.slice(0, 3).map((e) => (
-                      <div key={e.id} className="text-[10px] rounded px-1 py-0.5 truncate text-white" style={{ background: docenteSel?.color || "#2C4C3B" }} title={`${e.dal}-${e.al} ${e.cliente_nome}`}>
-                        <span className="font-bold">{e.dal}</span> {e.cliente_nome}
+                      <div key={e.id} className="text-[10px] rounded px-1 py-0.5 truncate text-white" style={{ background: docenteSel?.color || "#2C4C3B" }} title={`${e.dal}-${e.al} ${e.cliente_nome}${e.materia_descrizione ? ' · ' + e.materia_descrizione : ''}`}>
+                        <span className="font-bold">{e.dal}</span> {e.cliente_nome}{e.materia_descrizione ? ` · ${e.materia_descrizione}` : ""}
                       </div>
                     ))}
                     {evs.length > 3 && <div className="text-[9px] text-[color:var(--text-2)] font-semibold">+{evs.length - 3} altri</div>}
@@ -488,6 +494,8 @@ export default function Appuntamenti() {
           clienti={clienti}
           isAdmin={isAdmin}
           currentDocenteId={user?.role === "docente" ? user.id : selectedDocenteId}
+          tipologiaLabels={L}
+          tipologia={studio?.tipologia}
         />
       )}
     </div>
@@ -504,7 +512,7 @@ function addMinutes(hhmm, minutes) {
 
 const GIORNI_LABEL = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
-function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdmin, currentDocenteId }) {
+function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdmin, currentDocenteId, tipologiaLabels: L, tipologia }) {
   const today = new Date().toISOString().slice(0, 10);
   // Se passato currentDocenteId, usa quello (anche per admin pre-seleziona dal calendario)
   const initialDocente = currentDocenteId || (isAdmin ? (docenti[0]?.id || "") : "");
@@ -518,9 +526,11 @@ function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdm
     dal: initialDal,
     al: defaults?.al || addMinutes(initialDal, initialSlot),
     note: "",
+    materia_id: "",
   });
   const [alunni, setAlunni] = useState([]);
   const [loadingAlunni, setLoadingAlunni] = useState(false);
+  const [docenteMaterie, setDocenteMaterie] = useState([]);
   const [freeSlots, setFreeSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [mode, setMode] = useState("existing"); // "existing" | "new"
@@ -543,17 +553,27 @@ function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdm
   });
 
   useEffect(() => {
-    if (!form.docente_id) { setAlunni([]); return; }
+    if (!form.docente_id) { setAlunni([]); setDocenteMaterie([]); return; }
     setLoadingAlunni(true);
-    api.get(`/docenti/${form.docente_id}/alunni`).then(({ data }) => {
-      setAlunni(data);
-      if (!data.find((c) => c.id === form.cliente_id)) {
-        setForm((f) => ({ ...f, cliente_id: data[0]?.id || "" }));
+    // Per centro_studi: usa tutti i clienti (no associazione obbligatoria).
+    // Per studio_legale/medico: usa solo gli alunni associati al docente.
+    const fetchClients = L?.needs_association
+      ? api.get(`/docenti/${form.docente_id}/alunni`).then(({ data }) => data)
+      : Promise.resolve(clienti);
+    Promise.all([
+      fetchClients,
+      api.get(`/docenti/${form.docente_id}/materie`).then(({ data }) => data).catch(() => []),
+    ]).then(([cli, mat]) => {
+      setAlunni(cli);
+      setDocenteMaterie(mat);
+      if (!cli.find((c) => c.id === form.cliente_id)) {
+        setForm((f) => ({ ...f, cliente_id: cli[0]?.id || "" }));
       }
+      setForm((f) => ({ ...f, materia_id: mat.find((m) => m.id === f.materia_id) ? f.materia_id : "" }));
     }).finally(() => setLoadingAlunni(false));
     setForm((f) => ({ ...f, al: addMinutes(f.dal, slot) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.docente_id]);
+  }, [form.docente_id, clienti]);
 
   // Carica gli slot liberi quando cambia docente o data
   useEffect(() => {
@@ -583,6 +603,7 @@ function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdm
         docente_id: form.docente_id,
         slots,
         note: form.note || null,
+        materia_id: form.materia_id || null,
         associa_alunno: true,
       };
       if (mode === "new") {
@@ -695,18 +716,22 @@ function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdm
         {/* Studente: existing / new tabs */}
         <div>
           <div className="flex gap-1.5 mb-3 p-1 rounded-lg bg-[color:var(--surface-2)]">
-            <button type="button" onClick={() => setMode("existing")} className={`flex-1 py-1.5 px-3 text-sm rounded-md font-medium ${mode === "existing" ? "bg-white shadow-sm" : "text-[color:var(--text-2)]"}`} data-testid="mode-existing-button">Studente in archivio</button>
-            <button type="button" onClick={() => setMode("new")} className={`flex-1 py-1.5 px-3 text-sm rounded-md font-medium ${mode === "new" ? "bg-white shadow-sm" : "text-[color:var(--text-2)]"}`} data-testid="mode-new-button">Nuovo studente</button>
+            <button type="button" onClick={() => setMode("existing")} className={`flex-1 py-1.5 px-3 text-sm rounded-md font-medium ${mode === "existing" ? "bg-white shadow-sm" : "text-[color:var(--text-2)]"}`} data-testid="mode-existing-button">{L?.cliente || "Cliente"} in archivio</button>
+            <button type="button" onClick={() => setMode("new")} className={`flex-1 py-1.5 px-3 text-sm rounded-md font-medium ${mode === "new" ? "bg-white shadow-sm" : "text-[color:var(--text-2)]"}`} data-testid="mode-new-button">Nuovo {(L?.cliente || "cliente").toLowerCase()}</button>
           </div>
 
           {mode === "existing" ? (
             <div>
               <select className="input-base" value={form.cliente_id} onChange={(e) => setForm({ ...form, cliente_id: e.target.value })} disabled={noAlunni} data-testid="app-cliente-select">
-                <option value="">{loadingAlunni ? "Caricamento…" : "Seleziona uno studente associato…"}</option>
+                <option value="">{loadingAlunni ? "Caricamento…" : `Seleziona ${(L?.cliente || "uno").toLowerCase()}…`}</option>
                 {alunni.map((c) => (<option key={c.id} value={c.id}>{c.cognome} {c.nome}</option>))}
               </select>
               {noAlunni && (
-                <div className="text-xs text-[color:var(--warning)] mt-1.5">Nessun alunno associato. Crea un nuovo studente qui sotto o associane uno dalla scheda del docente.</div>
+                <div className="text-xs text-[color:var(--warning)] mt-1.5">
+                  {L?.needs_association
+                    ? `Nessun ${(L?.cliente || "cliente").toLowerCase()} associato. Crea un nuovo ${(L?.cliente || "cliente").toLowerCase()} qui sotto o associane uno dalla scheda del ${(L?.docente || "docente").toLowerCase()}.`
+                    : `Nessun ${(L?.cliente || "cliente").toLowerCase()} in archivio. Crea il primo qui sotto.`}
+                </div>
               )}
             </div>
           ) : (
@@ -717,8 +742,24 @@ function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdm
               </div>
               <input type="email" className="input-base" placeholder="Email (opzionale)" value={nuovoCliente.email} onChange={(e) => setNuovoCliente({ ...nuovoCliente, email: e.target.value })} data-testid="new-email-input" />
               <input className="input-base" placeholder="Telefono (opzionale)" value={nuovoCliente.cellulare} onChange={(e) => setNuovoCliente({ ...nuovoCliente, cellulare: e.target.value })} data-testid="new-tel-input" />
-              <div className="text-xs text-[color:var(--text-2)]">Lo studente verrà creato e automaticamente associato al docente.</div>
+              <div className="text-xs text-[color:var(--text-2)]">
+                {L?.needs_association
+                  ? `Il ${(L?.cliente || "cliente").toLowerCase()} verrà creato e associato automaticamente al ${(L?.docente || "docente").toLowerCase()}.`
+                  : `Il ${(L?.cliente || "cliente").toLowerCase()} verrà creato nel pool comune.`}
+              </div>
             </div>
+          )}
+        </div>
+
+        {/* Materia / Specializzazione */}
+        <div>
+          <label className="block text-sm font-medium mb-1.5">{L?.materia || "Materia"} (opzionale)</label>
+          <select className="input-base" value={form.materia_id} onChange={(e) => setForm({ ...form, materia_id: e.target.value })} data-testid="app-materia-select">
+            <option value="">— nessuna —</option>
+            {docenteMaterie.map((m) => (<option key={m.id} value={m.id}>{m.descrizione}</option>))}
+          </select>
+          {docenteMaterie.length === 0 && form.docente_id && (
+            <div className="text-xs text-[color:var(--text-2)] mt-1">Nessuna {(L?.materia || "materia").toLowerCase()} associata a questo {(L?.docente || "docente").toLowerCase()}.</div>
           )}
         </div>
 

@@ -3,13 +3,15 @@ import { api, formatApiError } from "@/lib/api";
 import { Plus, Edit2, Trash2, Users } from "lucide-react";
 import { Modal, Field } from "./Docenti";
 import { useAuth } from "@/context/AuthContext";
+import { tipologiaLabels } from "@/lib/tipologia";
 
 function emptyForm() {
   return { nome: "", cognome: "", email: "", cellulare: "", residenza: "", cap: "", indirizzo: "", data_nascita: "", note: "" };
 }
 
 export default function Clienti() {
-  const { user } = useAuth();
+  const { user, studio } = useAuth();
+  const L = tipologiaLabels(studio?.tipologia);
   const isAdmin = user?.role === "admin";
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -72,12 +74,12 @@ export default function Clienti() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <div className="label-eyebrow mb-1.5">Anagrafica</div>
-          <h1 className="font-display text-3xl sm:text-4xl font-black tracking-tight">Clienti</h1>
-          <p className="text-[color:var(--text-2)] mt-1">Tutti i tuoi clienti / alunni.</p>
+          <h1 className="font-display text-3xl sm:text-4xl font-black tracking-tight">{L.clienti}</h1>
+          <p className="text-[color:var(--text-2)] mt-1">Tutti i tuoi {L.clienti.toLowerCase()}.</p>
         </div>
         {isAdmin && (
           <button onClick={openCreate} className="btn-primary" data-testid="cliente-create-button">
-            <Plus size={16} /> Nuovo cliente
+            <Plus size={16} /> Nuovo {L.cliente.toLowerCase()}
           </button>
         )}
       </div>

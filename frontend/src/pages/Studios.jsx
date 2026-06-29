@@ -2,10 +2,11 @@ import React, { useEffect, useState } from "react";
 import { api, formatApiError } from "@/lib/api";
 import { Building2, Plus, Trash2 } from "lucide-react";
 import { Modal, Field } from "./Docenti";
+import { TIPOLOGIE } from "@/lib/tipologia";
 
 function emptyForm() {
   return {
-    nome: "", sede: "", telefono: "", email: "", piva: "", note: "",
+    nome: "", sede: "", telefono: "", email: "", piva: "", note: "", tipologia: "centro_studi",
     admin_nome: "", admin_cognome: "", admin_email: "", admin_password: "",
   };
 }
@@ -66,21 +67,23 @@ export default function Studios() {
         ) : (
           <table className="table-clean w-full">
             <thead>
-              <tr><th>Nome</th><th>Sede</th><th>Email</th><th>P.IVA</th><th>Telefono</th><th></th></tr>
+              <tr><th>Nome</th><th>Tipologia</th><th>Sede</th><th>Email</th><th>P.IVA</th><th></th></tr>
             </thead>
             <tbody>
-              {items.map((s) => (
+              {items.map((s) => {
+                const tip = TIPOLOGIE.find((t) => t.value === s.tipologia);
+                return (
                 <tr key={s.id} data-testid={`studio-row-${s.id}`}>
                   <td className="font-semibold">{s.nome}</td>
+                  <td><span className="pill">{tip?.label || s.tipologia}</span></td>
                   <td className="text-[color:var(--text-2)]">{s.sede || "—"}</td>
                   <td className="text-[color:var(--text-2)]">{s.email || "—"}</td>
                   <td className="text-[color:var(--text-2)]">{s.piva || "—"}</td>
-                  <td className="text-[color:var(--text-2)]">{s.telefono || "—"}</td>
                   <td className="text-right">
                     <button onClick={() => remove(s)} className="btn-danger" data-testid={`studio-delete-${s.id}`}><Trash2 size={13} /></button>
                   </td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
         )}
@@ -91,6 +94,13 @@ export default function Studios() {
           <form onSubmit={onSubmit} className="space-y-3.5" data-testid="studio-form">
             <div className="label-eyebrow">Dati centro</div>
             <Field label="Nome centro" required value={form.nome} onChange={(v) => setForm({ ...form, nome: v })} testid="studio-nome-input" />
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Tipologia <span className="text-[color:var(--secondary)]">*</span></label>
+              <select className="input-base" value={form.tipologia} onChange={(e) => setForm({ ...form, tipologia: e.target.value })} required data-testid="studio-tipologia-select">
+                {TIPOLOGIE.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
+              </select>
+              <div className="text-xs text-[color:var(--text-2)] mt-1">Determina le etichette (Studente/Docente/Materia ecc.) e la logica di associazione.</div>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Sede" value={form.sede} onChange={(v) => setForm({ ...form, sede: v })} testid="studio-sede-input" />
               <Field label="Telefono" value={form.telefono} onChange={(v) => setForm({ ...form, telefono: v })} testid="studio-telefono-input" />

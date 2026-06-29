@@ -3,11 +3,13 @@ import { api, formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { BookOpen, Plus, Edit2, Trash2 } from "lucide-react";
 import { Modal, Field } from "./Docenti";
+import { tipologiaLabels } from "@/lib/tipologia";
 
 function emptyForm() { return { descrizione: "", prezzo: "" }; }
 
 export default function Materie() {
-  const { user } = useAuth();
+  const { user, studio } = useAuth();
+  const L = tipologiaLabels(studio?.tipologia);
   const isAdmin = user?.role === "admin";
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,12 +52,12 @@ export default function Materie() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <div className="label-eyebrow mb-1.5">Catalogo</div>
-          <h1 className="font-display text-3xl sm:text-4xl font-black tracking-tight">Materie</h1>
-          <p className="text-[color:var(--text-2)] mt-1">Materie scolastiche del centro studi. Associale ai docenti dalla scheda docente.</p>
+          <h1 className="font-display text-3xl sm:text-4xl font-black tracking-tight">{L.materie}</h1>
+          <p className="text-[color:var(--text-2)] mt-1">{L.materie} del centro. Associale ai {L.docenti.toLowerCase()} dalla scheda.</p>
         </div>
         {isAdmin && (
           <button onClick={openCreate} className="btn-primary" data-testid="materia-create-button">
-            <Plus size={16} /> Nuova materia
+            <Plus size={16} /> Nuova {L.materia.toLowerCase()}
           </button>
         )}
       </div>
