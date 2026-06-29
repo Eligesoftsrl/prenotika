@@ -1,0 +1,30 @@
+{
+  "summary": "Re-test iter 9: ENTRAMBI i bug critici precedenti sono FIXATI. (A) POST /api/studios ora include body.tipologia in studio_doc (server.py:352) — verificato con test_super_admin_create_studio_tipologia. (B) class Appuntamento ha materia_descrizione: Optional[str] = None (server.py:252) — verificato sia via pytest sia via end-to-end (POST appuntamento con materia_id Cardiologia + GET /api/appuntamenti restituisce materia_descrizione='Cardiologia'). REGRESSION pytest /app/backend/tests/test_iter9_tipologia.py: 11/11 PASSED (53.57s). FRONTEND smoke admin@medico.it: Settimana mostra 'Anna Verdi / Cardiologia' nelle celle; Giorno mostra pill 'Anna Verdi / Cardiologia / TEST_iter10'; Mese mostra '10:00 Anna Verdi · Cardiologia' nella cella del 2 luglio. Cleanup appuntamento di test eseguito (DELETE 204, remaining=0).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter9_tipologia.py",
+    "/app/test_reports/pytest/iter10_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py:352 fix corretto: 'tipologia': body.tipologia ora incluso in studio_doc. Verificato che POST con tipologia='studio_legale'/'studio_medico'/'centro_studi' produce response.tipologia coerente.",
+    "server.py:252 conferma presenza di materia_descrizione: Optional[str] = None nel modello Appuntamento. FastAPI ora propaga il campo idratato in GET /api/appuntamenti.",
+    "I test legacy (test_iter2/3/4/7/8) hanno errori di import/ENV (MissingSchema URL) — non legati ai fix di questa iterazione, sono pre-esistenti e riguardano la mancanza di BASE_URL env nel runner pytest per quei file. Suggerimento: standardizzare il fixture BASE_URL come fatto in test_iter9_tipologia.py."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (11/11 PASS iter9 tipologia)", "frontend": "100% smoke (settimana/giorno/mese mostrano materia label)"},
+  "test_credentials": "admin@medico.it / Admin123!, superadmin@eligehub.it / SuperAdmin123! (come da /app/memory/test_credentials.md).",
+  "seed_data_creation": "Creato 1 appuntamento test (Anna Verdi + Cardiologia, 2 luglio 2026, note TEST_iter10) per validare il flow end-to-end; cancellato a fine test (DELETE 204, remaining=0).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter9 chiuso 100%. Entrambi i fix server.py (riga 252 modello Appuntamento.materia_descrizione, riga 352 studio_doc tipologia) confermati funzionanti via pytest + e2e UI. Test legacy iter2-4/7-8 hanno errori MissingSchema URL pre-esistenti (non legati a questa iterazione): da modernizzare in futuro replicando il pattern BASE_URL di test_iter9_tipologia.py.",
+  "rca of the issue": "Entrambi i bug RCA-fixati come da iter8: (BUG A) tipologia mancava dal dict studio_doc -> aggiunto body.tipologia. (BUG B) materia_descrizione mancava dalla class Appuntamento Pydantic -> aggiunto Optional[str] = None. Verifica e2e: POST appt con materia_id -> GET appt response include materia_descrizione='Cardiologia' -> calendario settimana/giorno/mese mostra etichetta materia correttamente."
+}

@@ -249,6 +249,7 @@ class Appuntamento(AppuntamentoBase):
     created_at: datetime
     cliente_nome: Optional[str] = None
     docente_nome: Optional[str] = None
+    materia_descrizione: Optional[str] = None
 
 # -----------------------------------------------------------------------------
 # Mongo helpers (use id as _id)
@@ -348,6 +349,7 @@ async def create_studio(body: StudioCreate, _: dict = Depends(require_role("supe
         "email": body.email,
         "piva": body.piva,
         "note": body.note,
+        "tipologia": body.tipologia,
         "active": True,
         "created_at": now_utc().isoformat(),
     }
