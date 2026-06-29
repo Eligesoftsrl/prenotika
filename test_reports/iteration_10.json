@@ -1,0 +1,33 @@
+{
+  "summary": "Iter 10 - FRONTEND ONLY (Modal rewrite verification). Tutti i 3 bug visivi precedenti FIXATI: (1) Modal Centri Studi @ 1440x900 - centrata orizzontalmente+verticalmente, backdrop scuro su intera viewport (nessuna zona bianca), title+X allineati su una riga senza gap. (2) Modal Docenti @ 1440x900 - centrata, header pulito senza gap fluttuante sotto X, body scrollabile. (3) Modal Orari 'Nuova fascia oraria' @ 1440x900 - centrata (NON piu' in basso a destra), bottoni Annulla/Aggiungi visibili. Verificato anche su 1024x600 (corto): panel fits viewport (552<=580), body scrollabile (scrollH=581 > clientH=481). Mobile 390x844: panel 366x809 centrato (margin 12px), body lock confermato (scrollTo(0,500) -> scrollY=0). X close + backdrop click chiudono la modale, scroll della pagina viene ripristinato. Ground truth = screenshot (visivi corretti); le metriche getBoundingClientRect risultano fuorvianti per la tecnica position:fixed su body (problema noto, non bug della modale).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/modal_studios_1440.png",
+    "/app/test_reports/modal_docenti_1440.png",
+    "/app/test_reports/modal_orari_1440.png",
+    "/app/test_reports/modal_docenti_1024x600.png",
+    "/app/test_reports/modal_docenti_mobile.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Modal export function in /app/frontend/src/pages/Docenti.jsx (linee 278-311) e' implementata correttamente: fixed inset-0 z-[100] flex items-center justify-center con backdrop assoluto + panel flex-col max-h-[calc(100vh-1.5rem)] overflow-hidden, header con border-b non sticky (shrink-0), body con flex-1 overflow-y-auto. Body lock via position:fixed + top:-scrollY funziona (mobile scroll bloccato verificato).",
+    "MINOR (non bloccante, NON introdotto da questa iter): console warning hydration React '<span> cannot be a child of <option>' originato da x-component instrumentation dell'editor (Made with Emergent tooling) sui tag <option> in Docenti.jsx select Durata. Non e' un bug del codice applicativo: e' un artefatto del runtime di editing. Non impatta funzionalita'. Da ignorare in produzione.",
+    "Suggerimento futuro (non critico): le metriche con getBoundingClientRect su Playwright non sono affidabili quando body ha position:fixed. Per test automatici futuri sul posizionamento delle modali usare screenshot diff o leggere computedStyle direttamente, non rect."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "non testato (frontend only)", "frontend": "100% (5/5 modal scenarios visivamente corretti)"},
+  "test_credentials": "superadmin@eligehub.it / SuperAdmin123!, admin@demo.it / Admin123! (come da /app/memory/test_credentials.md)",
+  "seed_data_creation": "Nessuno - solo apertura/chiusura modali, nessun submit eseguito.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Modal fix iter10 VALIDATO. La Modal e' centrale, esportata da Docenti.jsx e riusata da tutte le pagine (Studios, Docenti, Orari, Studenti, Materie, Auth, calendario). Pattern body-lock: position:fixed + top:-scrollY salva e ripristina scrollY. Attenzione per futuri test: getBoundingClientRect su elementi figli quando body ha position:fixed restituisce valori SHIFTATI rispetto al viewport reale - usare screenshot per validare posizionamento, non rect. Console warning '<span> in <option>' e' x-component instrumentation editor, non bug.",
+  "rca of the issue": "Bug precedente: wrapper modale aveva 'min-h-full flex items-start sm:items-center justify-center overflow-y-auto' che causava posizionamento erratico quando pagina sottostante era alta (perche' min-h-full faceva crescere il wrapper oltre la viewport, e items-center si riferiva al wrapper non al viewport -> modal posizionata al centro del wrapper gigante = basso-destra apparente). Fix iter10: 'fixed inset-0 flex items-center justify-center p-3 sm:p-6' (no overflow sul wrapper) + max-h-[calc(100vh-1.5rem)]+flex flex-col+overflow-hidden sul panel + body lock con position:fixed+top:-scrollY (non collassa altezza pagina). Verificato visivamente su 1440x900, 1024x600 e 390x844: tutti i posizionamenti corretti."
+}

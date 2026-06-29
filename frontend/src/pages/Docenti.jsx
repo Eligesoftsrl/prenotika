@@ -277,26 +277,33 @@ export default function Docenti() {
 
 export function Modal({ title, onClose, children, size = "md" }) {
   const maxW = size === "lg" ? "max-w-2xl" : size === "xl" ? "max-w-3xl" : "max-w-lg";
-  // Block body scroll while modal is open
+  // Block scroll della pagina sottostante senza far collassare il body (usa scrollY fissato)
   React.useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    const scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.width = "100%";
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.width = "";
+      window.scrollTo(0, scrollY);
+    };
   }, []);
   return (
-    <div className="fixed inset-0 z-50" data-testid="modal">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="absolute inset-0 overflow-y-auto">
-        <div className="min-h-full flex items-start sm:items-center justify-center p-3 sm:p-6">
-          <div className={`relative w-full ${maxW} surface-card shadow-xl anim-fade-up flex flex-col`}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[color:var(--border)] sticky top-0 bg-[color:var(--surface)] rounded-t-[12px] z-10">
-              <h3 className="font-display text-xl font-bold pr-4">{title}</h3>
-              <button onClick={onClose} className="btn-secondary shrink-0" data-testid="modal-close" aria-label="Chiudi"><X size={16} /></button>
-            </div>
-            <div className="px-6 py-5">
-              {children}
-            </div>
-          </div>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6" data-testid="modal">
+      <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} />
+      <div className={`relative w-full ${maxW} bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-2xl anim-fade-up flex flex-col max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden`}>
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[color:var(--border)] bg-[color:var(--surface)] shrink-0">
+          <h3 className="font-display text-xl font-bold pr-4 truncate">{title}</h3>
+          <button onClick={onClose} className="btn-secondary shrink-0" data-testid="modal-close" aria-label="Chiudi"><X size={16} /></button>
+        </div>
+        <div className="px-5 sm:px-6 py-5 overflow-y-auto flex-1">
+          {children}
         </div>
       </div>
     </div>
