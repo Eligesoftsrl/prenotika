@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { api, formatApiError, API_BASE } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Plus, ChevronLeft, ChevronRight, Calendar as CalIcon, Trash2, Download, LayoutGrid, List } from "lucide-react";
@@ -29,6 +30,8 @@ export default function Appuntamenti() {
   const { user, studio } = useAuth();
   const L = tipologiaLabels(studio?.tipologia);
   const isAdmin = user?.role === "admin";
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date()));
   const [docenti, setDocenti] = useState([]);
@@ -53,14 +56,17 @@ export default function Appuntamenti() {
   useEffect(() => {
     api.get("/docenti").then(({ data }) => {
       setDocenti(data);
-      // Se docente -> userId; se admin senza selezione e c'è almeno un docente, suggerisci il primo automaticamente
-      if (isAdmin && !selectedDocenteId && data[0]) {
+      // Preseleziona docente da location.state (ritorno da NuovoAppuntamento) o primo disponibile
+      const stateDoc = location.state?.docente_id;
+      if (stateDoc && data.find((d) => d.id === stateDoc)) {
+        setSelectedDocenteId(stateDoc);
+      } else if (isAdmin && !selectedDocenteId && data[0]) {
         setSelectedDocenteId(data[0].id);
       }
     });
     api.get("/clienti").then(({ data }) => setClienti(data));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [location.key]);
 
   const docenteSel = docenti.find((d) => d.id === selectedDocenteId);
   const slotMinuti = docenteSel?.slot_minuti || 60;
@@ -159,8 +165,9 @@ export default function Appuntamenti() {
 
   const onCellClick = (dayDate, slot) => {
     if (!slot.isAvailable) return;
-    setCreateDefaults({ data: fmtISO(dayDate), dal: slot.dal, al: slot.al });
-    setShowCreate(true);
+    navigate("/appuntamenti/nuovo", {
+      state: { docente_id: selectedDocenteId || (user?.role === "docente" ? user.id : ""), data: fmtISO(dayDate), dal: slot.dal, al: slot.al },
+    });
   };
 
   const remove = async (id) => {
@@ -208,7 +215,7 @@ export default function Appuntamenti() {
           <h1 className="font-display text-3xl sm:text-4xl font-black tracking-tight">Appuntamenti</h1>
           <p className="text-[color:var(--text-2)] mt-1">Calendario personalizzato del docente — celle verdi = libere, colorate = prenotate, grigie = fuori disponibilità.</p>
         </div>
-        <button onClick={() => { setCreateDefaults(null); setShowCreate(true); }} className="btn-primary" disabled={!selectedDocenteId} data-testid="appuntamento-create-button">
+        <button onClick={() => navigate("/appuntamenti/nuovo", { state: { docente_id: selectedDocenteId || (user?.role === "docente" ? user.id : "") } })} className="btn-primary" disabled={!selectedDocenteId} data-testid="appuntamento-create-button">
           <Plus size={16} /> Nuovo appuntamento
         </button>
       </div>

@@ -13,6 +13,7 @@ import Materie from "@/pages/Materie";
 import Clienti from "@/pages/Clienti";
 import Orari from "@/pages/Orari";
 import Appuntamenti from "@/pages/Appuntamenti";
+import NuovoAppuntamento from "@/pages/NuovoAppuntamento";
 import Studios from "@/pages/Studios";
 
 function RootRedirect() {
@@ -39,6 +40,7 @@ function App() {
               <Route path="/clienti" element={<ProtectedRoute roles={["admin", "docente"]}><Clienti /></ProtectedRoute>} />
               <Route path="/orari" element={<ProtectedRoute roles={["admin", "docente"]}><Orari /></ProtectedRoute>} />
               <Route path="/appuntamenti" element={<ProtectedRoute roles={["admin", "docente"]}><Appuntamenti /></ProtectedRoute>} />
+              <Route path="/appuntamenti/nuovo" element={<ProtectedRoute roles={["admin", "docente"]}><NuovoAppuntamento /></ProtectedRoute>} />
               <Route path="/studios" element={<ProtectedRoute roles={["super_admin"]}><Studios /></ProtectedRoute>} />
             </Route>
             <Route path="/" element={<RootRedirect />} />
