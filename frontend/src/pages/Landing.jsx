@@ -696,7 +696,7 @@ export default function Landing() {
                       </select>
                     </div>
                   </div>
-                  <div><label className="label-eyebrow block mb-1.5">Nome del centro</label><input className="input-base" value={form.studio} onChange={(e) => setForm({ ...form, studio: e.target.value })} data-testid="lead-studio" /></div>
+                  <div><label className="label-eyebrow block mb-1.5">Azienda</label><input className="input-base" value={form.studio} onChange={(e) => setForm({ ...form, studio: e.target.value })} data-testid="lead-studio" /></div>
                   <div><label className="label-eyebrow block mb-1.5">Messaggio</label><textarea rows={3} className="input-base resize-none" value={form.messaggio} onChange={(e) => setForm({ ...form, messaggio: e.target.value })} placeholder="Raccontaci brevemente come gestisci oggi gli appuntamenti..." data-testid="lead-messaggio" /></div>
                 </div>
                 {error && <div className="text-sm text-[color:var(--error)] mt-3" data-testid="lead-form-error">{error}</div>}
