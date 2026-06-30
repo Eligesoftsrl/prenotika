@@ -124,7 +124,7 @@ export default function Docenti() {
               <div className="font-semibold uppercase tracking-[0.18em] text-[color:var(--text-2)] text-[10px]">Piano {quota.plan}</div>
               <div className="font-display font-bold text-base text-[color:var(--text)] mt-0.5">
                 {quota.professionisti_used}{quota.professionisti_limit !== null ? ` / ${quota.professionisti_limit}` : ""}
-                <span className="text-[color:var(--text-2)] text-xs font-normal ml-1">{quota.professionisti_limit === null ? "illimitati" : "professionisti"}</span>
+                <span className="text-[color:var(--text-2)] text-xs font-normal ml-1.5">{quota.professionisti_limit === null ? "illimitati" : (quota.professionisti_limit === 1 ? "professionista" : "professionisti")}</span>
               </div>
             </div>
           )}
@@ -144,7 +144,11 @@ export default function Docenti() {
           <div className="text-[color:var(--warning)] text-2xl leading-none">⚠</div>
           <div>
             <div className="font-semibold text-sm">Limite del piano {quota.plan.toUpperCase()} raggiunto</div>
-            <div className="text-xs text-[color:var(--text-2)] mt-0.5">Hai utilizzato tutti i {quota.professionisti_limit} professionisti previsti dal piano. Per aggiungerne altri, chiedi al super admin di passare a un piano superiore.</div>
+            <div className="text-xs text-[color:var(--text-2)] mt-0.5">
+              {quota.professionisti_limit === 1
+                ? "Il piano Free include un solo professionista. Per aggiungerne altri, chiedi al super admin di passare a un piano superiore."
+                : `Hai utilizzato tutti i ${quota.professionisti_limit} professionisti previsti dal piano. Per aggiungerne altri, chiedi al super admin di passare a un piano superiore.`}
+            </div>
           </div>
         </div>
       )}

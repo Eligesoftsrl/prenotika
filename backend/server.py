@@ -447,6 +447,8 @@ async def get_studio_quota(user: dict = Depends(require_role("admin", "docente")
 async def update_my_studio(body: StudioUpdate, user: dict = Depends(require_role("admin"))):
     sid = _scope_studio_id(user)
     updates = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    # SECURITY: l'admin non può modificare il piano del proprio studio (solo super_admin lo può fare).
+    updates.pop("plan", None)
     if updates:
         await db.studios.update_one({"_id": sid}, {"$set": updates})
     fresh = await db.studios.find_one({"_id": sid})
