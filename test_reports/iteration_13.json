@@ -1,0 +1,39 @@
+{
+  "summary": "Iter13 testing: Landing pubblica, lead form, CRUD eccezioni con blocking appuntamenti, email disdetta Brevo, scheduler reminder 24h, regressioni P.IVA + PDF + login. Tutti i 11 test pytest passano, tutti i flussi UI critici funzionano.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/eccezioni", "issues": ["Le input date usano il picker nativo del browser con formato mm/dd/yyyy invece di un componente Calendar shadcn locale-aware (DD/MM/YYYY tipico italiano)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter13_landing_eccezioni.py",
+    "/app/test_reports/pytest/iter13_results.xml"
+  ],
+  "action_items": [
+    "(Opzionale design) Sostituire <input type=date> con shadcn Calendar/Popover in /eccezioni per UX italiana coerente"
+  ],
+  "critical_code_review_comments": [
+    "/app/backend/server.py è ~1740+ righe: superato il limite suggerito di 700, da splittare in router separati (auth, studios, docenti, clienti, appuntamenti, eccezioni, leads, reports)",
+    "DELETE /api/appuntamenti/{id} usa import locale 'from email_service import send_cancellation_email' dentro la route: meglio importare in cima al file per evitare overhead repeated",
+    "POST /api/leads non ha rate-limiting né captcha — endpoint pubblico, rischio spam/lead injection. Aggiungere throttling (es. slowapi) o honeypot field",
+    "_is_blocked_by_eccezione non considera l'eccezione di tipo 'personalizzato' SENZA ora_inizio/ora_fine: il guard nel POST è solo a creation time; se in DB esistono record incoerenti, la query restituirà None silenziosamente",
+    "reminder_scheduler.py: il job usa cron(minute=5) ma non specifica hour='*', funziona perché è il default ma è meglio esplicitare per leggibilità",
+    "Logo studio nel PDF: PIL.verify() consuma il buffer, viene poi creato un nuovo BytesIO — corretto ma sottile. Aggiungere commento"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter13_landing_eccezioni.py (new)"
+  ],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100%"},
+  "test_credentials": "admin@demo.it / Admin123! (da /app/memory/test_credentials.md)",
+  "seed_data_creation": "Test creano e ripuliscono: lead 'TEST_LeadAuto' rimangono in collection (non c'è DELETE), 1 eccezione di test (cleanup nel test), 1 appuntamento futuro (deleted nel test cancellation)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Tutte le 4 feature iter13 verificate end-to-end: (1) /leads POST 201 + Brevo 201 confermato nei log httpx; (2) eccezioni CRUD funzionante, blocco appuntamenti su data ferie restituisce 409 con 'non è disponibile' nel detail; (3) DELETE /appuntamenti invia mail disdetta Brevo 201 senza bloccare l'eliminazione; (4) reminder scheduler 'Reminder scheduler avviato (ogni ora al minuto :05, TZ=Europe/Rome)' presente nei log all'avvio. UI: testid critici tutti presenti (landing-page, lead-form-success, landing-login-btn, nav-link-eccezioni, eccezioni-page, eccezione-add-btn, eccezione-form, eccezione-submit). Regressioni P.IVA + PDF week + login OK.",
+  "rca of the issue": "N/A — nessun bug bloccante. Solo design feedback su date picker."
+}

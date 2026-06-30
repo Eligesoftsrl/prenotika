@@ -17,8 +17,10 @@ import Orari from "@/pages/Orari";
 import Appuntamenti from "@/pages/Appuntamenti";
 import NuovoAppuntamento from "@/pages/NuovoAppuntamento";
 import Studios from "@/pages/Studios";
+import Landing from "@/pages/Landing";
+import Eccezioni from "@/pages/Eccezioni";
 
-function RootRedirect() {
+function AppRedirect() {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center text-[color:var(--text-2)]">Caricamento…</div>;
   if (!user) return <Navigate to="/login" replace />;
@@ -32,7 +34,9 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
+            <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/app" element={<AppRedirect />} />
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route path="/dashboard" element={<ProtectedRoute roles={["admin", "docente"]}><Dashboard /></ProtectedRoute>} />
               <Route path="/docenti" element={<ProtectedRoute roles={["admin"]}><Docenti /></ProtectedRoute>} />
@@ -43,12 +47,12 @@ function App() {
               <Route path="/report" element={<ProtectedRoute roles={["admin"]}><Report /></ProtectedRoute>} />
               <Route path="/clienti" element={<ProtectedRoute roles={["admin", "docente"]}><Clienti /></ProtectedRoute>} />
               <Route path="/orari" element={<ProtectedRoute roles={["admin", "docente"]}><Orari /></ProtectedRoute>} />
+              <Route path="/eccezioni" element={<ProtectedRoute roles={["admin", "docente"]}><Eccezioni /></ProtectedRoute>} />
               <Route path="/appuntamenti" element={<ProtectedRoute roles={["admin", "docente"]}><Appuntamenti /></ProtectedRoute>} />
               <Route path="/appuntamenti/nuovo" element={<ProtectedRoute roles={["admin", "docente"]}><NuovoAppuntamento /></ProtectedRoute>} />
               <Route path="/studios" element={<ProtectedRoute roles={["super_admin"]}><Studios /></ProtectedRoute>} />
             </Route>
-            <Route path="/" element={<RootRedirect />} />
-            <Route path="*" element={<RootRedirect />} />
+            <Route path="*" element={<AppRedirect />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

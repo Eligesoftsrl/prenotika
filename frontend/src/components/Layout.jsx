@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { LayoutDashboard, Calendar, Users, GraduationCap, Clock, Building2, LogOut, Menu, X, BookOpen, Settings, FileText } from "lucide-react";
+import { LayoutDashboard, Calendar, Users, GraduationCap, Clock, Building2, LogOut, Menu, X, BookOpen, Settings, FileText, Plane } from "lucide-react";
 import { tipologiaLabels } from "@/lib/tipologia";
 import Logo from "@/components/Logo";
 
@@ -26,6 +26,7 @@ export default function Layout() {
         { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", testid: "nav-link-dashboard" },
         { to: "/appuntamenti", icon: Calendar, label: "Appuntamenti", testid: "nav-link-appuntamenti" },
         { to: "/orari", icon: Clock, label: "Orari", testid: "nav-link-orari" },
+        { to: "/eccezioni", icon: Plane, label: "Ferie", testid: "nav-link-eccezioni" },
         ...(isAdmin
           ? [
               { to: "/docenti", icon: GraduationCap, label: L.docenti, testid: "nav-link-docenti" },

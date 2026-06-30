@@ -344,3 +344,182 @@ async def send_bulk_appointments_email(
         ics_content=ics,
         ics_filename=f"appuntamenti-{first_s.strftime('%Y-%m-%d')}.ics",
     )
+
+
+def _cancel_html(
+    *,
+    cliente_nome: str,
+    docente_nome: str,
+    studio_nome: str,
+    starts_at: datetime,
+    ends_at: datetime,
+    location: str,
+) -> str:
+    when = f"{_fmt_local_human(starts_at)} – {ends_at.strftime('%H:%M')}"
+    return f"""\
+<!doctype html><html><body style="margin:0;padding:0;background:#F8FAFC;font-family:'Inter',Arial,sans-serif;color:#0F172A">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F8FAFC;padding:24px 12px"><tr><td align="center">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:14px;overflow:hidden;border:1px solid #E2E8F0">
+      <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#475569 100%);padding:22px 28px">
+        <div style="color:#fff;font-family:'Sora',Arial,sans-serif;font-weight:800;font-size:22px;letter-spacing:-0.02em">Prenotika</div>
+        <div style="color:rgba(255,255,255,0.85);font-size:12px;text-transform:uppercase;letter-spacing:0.18em;margin-top:4px">{_html.escape(studio_nome)}</div>
+      </td></tr>
+      <tr><td style="padding:28px">
+        <h1 style="margin:0 0 8px;font-family:'Sora',Arial,sans-serif;font-size:22px;font-weight:700;color:#B91C1C">Appuntamento annullato</h1>
+        <p style="margin:0 0 18px;color:#475569;font-size:14px;line-height:1.5">Ciao <strong style="color:#0F172A">{_html.escape(cliente_nome)}</strong>, ti informiamo che l'appuntamento del <strong>{when}</strong> con <strong style="color:#0F172A">{_html.escape(docente_nome)}</strong> presso <strong>{_html.escape(location)}</strong> è stato <strong style="color:#B91C1C">annullato</strong>.</p>
+        <p style="margin:18px 0 6px;color:#475569;font-size:13px;line-height:1.5">In allegato il file <strong>.ics</strong> di cancellazione: aprilo per rimuovere automaticamente l'evento dal tuo calendario.</p>
+        <p style="margin:18px 0 0;color:#94A3B8;font-size:12px">Per riprenotare contatta {_html.escape(studio_nome)}.</p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>"""
+
+
+def build_ics_cancel(*, uid: str, starts_at: datetime, ends_at: datetime, summary: str, location: str, organizer_email: str, organizer_name: str, attendee_email: str, attendee_name: str) -> str:
+    dtstamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    lines = [
+        "BEGIN:VCALENDAR", "PRODID:-//Prenotika//Booking//IT", "VERSION:2.0",
+        "CALSCALE:GREGORIAN", "METHOD:CANCEL",
+        "BEGIN:VEVENT",
+        f"UID:{uid}", f"DTSTAMP:{dtstamp}",
+        f"DTSTART:{_fmt_utc(starts_at)}", f"DTEND:{_fmt_utc(ends_at)}",
+        f"SUMMARY:{_escape_ics(summary)}",
+        f"LOCATION:{_escape_ics(location)}",
+        f"ORGANIZER;CN={_escape_ics(organizer_name)}:mailto:{organizer_email}",
+        f"ATTENDEE;CN={_escape_ics(attendee_name)}:mailto:{attendee_email}",
+        "STATUS:CANCELLED", "SEQUENCE:1",
+        "END:VEVENT", "END:VCALENDAR",
+    ]
+    return "\r\n".join(lines) + "\r\n"
+
+
+async def send_cancellation_email(
+    *,
+    cliente_email: str,
+    cliente_nome: str,
+    cliente_cognome: str,
+    docente_nome: str,
+    docente_cognome: str,
+    studio_nome: str,
+    studio_sede: Optional[str],
+    studio_email: Optional[str],
+    data_iso: str,
+    dal: str,
+    al: str,
+    materia: Optional[str] = None,
+    note: Optional[str] = None,
+) -> Optional[str]:
+    if not cliente_email:
+        return None
+    cliente_full = f"{cliente_nome} {cliente_cognome}".strip()
+    docente_full = f"{docente_nome} {docente_cognome}".strip()
+    starts = _to_local_dt(data_iso, dal)
+    ends = _to_local_dt(data_iso, al)
+    location = studio_sede or studio_nome
+    uid = f"cancel-{uuid.uuid4()}@prenotika"
+    ics = build_ics_cancel(
+        uid=uid,
+        starts_at=starts, ends_at=ends,
+        summary=f"Appuntamento con {docente_full}",
+        location=location,
+        organizer_email=(studio_email or BREVO_SENDER_EMAIL),
+        organizer_name=studio_nome,
+        attendee_email=cliente_email,
+        attendee_name=cliente_full,
+    )
+    html_body = _cancel_html(
+        cliente_nome=cliente_full, docente_nome=docente_full, studio_nome=studio_nome,
+        starts_at=starts, ends_at=ends, location=location,
+    )
+    subject = f"Appuntamento annullato — {_fmt_local_human(starts)}"
+    return await _send_brevo(
+        to_email=cliente_email, to_name=cliente_full, subject=subject,
+        html_content=html_body, ics_content=ics, ics_filename=f"disdetta-{data_iso}.ics",
+    )
+
+
+def _reminder_html(*, cliente_nome: str, docente_nome: str, studio_nome: str, starts_at: datetime, ends_at: datetime, location: str) -> str:
+    when = f"{_fmt_local_human(starts_at)} – {ends_at.strftime('%H:%M')}"
+    return f"""\
+<!doctype html><html><body style="margin:0;padding:0;background:#F8FAFC;font-family:'Inter',Arial,sans-serif;color:#0F172A">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F8FAFC;padding:24px 12px"><tr><td align="center">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:14px;overflow:hidden;border:1px solid #E2E8F0">
+      <tr><td style="background:linear-gradient(135deg,#F59E0B 0%,#7C3AED 60%,#2DD4BF 100%);padding:22px 28px">
+        <div style="color:#fff;font-family:'Sora',Arial,sans-serif;font-weight:800;font-size:22px;letter-spacing:-0.02em">Prenotika</div>
+        <div style="color:rgba(255,255,255,0.9);font-size:12px;text-transform:uppercase;letter-spacing:0.18em;margin-top:4px">Promemoria · {_html.escape(studio_nome)}</div>
+      </td></tr>
+      <tr><td style="padding:28px">
+        <h1 style="margin:0 0 8px;font-family:'Sora',Arial,sans-serif;font-size:22px;font-weight:700;color:#0F172A">A domani!</h1>
+        <p style="margin:0 0 18px;color:#475569;font-size:14px;line-height:1.5">Ciao <strong>{_html.escape(cliente_nome)}</strong>, ti ricordiamo l'appuntamento di domani <strong>{when}</strong> con <strong>{_html.escape(docente_nome)}</strong> presso <strong>{_html.escape(location)}</strong>.</p>
+        <p style="margin:18px 0 0;color:#94A3B8;font-size:12px">Se non puoi più venire, ti chiediamo di avvisare al più presto.</p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>"""
+
+
+async def send_reminder_email(
+    *,
+    cliente_email: str,
+    cliente_nome: str,
+    cliente_cognome: str,
+    docente_nome: str,
+    docente_cognome: str,
+    studio_nome: str,
+    studio_sede: Optional[str],
+    data_iso: str,
+    dal: str,
+    al: str,
+) -> Optional[str]:
+    if not cliente_email:
+        return None
+    cliente_full = f"{cliente_nome} {cliente_cognome}".strip()
+    docente_full = f"{docente_nome} {docente_cognome}".strip()
+    starts = _to_local_dt(data_iso, dal)
+    ends = _to_local_dt(data_iso, al)
+    location = studio_sede or studio_nome
+    html_body = _reminder_html(
+        cliente_nome=cliente_full, docente_nome=docente_full, studio_nome=studio_nome,
+        starts_at=starts, ends_at=ends, location=location,
+    )
+    subject = f"Promemoria appuntamento — {_fmt_local_human(starts)}"
+    return await _send_brevo(
+        to_email=cliente_email, to_name=cliente_full,
+        subject=subject, html_content=html_body,
+    )
+
+
+async def send_lead_notification(
+    *,
+    lead: dict,
+    notify_to: str = "team@zioners.com",
+) -> Optional[str]:
+    """Notifica al team di un nuovo lead/contatto dalla landing."""
+    nome = _html.escape(lead.get("nome", ""))
+    email = _html.escape(lead.get("email", ""))
+    telefono = _html.escape(lead.get("telefono") or "—")
+    tipologia = _html.escape(lead.get("tipologia") or "—")
+    studio = _html.escape(lead.get("studio") or "—")
+    messaggio = _html.escape(lead.get("messaggio") or "—").replace("\n", "<br/>")
+    subject = f"[Prenotika] Nuovo lead da {nome}"
+    html_body = f"""\
+<!doctype html><html><body style="font-family:'Inter',Arial,sans-serif;color:#0F172A;background:#F8FAFC;padding:24px">
+  <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #E2E8F0;border-radius:14px;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#7C3AED 0%,#60A5FA 50%,#2DD4BF 100%);padding:20px 26px;color:#fff;font-family:'Sora',Arial,sans-serif;font-weight:800;font-size:20px;letter-spacing:-0.02em">Prenotika · Nuovo lead</div>
+    <div style="padding:24px 26px;font-size:14px;line-height:1.6">
+      <p style="margin:0 0 14px;color:#475569">Hai ricevuto una nuova richiesta dalla landing page.</p>
+      <table style="width:100%;border-collapse:collapse">
+        <tr><td style="color:#475569;padding:6px 0;width:32%">Nome</td><td style="font-weight:600">{nome}</td></tr>
+        <tr><td style="color:#475569;padding:6px 0">Email</td><td><a href="mailto:{email}" style="color:#7C3AED">{email}</a></td></tr>
+        <tr><td style="color:#475569;padding:6px 0">Telefono</td><td>{telefono}</td></tr>
+        <tr><td style="color:#475569;padding:6px 0">Tipologia</td><td>{tipologia}</td></tr>
+        <tr><td style="color:#475569;padding:6px 0">Studio</td><td>{studio}</td></tr>
+        <tr><td style="color:#475569;padding:6px 0;vertical-align:top">Messaggio</td><td>{messaggio}</td></tr>
+      </table>
+    </div>
+  </div>
+</body></html>"""
+    return await _send_brevo(
+        to_email=notify_to, to_name="Prenotika Team",
+        subject=subject, html_content=html_body,
+    )

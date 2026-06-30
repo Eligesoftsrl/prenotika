@@ -265,6 +265,33 @@ class Appuntamento(AppuntamentoBase):
     docente_nome: Optional[str] = None
     materia_descrizione: Optional[str] = None
 
+# --- Eccezioni / ferie del professionista ---
+class EccezioneBase(BaseModel):
+    data_inizio: str           # YYYY-MM-DD
+    data_fine: str             # YYYY-MM-DD (inclusive)
+    motivo: Optional[str] = None     # ferie / malattia / festivo / personale (libero)
+    tipo: Literal["chiuso", "personalizzato"] = "chiuso"  # personalizzato = blocco parziale
+    ora_inizio: Optional[str] = None  # HH:MM (solo se tipo=personalizzato)
+    ora_fine: Optional[str] = None
+
+class EccezioneCreate(EccezioneBase):
+    docente_id: Optional[str] = None  # admin può specificarlo; docente -> self
+
+class Eccezione(EccezioneBase):
+    id: str
+    studio_id: str
+    docente_id: str
+    created_at: datetime
+
+# --- Lead (contact form pubblico landing) ---
+class LeadCreate(BaseModel):
+    nome: str
+    email: EmailStr
+    telefono: Optional[str] = None
+    tipologia: Optional[str] = None
+    studio: Optional[str] = None
+    messaggio: Optional[str] = None
+
 # -----------------------------------------------------------------------------
 # Mongo helpers (use id as _id)
 # -----------------------------------------------------------------------------
@@ -750,6 +777,11 @@ async def create_appuntamento(body: AppuntamentoCreate, user: dict = Depends(req
     })
     if overlap:
         raise HTTPException(status_code=409, detail="Slot non disponibile: il docente ha già un appuntamento in questo orario")
+    # Check ferie/eccezioni
+    blocked = await _is_blocked_by_eccezione(docente_id=docente_id, studio_id=sid, data_iso=body.data, dal=body.dal, al=body.al)
+    if blocked:
+        motivo = blocked.get("motivo") or "ferie"
+        raise HTTPException(status_code=409, detail=f"Il docente non è disponibile in questa data ({motivo})")
 
     doc = {
         "_id": new_id(),
@@ -821,6 +853,34 @@ async def delete_appuntamento(app_id: str, user: dict = Depends(require_role("ad
     if user["role"] == "docente" and target["docente_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Non autorizzato")
     await db.appuntamenti.delete_one({"_id": app_id})
+    # Invia email di disdetta al cliente (non bloccante)
+    try:
+        cliente = await db.clienti.find_one({"_id": target["cliente_id"]}) if target.get("cliente_id") else None
+        docente = await db.users.find_one({"_id": target["docente_id"]}) if target.get("docente_id") else None
+        studio_doc = await db.studios.find_one({"_id": sid})
+        if cliente and cliente.get("email") and docente:
+            materia_descr = None
+            if target.get("materia_id"):
+                m = await db.materie.find_one({"_id": target["materia_id"], "studio_id": sid})
+                materia_descr = (m or {}).get("descrizione")
+            from email_service import send_cancellation_email
+            await send_cancellation_email(
+                cliente_email=cliente["email"],
+                cliente_nome=cliente.get("nome", ""),
+                cliente_cognome=cliente.get("cognome", ""),
+                docente_nome=docente.get("nome", ""),
+                docente_cognome=docente.get("cognome", ""),
+                studio_nome=(studio_doc or {}).get("nome", "Prenotika"),
+                studio_sede=(studio_doc or {}).get("sede"),
+                studio_email=(studio_doc or {}).get("email"),
+                data_iso=target["data"],
+                dal=target["dal"],
+                al=target["al"],
+                materia=materia_descr,
+                note=target.get("note"),
+            )
+    except Exception as _email_err:
+        logger.warning(f"Email disdetta fallita: {_email_err}")
     return
 
 # -----------------------------------------------------------------------------
@@ -859,6 +919,103 @@ async def dashboard_stats(user: dict = Depends(require_role("admin", "docente"))
         "appuntamenti_settimana": app_settimana,
         "prossimi_appuntamenti": prossimi_hydrated,
     }
+
+# -----------------------------------------------------------------------------
+# Leads pubblici (landing page contact form)
+# -----------------------------------------------------------------------------
+@api.post("/leads", status_code=201)
+async def create_lead(body: LeadCreate):
+    doc = {
+        "_id": str(uuid.uuid4()),
+        "nome": body.nome.strip(),
+        "email": body.email,
+        "telefono": (body.telefono or "").strip() or None,
+        "tipologia": body.tipologia,
+        "studio": (body.studio or "").strip() or None,
+        "messaggio": (body.messaggio or "").strip() or None,
+        "created_at": datetime.now(timezone.utc),
+        "status": "new",
+    }
+    await db.leads.insert_one(doc)
+    try:
+        from email_service import send_lead_notification
+        await send_lead_notification(lead={**doc, "id": doc["_id"]})
+    except Exception as e:
+        logger.warning(f"Notifica lead fallita: {e}")
+    return {"ok": True, "id": doc["_id"]}
+
+# -----------------------------------------------------------------------------
+# Eccezioni / ferie professionista
+# -----------------------------------------------------------------------------
+def _target_docente_id_for_eccezione(user: dict, requested: Optional[str]) -> str:
+    if user["role"] == "docente":
+        return user["id"]
+    if not requested:
+        raise HTTPException(status_code=422, detail="docente_id richiesto per admin")
+    return requested
+
+@api.get("/eccezioni", response_model=List[Eccezione])
+async def list_eccezioni(docente_id: Optional[str] = None, user: dict = Depends(require_role("admin", "docente"))):
+    sid = _scope_studio_id(user)
+    q = {"studio_id": sid}
+    if user["role"] == "docente":
+        q["docente_id"] = user["id"]
+    elif docente_id:
+        q["docente_id"] = docente_id
+    items = await db.eccezioni.find(q).sort([("data_inizio", 1)]).to_list(500)
+    return [_from_mongo(x) for x in items]
+
+@api.post("/eccezioni", response_model=Eccezione, status_code=201)
+async def create_eccezione(body: EccezioneCreate, user: dict = Depends(require_role("admin", "docente"))):
+    sid = _scope_studio_id(user)
+    target = _target_docente_id_for_eccezione(user, body.docente_id)
+    # Valida range
+    if body.data_fine < body.data_inizio:
+        raise HTTPException(status_code=422, detail="data_fine deve essere >= data_inizio")
+    if body.tipo == "personalizzato" and (not body.ora_inizio or not body.ora_fine):
+        raise HTTPException(status_code=422, detail="Per tipo 'personalizzato' specificare ora_inizio e ora_fine")
+    doc = {
+        "_id": str(uuid.uuid4()),
+        "studio_id": sid,
+        "docente_id": target,
+        "data_inizio": body.data_inizio,
+        "data_fine": body.data_fine,
+        "motivo": (body.motivo or "").strip() or None,
+        "tipo": body.tipo,
+        "ora_inizio": body.ora_inizio,
+        "ora_fine": body.ora_fine,
+        "created_at": datetime.now(timezone.utc),
+    }
+    await db.eccezioni.insert_one(doc)
+    return _from_mongo(doc)
+
+@api.delete("/eccezioni/{ecc_id}", status_code=204)
+async def delete_eccezione(ecc_id: str, user: dict = Depends(require_role("admin", "docente"))):
+    sid = _scope_studio_id(user)
+    target = await db.eccezioni.find_one({"_id": ecc_id, "studio_id": sid})
+    if not target:
+        raise HTTPException(status_code=404, detail="Eccezione non trovata")
+    if user["role"] == "docente" and target["docente_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Non autorizzato")
+    await db.eccezioni.delete_one({"_id": ecc_id})
+    return
+
+async def _is_blocked_by_eccezione(*, docente_id: str, studio_id: str, data_iso: str, dal: str, al: str) -> Optional[dict]:
+    """Returns the eccezione that blocks this slot, or None."""
+    eccs = await db.eccezioni.find({
+        "studio_id": studio_id,
+        "docente_id": docente_id,
+        "data_inizio": {"$lte": data_iso},
+        "data_fine": {"$gte": data_iso},
+    }).to_list(50)
+    for e in eccs:
+        if e.get("tipo") == "chiuso":
+            return e
+        # personalizzato: blocca solo se gli orari si sovrappongono
+        oi, of_ = e.get("ora_inizio"), e.get("ora_fine")
+        if oi and of_ and (dal < of_) and (al > oi):
+            return e
+    return None
 
 # -----------------------------------------------------------------------------
 # Materie (admin) + associazione N:M con docenti (riproduce combomat)
@@ -1021,6 +1178,10 @@ async def bulk_appuntamenti(body: BulkAppuntamentoCreate, user: dict = Depends(r
         })
         if overlap:
             skipped.append({"data": s.data, "dal": s.dal, "al": s.al, "motivo": "Slot occupato"})
+            continue
+        blocked = await _is_blocked_by_eccezione(docente_id=docente_id, studio_id=sid, data_iso=s.data, dal=s.dal, al=s.al)
+        if blocked:
+            skipped.append({"data": s.data, "dal": s.dal, "al": s.al, "motivo": f"Ferie/chiusura ({blocked.get('motivo') or 'non disponibile'})"})
             continue
         doc = {
             "_id": new_id(),
@@ -1580,7 +1741,17 @@ async def seed_super_admin_and_demo():
 async def on_startup():
     await ensure_indexes()
     await seed_super_admin_and_demo()
+    try:
+        from reminder_scheduler import start_reminder_scheduler
+        start_reminder_scheduler(db)
+    except Exception as e:
+        logger.warning(f"Impossibile avviare reminder scheduler: {e}")
 
 @app.on_event("shutdown")
 async def on_shutdown():
+    try:
+        from reminder_scheduler import shutdown_reminder_scheduler
+        shutdown_reminder_scheduler()
+    except Exception:
+        pass
     client.close()
