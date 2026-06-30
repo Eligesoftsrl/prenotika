@@ -17,6 +17,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
+from email_service import send_appointment_email, send_bulk_appointments_email
 
 # -----------------------------------------------------------------------------
 # Logging & DB
@@ -765,6 +766,31 @@ async def create_appuntamento(body: AppuntamentoCreate, user: dict = Depends(req
     }
     await db.appuntamenti.insert_one(doc)
     hydrated = await _hydrate_appuntamenti([doc])
+    # Invia email di conferma al cliente (non bloccante)
+    try:
+        if cliente.get("email"):
+            studio_doc = await db.studios.find_one({"_id": sid})
+            materia_descr = None
+            if body.materia_id:
+                m = await db.materie.find_one({"_id": body.materia_id, "studio_id": sid})
+                materia_descr = (m or {}).get("descrizione")
+            await send_appointment_email(
+                cliente_email=cliente["email"],
+                cliente_nome=cliente.get("nome", ""),
+                cliente_cognome=cliente.get("cognome", ""),
+                docente_nome=docente.get("nome", ""),
+                docente_cognome=docente.get("cognome", ""),
+                studio_nome=(studio_doc or {}).get("nome", "Prenotika"),
+                studio_sede=(studio_doc or {}).get("sede"),
+                studio_email=(studio_doc or {}).get("email"),
+                data_iso=body.data,
+                dal=body.dal,
+                al=body.al,
+                materia=materia_descr,
+                note=body.note,
+            )
+    except Exception as _email_err:
+        logger.warning(f"Email conferma appuntamento singolo fallita: {_email_err}")
     return hydrated[0]
 
 @api.patch("/appuntamenti/{app_id}", response_model=Appuntamento)
@@ -1011,6 +1037,30 @@ async def bulk_appuntamenti(body: BulkAppuntamentoCreate, user: dict = Depends(r
         }
         await db.appuntamenti.insert_one(doc)
         created.append({"data": s.data, "dal": s.dal, "al": s.al, "id": doc["_id"]})
+
+    # Invia email riepilogativa con ICS multi-evento (non bloccante)
+    try:
+        if created and cliente.get("email"):
+            studio_doc = await db.studios.find_one({"_id": sid})
+            materia_descr = None
+            if body.materia_id:
+                m = await db.materie.find_one({"_id": body.materia_id, "studio_id": sid})
+                materia_descr = (m or {}).get("descrizione")
+            await send_bulk_appointments_email(
+                cliente_email=cliente["email"],
+                cliente_nome=cliente.get("nome", ""),
+                cliente_cognome=cliente.get("cognome", ""),
+                docente_nome=docente.get("nome", ""),
+                docente_cognome=docente.get("cognome", ""),
+                studio_nome=(studio_doc or {}).get("nome", "Prenotika"),
+                studio_sede=(studio_doc or {}).get("sede"),
+                studio_email=(studio_doc or {}).get("email"),
+                slots=created,
+                materia=materia_descr,
+                note=body.note,
+            )
+    except Exception as _email_err:
+        logger.warning(f"Email conferma bulk appuntamenti fallita: {_email_err}")
 
     return {
         "cliente_id": cliente_id,
