@@ -1,16 +1,19 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { api, formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Settings as SettingsIcon, Save, MessageSquare } from "lucide-react";
+import { Settings as SettingsIcon, Save, MessageSquare, Image as ImageIcon, Upload, Trash2 } from "lucide-react";
 import { TIPOLOGIE } from "@/lib/tipologia";
+
+const MAX_LOGO_BYTES = 600 * 1024; // 600KB after base64
 
 export default function Impostazioni() {
   const { studio, refresh } = useAuth();
-  const [form, setForm] = useState({ nome: "", sede: "", telefono: "", email: "", piva: "", comunicazioni: "" });
+  const [form, setForm] = useState({ nome: "", sede: "", telefono: "", email: "", piva: "", comunicazioni: "", logo_base64: "" });
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const fileRef = useRef(null);
 
   useEffect(() => {
     api.get("/studio").then(({ data }) => {
@@ -21,10 +24,42 @@ export default function Impostazioni() {
         email: data.email || "",
         piva: data.piva || "",
         comunicazioni: data.comunicazioni || "",
+        logo_base64: data.logo_base64 || "",
       });
       setLoaded(true);
     });
   }, []);
+
+  const onLogoChange = (e) => {
+    setError("");
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!/^image\/(png|jpeg|jpg|webp|svg\+xml)$/.test(file.type)) {
+      setError("Formato non supportato. Usa PNG, JPG, WEBP o SVG.");
+      e.target.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      // size check based on base64 payload length
+      const payload = dataUrl.split(",")[1] || "";
+      const approxBytes = Math.floor(payload.length * 0.75);
+      if (approxBytes > MAX_LOGO_BYTES) {
+        setError(`Immagine troppo grande (${Math.round(approxBytes/1024)}KB). Massimo 600KB.`);
+        if (fileRef.current) fileRef.current.value = "";
+        return;
+      }
+      setForm((f) => ({ ...f, logo_base64: dataUrl }));
+    };
+    reader.onerror = () => setError("Impossibile leggere il file.");
+    reader.readAsDataURL(file);
+  };
+
+  const onLogoRemove = () => {
+    setForm((f) => ({ ...f, logo_base64: "" }));
+    if (fileRef.current) fileRef.current.value = "";
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault(); setBusy(true); setError(""); setSuccess("");
@@ -81,6 +116,39 @@ export default function Impostazioni() {
             <div>
               <label className="block text-sm font-medium mb-1.5">Sede</label>
               <input className="input-base" value={form.sede} onChange={(e) => setForm({ ...form, sede: e.target.value })} data-testid="settings-sede-input" />
+            </div>
+          </div>
+        </div>
+
+        <div className="surface-card p-6">
+          <div className="flex items-center gap-2 mb-1"><ImageIcon size={16} className="text-[color:var(--primary)]" /><h3 className="font-display font-bold text-lg">Logo del centro</h3></div>
+          <p className="text-xs text-[color:var(--text-2)] mb-3">Stampato in cima a tutti i report PDF. PNG, JPG, WEBP o SVG (max 600KB).</p>
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="w-32 h-32 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-2)] flex items-center justify-center overflow-hidden" data-testid="logo-preview">
+              {form.logo_base64 ? (
+                <img src={form.logo_base64} alt="Logo del centro" className="max-w-full max-h-full object-contain" />
+              ) : (
+                <div className="text-xs text-[color:var(--text-2)] text-center px-2">Nessun logo<br/>caricato</div>
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                onChange={onLogoChange}
+                className="hidden"
+                data-testid="settings-logo-file"
+              />
+              <button type="button" onClick={() => fileRef.current?.click()} className="btn-secondary" data-testid="settings-logo-upload">
+                <Upload size={14} /> {form.logo_base64 ? "Sostituisci" : "Carica logo"}
+              </button>
+              {form.logo_base64 && (
+                <button type="button" onClick={onLogoRemove} className="btn-secondary text-[color:var(--error)]" data-testid="settings-logo-remove">
+                  <Trash2 size={14} /> Rimuovi
+                </button>
+              )}
+              <div className="text-xs text-[color:var(--text-2)] mt-1">Consigliato: PNG con sfondo trasparente, 600×600px circa.</div>
             </div>
           </div>
         </div>

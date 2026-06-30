@@ -80,6 +80,7 @@ class StudioBase(BaseModel):
     note: Optional[str] = None
     tipologia: Tipologia = "centro_studi"
     comunicazioni: Optional[str] = None  # testo libero mostrato in calce ai report PDF
+    logo_base64: Optional[str] = None    # dataURL/base64 PNG-JPEG del logo stampato in cima ai PDF
 
 class StudioUpdate(BaseModel):
     nome: Optional[str] = None
@@ -90,6 +91,7 @@ class StudioUpdate(BaseModel):
     note: Optional[str] = None
     tipologia: Optional[Tipologia] = None
     comunicazioni: Optional[str] = None
+    logo_base64: Optional[str] = None
 
 class StudioCreate(StudioBase):
     admin_nome: str
@@ -1027,8 +1029,9 @@ from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image as RLImage
 from reportlab.lib.units import mm
+import base64 as _b64
 
 _GIORNI_IT = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
 
@@ -1128,6 +1131,29 @@ async def report_appuntamenti_pdf(
     body = ParagraphStyle("body", parent=styles["Normal"], fontSize=10)
 
     story = []
+    # Logo del centro (se configurato) - dataURL base64
+    logo_raw = (studio or {}).get("logo_base64")
+    if logo_raw:
+        try:
+            payload = logo_raw.split(",", 1)[1] if logo_raw.startswith("data:") else logo_raw
+            img_bytes = _b64.b64decode(payload)
+            # Pre-valida con PIL (verifica integrità e formato)
+            from PIL import Image as PILImage
+            with PILImage.open(BytesIO(img_bytes)) as _probe:
+                _probe.verify()
+            # Riapre lo stream per reportlab (verify() chiude il file)
+            img_io = BytesIO(img_bytes)
+            img = RLImage(img_io)
+            iw, ih = img.imageWidth, img.imageHeight
+            target_h = 22 * mm
+            ratio = target_h / float(ih) if ih else 1.0
+            img.drawHeight = target_h
+            img.drawWidth = min(60 * mm, iw * ratio)
+            img.hAlign = "LEFT"
+            story.append(img)
+            story.append(Spacer(1, 4))
+        except Exception as _e:
+            logger.warning(f"Logo studio non valido, ignorato: {_e}")
     story.append(Paragraph(studio_nome, h1))
     period_it = {"day": "Giorno", "week": "Settimana", "month": "Mese"}.get(period, period)
     sub = f"Report appuntamenti — {period_it}: {label}"
