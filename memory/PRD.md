@@ -42,6 +42,8 @@ Codice originale conservato in `/app/uploads/Wk_extracted/` (Flask + MySQL, rife
 **Iter 1**: backend + frontend MVP completi, seed idempotente. 22/22 backend test.
 **Iter 2**: durata appuntamento per docente (`slot_minuti`), relazione N:M alunni↔docenti, pagina dedicata alunni docente, autocalcolo "Al" da slot, filtri. 33/33 test.
 **Iter 3**: catalogo Materie + N:M docenti↔materie, modal appuntamento con tab "esistente / nuovo studente" inline, ricorrenza +7..+42 giorni, endpoint `/api/appuntamenti/bulk`, fix centratura modal con scroll. 46/46 backend test + 12/12 frontend dopo fix.
+**Iter 4**: 3 tipologie studio (`centro_studi` / `studio_legale` / `studio_medico`), terminologia dinamica via `tipologia.js`, modali con React Portals, PDF report con merging contigui, pagina dedicata `/appuntamenti/nuovo`.
+**Iter 5 (Feb 2026)**: Rebrand **Prenotika** + Logo SVG, pagina `/impostazioni` con campo `comunicazioni` (admin) appeso al footer dei PDF generati. Fix nav: link "Impostazioni" aggiunto alla sidebar admin in `Layout.jsx`.
 
 ## Backlog (priorità)
 - **P1**: pagina pubblica self-booking clienti finali (link condivisibile `/book/[studio]/[docente]`)

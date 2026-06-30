@@ -31,6 +31,7 @@ export default function Layout() {
               { to: "/docenti", icon: GraduationCap, label: L.docenti, testid: "nav-link-docenti" },
               { to: "/clienti", icon: Users, label: L.clienti, testid: "nav-link-clienti" },
               { to: "/materie", icon: BookOpen, label: L.materie, testid: "nav-link-materie" },
+              { to: "/impostazioni", icon: Settings, label: "Impostazioni", testid: "nav-link-impostazioni" },
             ]
           : []),
       ];
