@@ -55,7 +55,7 @@ export default function Login() {
 
         <div className="relative z-10 text-white max-w-md">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs tracking-[0.18em] uppercase font-semibold mb-7">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#2DD4BF] animate-pulse" /> SaaS · Agenda Multi-operatore
+            <span className="w-1.5 h-1.5 rounded-full bg-[#2DD4BF] animate-pulse" /> Agenda Multi-operatore
           </div>
           <h1 className="font-display text-5xl xl:text-6xl font-extrabold tracking-tight leading-[1.02] mb-5">
             La gestione <br />
@@ -87,7 +87,7 @@ export default function Login() {
             <Logo size={44} />
             <div>
               <div className="font-display text-xl font-bold leading-none tracking-tight">Prenotika</div>
-              <div className="text-[10px] text-[color:var(--text-2)] tracking-[0.22em] uppercase mt-1">Smart Booking SaaS</div>
+              <div className="text-[10px] text-[color:var(--text-2)] tracking-[0.22em] uppercase mt-1">Smart Booking</div>
             </div>
           </div>
 
