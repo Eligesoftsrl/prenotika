@@ -141,11 +141,11 @@ export default function Landing() {
 
   /* Ticker mock data */
   const tickerItems = [
-    { name: "Alessia P.", what: "ha prenotato una visita", when: "10 sec fa" },
-    { name: "Studio Bianchi", what: "ha generato il report mensile", when: "1 min fa" },
-    { name: "Avv. Conti", what: "ha confermato 3 udienze", when: "4 min fa" },
+    { name: "Centro Studi Arco Iris", what: "ha confermato 4 lezioni della settimana", when: "30 sec fa" },
+    { name: "Sara M.", what: "ha prenotato una visita di controllo", when: "1 min fa" },
+    { name: "Studio Legale Conti", what: "ha generato il report mensile", when: "4 min fa" },
     { name: "Dr.ssa Marini", what: "ha aggiunto un nuovo paziente", when: "6 min fa" },
-    { name: "Centro Lingue Roma", what: "ha bookato 12 lezioni", when: "9 min fa" },
+    { name: "Scuola di Lingue Roma", what: "ha bookato 12 lezioni ricorrenti", when: "9 min fa" },
   ];
   const [tickerIdx, setTickerIdx] = useState(0);
   useEffect(() => {
@@ -519,17 +519,38 @@ export default function Landing() {
             {[
               {
                 name: "Free", tagline: "Per iniziare", price: "0", period: "/ sempre", cta: "Inizia gratis", accent: false, badge: null,
-                features: ["1 professionista", "Fino a 50 appuntamenti / mese", "Calendario mese/settimana/giorno", "Anagrafica clienti", "Email di supporto"],
-                excluded: ["Email automatiche", "PDF brandizzati", "Ferie & eccezioni"],
+                features: [
+                  "1 professionista",
+                  "Calendario mese / settimana / giorno",
+                  "Anagrafica clienti e materie",
+                  "Email + ICS automatiche",
+                  "PDF brandizzati",
+                  "Ferie & eccezioni",
+                  "Email di supporto",
+                ],
+                excluded: [],
               },
               {
                 name: "Pro", tagline: "Per studi attivi", price: "29", period: "€ / mese", cta: "Inizia gratis 14 giorni", accent: true, badge: "Più scelto",
-                features: ["Fino a 5 professionisti", "Appuntamenti illimitati", "Email + ICS automatiche", "Reminder 24h pre-appuntamento", "PDF brandizzati con logo studio", "Ferie & eccezioni", "Supporto prioritario"],
+                features: [
+                  "Fino a 5 professionisti",
+                  "Tutto del piano Free",
+                  "Reminder 24h pre-appuntamento",
+                  "Report planning aggregato di studio",
+                  "Supporto prioritario via email",
+                ],
                 excluded: [],
               },
               {
                 name: "Business", tagline: "Per centri e cliniche", price: "79", period: "€ / mese", cta: "Parla col team", accent: false, badge: null,
-                features: ["Professionisti illimitati", "Tutto del piano Pro", "Branding personalizzato", "Accesso API", "Onboarding dedicato", "SLA garantito 99,9%"],
+                features: [
+                  "Professionisti illimitati",
+                  "Tutto del piano Pro",
+                  "Branding personalizzato (colori, dominio)",
+                  "Onboarding e migrazione dati",
+                  "Accesso API",
+                  "SLA garantito 99,9%",
+                ],
                 excluded: [],
               },
             ].map((p, idx) => (
@@ -589,7 +610,8 @@ export default function Landing() {
           </div>
 
           <div className="text-center mt-12 text-xs text-[color:var(--text-2)]">
-            Tutti i piani includono · Hosting in Europa · GDPR compliant · Backup automatici giornalieri · Aggiornamenti gratuiti
+            <strong className="text-[color:var(--text-1)]">Tutte le funzioni sono incluse in ogni piano.</strong> I prezzi scalano sul numero di professionisti e il livello di supporto.
+            <br />Hosting in Europa · GDPR compliant · Backup automatici giornalieri · Aggiornamenti gratuiti
           </div>
         </div>
       </section>
@@ -607,13 +629,13 @@ export default function Landing() {
             transition={{ duration: 0.7 }}
             className="font-display text-2xl sm:text-3xl font-bold leading-snug tracking-tight"
           >
-            &ldquo;Abbiamo dimezzato i no-show grazie ai reminder automatici, e l&apos;agenda condivisa ha tolto il caos dalla segreteria. Adesso ci dedichiamo davvero ai pazienti.&rdquo;
+            &ldquo;Con Prenotika ho finalmente un&apos;unica agenda per tutti i nostri docenti. Le famiglie ricevono email di conferma automatiche e i ragazzi non si dimenticano più della lezione. È diventato uno strumento di cui non posso più fare a meno.&rdquo;
           </motion.blockquote>
           <div className="mt-6 flex items-center justify-center gap-3">
-            <div className="w-11 h-11 rounded-full" style={{ background: "var(--grad-brand)" }} />
+            <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-display font-bold" style={{ background: "var(--grad-brand)" }}>F</div>
             <div className="text-left">
-              <div className="font-semibold text-sm">Dr. Elena Marchi</div>
-              <div className="text-xs text-[color:var(--text-2)]">Direttrice · Studio Medico Marchi</div>
+              <div className="font-semibold text-sm">Francesca</div>
+              <div className="text-xs text-[color:var(--text-2)]">Direttrice · Centro Studi Arco Iris</div>
             </div>
           </div>
         </div>
