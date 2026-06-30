@@ -32,7 +32,7 @@ JWT_SECRET = os.environ['JWT_SECRET']
 JWT_ALGORITHM = os.environ.get('JWT_ALGORITHM', 'HS256')
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get('ACCESS_TOKEN_EXPIRE_MINUTES', '1440'))
 
-app = FastAPI(title="EligeHub SaaS", version="1.0.0")
+app = FastAPI(title="Prenotika SaaS", version="1.0.0")
 api = APIRouter(prefix="/api")
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -79,6 +79,17 @@ class StudioBase(BaseModel):
     piva: Optional[str] = None
     note: Optional[str] = None
     tipologia: Tipologia = "centro_studi"
+    comunicazioni: Optional[str] = None  # testo libero mostrato in calce ai report PDF
+
+class StudioUpdate(BaseModel):
+    nome: Optional[str] = None
+    sede: Optional[str] = None
+    telefono: Optional[str] = None
+    email: Optional[EmailStr] = None
+    piva: Optional[str] = None
+    note: Optional[str] = None
+    tipologia: Optional[Tipologia] = None
+    comunicazioni: Optional[str] = None
 
 class StudioCreate(StudioBase):
     admin_nome: str
@@ -369,6 +380,21 @@ async def create_studio(body: StudioCreate, _: dict = Depends(require_role("supe
     await db.users.insert_one(admin_doc)
 
     return _from_mongo(studio_doc)
+
+@api.get("/studio")
+async def get_my_studio(user: dict = Depends(require_role("admin", "docente"))):
+    sid = _scope_studio_id(user)
+    fresh = await db.studios.find_one({"_id": sid})
+    return _from_mongo(fresh)
+
+@api.patch("/studio", response_model=Studio)
+async def update_my_studio(body: StudioUpdate, user: dict = Depends(require_role("admin"))):
+    sid = _scope_studio_id(user)
+    updates = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    if updates:
+        await db.studios.update_one({"_id": sid}, {"$set": updates})
+    fresh = await db.studios.find_one({"_id": sid})
+    return _from_mongo(fresh)
 
 @api.delete("/studios/{studio_id}", status_code=204)
 async def delete_studio(studio_id: str, _: dict = Depends(require_role("super_admin"))):
@@ -1160,9 +1186,20 @@ async def report_appuntamenti_pdf(
     if total_appuntamenti == 0:
         story.append(Paragraph("Nessun appuntamento nel periodo selezionato.", body))
 
+    # Sezione "Comunicazioni" del centro (in calce al report)
+    comunicazioni = (studio or {}).get("comunicazioni")
+    if comunicazioni and comunicazioni.strip():
+        story.append(Spacer(1, 14))
+        com_h = ParagraphStyle("com_h", parent=styles["Heading3"], textColor=colors.HexColor("#2C4C3B"), fontSize=12, spaceAfter=4)
+        com_body = ParagraphStyle("com_body", parent=styles["Normal"], fontSize=9.5, textColor=colors.HexColor("#1E1E1E"), leading=13)
+        story.append(Paragraph("Comunicazioni del centro", com_h))
+        # converte newline in <br/>
+        text_html = (comunicazioni.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br/>"))
+        story.append(Paragraph(text_html, com_body))
+
     story.append(Spacer(1, 12))
     story.append(Paragraph(
-        f"Generato il {now_utc().strftime('%d/%m/%Y %H:%M')} UTC — EligeHub SaaS",
+        f"Generato il {now_utc().strftime('%d/%m/%Y %H:%M')} UTC — Prenotika SaaS",
         small,
     ))
     doc.build(story)
@@ -1232,7 +1269,7 @@ async def disponibilita(
 # -----------------------------------------------------------------------------
 @api.get("/")
 async def root():
-    return {"app": "EligeHub SaaS", "status": "ok", "time": now_utc().isoformat()}
+    return {"app": "Prenotika SaaS", "status": "ok", "time": now_utc().isoformat()}
 
 app.include_router(api)
 

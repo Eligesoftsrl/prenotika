@@ -10,6 +10,7 @@ import Docenti from "@/pages/Docenti";
 import DocenteAlunni from "@/pages/DocenteAlunni";
 import DocenteMaterie from "@/pages/DocenteMaterie";
 import Materie from "@/pages/Materie";
+import Impostazioni from "@/pages/Impostazioni";
 import Clienti from "@/pages/Clienti";
 import Orari from "@/pages/Orari";
 import Appuntamenti from "@/pages/Appuntamenti";
@@ -37,6 +38,7 @@ function App() {
               <Route path="/docenti/:id/alunni" element={<ProtectedRoute roles={["admin"]}><DocenteAlunni /></ProtectedRoute>} />
               <Route path="/docenti/:id/materie" element={<ProtectedRoute roles={["admin"]}><DocenteMaterie /></ProtectedRoute>} />
               <Route path="/materie" element={<ProtectedRoute roles={["admin", "docente"]}><Materie /></ProtectedRoute>} />
+              <Route path="/impostazioni" element={<ProtectedRoute roles={["admin"]}><Impostazioni /></ProtectedRoute>} />
               <Route path="/clienti" element={<ProtectedRoute roles={["admin", "docente"]}><Clienti /></ProtectedRoute>} />
               <Route path="/orari" element={<ProtectedRoute roles={["admin", "docente"]}><Orari /></ProtectedRoute>} />
               <Route path="/appuntamenti" element={<ProtectedRoute roles={["admin", "docente"]}><Appuntamenti /></ProtectedRoute>} />

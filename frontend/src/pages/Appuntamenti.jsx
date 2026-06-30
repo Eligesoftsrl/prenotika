@@ -246,6 +246,12 @@ export default function Appuntamenti() {
             {docenteSel && (
               <div className="text-xs text-[color:var(--text-2)]">
                 Slot: <strong>{slotMinuti} min</strong> • Disponibilità: {orari.length ? `${toHHMM(dayRange.startMin)}–${toHHMM(dayRange.endMin)}` : "non configurata"}
+                {viewMode === "day" && orari.length > 0 && (() => {
+                  const giorno = (selectedDay.getDay() + 6) % 7;
+                  const dayOrari = orari.filter((o) => o.giorno === giorno).sort((a, b) => toMin(a.dal) - toMin(b.dal));
+                  if (dayOrari.length === 0) return <span className="ml-2">• <strong>{selectedDay.toLocaleDateString("it-IT", { weekday: "long" })}</strong>: nessuna fascia</span>;
+                  return <span className="ml-2">• Fasce di <strong>{selectedDay.toLocaleDateString("it-IT", { weekday: "long" })}</strong>: {dayOrari.map((o) => `${o.dal}-${o.al}`).join(", ")}</span>;
+                })()}
               </div>
             )}
           </div>

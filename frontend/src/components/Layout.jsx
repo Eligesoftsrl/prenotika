@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { LayoutDashboard, Calendar, Users, GraduationCap, Clock, Building2, LogOut, Menu, X, BookOpen } from "lucide-react";
+import { LayoutDashboard, Calendar, Users, GraduationCap, Clock, Building2, LogOut, Menu, X, BookOpen, Settings } from "lucide-react";
 import { tipologiaLabels } from "@/lib/tipologia";
+import Logo from "@/components/Logo";
 
 const ROLE_LABEL = {
   super_admin: "Super Admin",
@@ -38,10 +39,10 @@ export default function Layout() {
     <>
       <div className="px-6 py-7">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-[color:var(--primary)] flex items-center justify-center text-white font-display font-black">E</div>
+          <Logo size={36} />
           <div>
-            <div className="font-display text-lg font-bold leading-none">EligeHub</div>
-            <div className="text-[11px] text-[color:var(--text-2)] tracking-wider uppercase mt-0.5">Saas Agenda</div>
+            <div className="font-display text-lg font-bold leading-none">Prenotika</div>
+            <div className="text-[11px] text-[color:var(--text-2)] tracking-wider uppercase mt-0.5">SaaS Agenda</div>
           </div>
         </div>
       </div>
@@ -111,7 +112,7 @@ export default function Layout() {
           <button onClick={() => setOpen(true)} className="btn-secondary" data-testid="mobile-menu-button">
             <Menu size={16} />
           </button>
-          <div className="font-display font-bold">EligeHub</div>
+          <div className="font-display font-bold">Prenotika</div>
           <div className="w-9" />
         </header>
         <div className="p-5 md:p-8 max-w-[1400px] mx-auto anim-fade-up">

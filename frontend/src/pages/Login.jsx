@@ -3,6 +3,7 @@ import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { formatApiError } from "@/lib/api";
 import { CalendarDays, ArrowRight } from "lucide-react";
+import Logo from "@/components/Logo";
 
 const DEMOS = [
   { label: "Admin Demo", email: "admin@demo.it", password: "Admin123!" },
@@ -76,9 +77,9 @@ export default function Login() {
       <div className="flex items-center justify-center p-6 sm:p-10">
         <form onSubmit={submit} className="w-full max-w-md" data-testid="login-form">
           <div className="flex items-center gap-2 mb-8">
-            <div className="w-10 h-10 rounded-lg bg-[color:var(--primary)] flex items-center justify-center text-white font-display font-black">E</div>
+            <Logo size={40} />
             <div>
-              <div className="font-display text-xl font-bold leading-none">EligeHub</div>
+              <div className="font-display text-xl font-bold leading-none">Prenotika</div>
               <div className="text-[11px] text-[color:var(--text-2)] tracking-wider uppercase mt-0.5">SaaS Agenda</div>
             </div>
           </div>
