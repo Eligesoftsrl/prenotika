@@ -317,8 +317,8 @@ export default function Appuntamenti() {
             </div>
           </div>
           <div className="hidden sm:flex items-center gap-3 text-xs mb-3 px-1">
-            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[#3E7B5B]" /> Libero</div>
-            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm" style={{background: docenteSel?.color || "#2C4C3B"}} /> Prenotato</div>
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[#2DD4BF]" /> Libero</div>
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm" style={{background: docenteSel?.color || "#7C3AED"}} /> Prenotato</div>
             <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[color:var(--surface-2)] border border-[color:var(--border)]" /> Non disponibile</div>
           </div>
 
@@ -358,7 +358,7 @@ export default function Appuntamenti() {
                           <div
                             key={`${m}-${di}`}
                             className="rounded-md p-1 text-[10px] text-white shadow-sm relative group min-h-[44px] flex flex-col items-center justify-center text-center"
-                            style={{ background: docenteSel?.color || "#2C4C3B" }}
+                            style={{ background: docenteSel?.color || "#7C3AED" }}
                             data-testid={`appuntamento-${ev.id}-${toHHMM(m)}`}
                             title={`${ev.cliente_nome} • ${ev.dal}-${ev.al}${ev.note ? ` • ${ev.note}` : ""}`}
                           >
@@ -381,7 +381,7 @@ export default function Appuntamenti() {
                           <button
                             key={`${m}-${di}`}
                             onClick={() => onCellClick(d, slot)}
-                            className="rounded-md min-h-[44px] bg-[#3E7B5B] hover:bg-[#356B4F] transition-colors text-white font-bold flex items-center justify-center"
+                            className="rounded-md min-h-[44px] bg-[#2DD4BF] hover:bg-[#14B8A6] transition-colors text-white font-bold flex items-center justify-center"
                             data-testid={`cal-cell-${dayKey}-${slot.dal}`}
                           >
                             <span className="text-[11px] whitespace-nowrap">
@@ -428,7 +428,7 @@ export default function Appuntamenti() {
                       if (ev) {
                         return (
                           <div key={slot.m} className="rounded-lg overflow-hidden" data-testid={`day-row-${slot.dal}`}>
-                            <div className="px-4 py-2.5 text-white font-bold flex items-center justify-between" style={{ background: docenteSel?.color || "#2C4C3B" }}>
+                            <div className="px-4 py-2.5 text-white font-bold flex items-center justify-between" style={{ background: docenteSel?.color || "#7C3AED" }}>
                               <span className="text-lg">
                                 {slot.dal}<span className="text-sm opacity-80">/{slot.al}</span>
                               </span>
@@ -453,7 +453,7 @@ export default function Appuntamenti() {
                         <button
                           key={slot.m}
                           onClick={() => onCellClick(selectedDay, slot)}
-                          className="w-full rounded-lg px-4 py-3 bg-[#3E7B5B] hover:bg-[#356B4F] text-white font-bold transition-colors flex items-center justify-center"
+                          className="w-full rounded-lg px-4 py-3 bg-[#2DD4BF] hover:bg-[#14B8A6] text-white font-bold transition-colors flex items-center justify-center"
                           data-testid={`day-slot-${slot.dal}`}
                         >
                           <span className="text-lg">{slot.dal}<span className="text-sm opacity-80">/{slot.al}</span></span>
@@ -498,7 +498,7 @@ export default function Appuntamenti() {
                   </div>
                   <div className="space-y-0.5">
                     {evs.slice(0, 3).map((e) => (
-                      <div key={e.id} className="text-[10px] rounded px-1 py-0.5 truncate text-white" style={{ background: docenteSel?.color || "#2C4C3B" }} title={`${e.dal}-${e.al} ${e.cliente_nome}${e.materia_descrizione ? ' · ' + e.materia_descrizione : ''}`}>
+                      <div key={e.id} className="text-[10px] rounded px-1 py-0.5 truncate text-white" style={{ background: docenteSel?.color || "#7C3AED" }} title={`${e.dal}-${e.al} ${e.cliente_nome}${e.materia_descrizione ? ' · ' + e.materia_descrizione : ''}`}>
                         <span className="font-bold">{e.dal}</span> {e.cliente_nome}{e.materia_descrizione ? ` · ${e.materia_descrizione}` : ""}
                       </div>
                     ))}

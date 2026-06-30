@@ -40,11 +40,11 @@ export default function Layout() {
   const SideContent = (
     <>
       <div className="px-6 py-7">
-        <div className="flex items-center gap-2.5">
-          <Logo size={36} />
+        <div className="flex items-center gap-3">
+          <Logo size={42} />
           <div>
-            <div className="font-display text-lg font-bold leading-none">Prenotika</div>
-            <div className="text-[11px] text-[color:var(--text-2)] tracking-wider uppercase mt-0.5">SaaS Agenda</div>
+            <div className="font-display text-lg font-bold leading-none tracking-tight">Prenotika</div>
+            <div className="text-[10px] text-[color:var(--text-2)] tracking-[0.22em] uppercase mt-1">Smart Booking</div>
           </div>
         </div>
       </div>
@@ -114,7 +114,7 @@ export default function Layout() {
           <button onClick={() => setOpen(true)} className="btn-secondary" data-testid="mobile-menu-button">
             <Menu size={16} />
           </button>
-          <div className="font-display font-bold">Prenotika</div>
+          <div className="font-display font-bold tracking-tight">Prenotika</div>
           <div className="w-9" />
         </header>
         <div className="p-5 md:p-8 max-w-[1400px] mx-auto anim-fade-up">

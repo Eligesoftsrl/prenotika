@@ -441,7 +441,7 @@ async def create_docente(body: DocenteCreate, user: dict = Depends(require_role(
         "studio_id": sid,
         "telefono": body.telefono,
         "specializzazione": body.specializzazione,
-        "color": body.color or "#2C4C3B",
+        "color": body.color or "#7C3AED",
         "slot_minuti": body.slot_minuti or 60,
         "active": True,
         "created_at": now_utc().isoformat(),
@@ -1125,8 +1125,8 @@ async def report_appuntamenti_pdf(
     buf = BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)
     styles = getSampleStyleSheet()
-    h2 = ParagraphStyle("h2", parent=styles["Heading2"], textColor=colors.HexColor("#1E1E1E"), fontSize=14, spaceBefore=10, spaceAfter=6)
-    small = ParagraphStyle("small", parent=styles["Normal"], textColor=colors.HexColor("#5C5C5C"), fontSize=9)
+    h2 = ParagraphStyle("h2", parent=styles["Heading2"], textColor=colors.HexColor("#0F172A"), fontSize=14, spaceBefore=10, spaceAfter=6)
+    small = ParagraphStyle("small", parent=styles["Normal"], textColor=colors.HexColor("#475569"), fontSize=9)
     body = ParagraphStyle("body", parent=styles["Normal"], fontSize=10)
 
     story = []
@@ -1167,8 +1167,8 @@ async def report_appuntamenti_pdf(
     if studio_d.get("piva"):
         anagrafica_lines.append(f"P.IVA {studio_d['piva']}")
 
-    head_name_style = ParagraphStyle("hn", parent=styles["Heading1"], textColor=colors.HexColor("#2C4C3B"), fontSize=18, spaceAfter=2, leading=22)
-    head_anag_style = ParagraphStyle("ha", parent=styles["Normal"], textColor=colors.HexColor("#5C5C5C"), fontSize=9, leading=12)
+    head_name_style = ParagraphStyle("hn", parent=styles["Heading1"], textColor=colors.HexColor("#7C3AED"), fontSize=18, spaceAfter=2, leading=22)
+    head_anag_style = ParagraphStyle("ha", parent=styles["Normal"], textColor=colors.HexColor("#475569"), fontSize=9, leading=12)
 
     right_block = [Paragraph(studio_nome, head_name_style)]
     if anagrafica_lines:
@@ -1194,7 +1194,7 @@ async def report_appuntamenti_pdf(
             story.append(p)
     # Linea separatrice
     sep = Table([[""]], colWidths=[180 * mm], rowHeights=[0.6])
-    sep.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.7, colors.HexColor("#2C4C3B"))]))
+    sep.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.7, colors.HexColor("#7C3AED"))]))
     story.append(Spacer(1, 4))
     story.append(sep)
     story.append(Spacer(1, 6))
@@ -1236,14 +1236,14 @@ async def report_appuntamenti_pdf(
                 ])
             tbl = Table(data_rows, colWidths=[22*mm, 22*mm, 13*mm, 13*mm, 42*mm, 28*mm, 20*mm, 24*mm], repeatRows=1)
             tbl.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2C4C3B")),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#7C3AED")),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("FONTSIZE", (0, 0), (-1, -1), 8.5),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#FBF9F6"), colors.white]),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#F8FAFC"), colors.white]),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                 ("ALIGN", (0, 0), (3, -1), "CENTER"),
-                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#E4E0D6")),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#E2E8F0")),
                 ("LEFTPADDING", (0, 0), (-1, -1), 4),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 4),
                 ("TOPPADDING", (0, 0), (-1, -1), 4),
@@ -1260,8 +1260,8 @@ async def report_appuntamenti_pdf(
     comunicazioni = (studio or {}).get("comunicazioni")
     if comunicazioni and comunicazioni.strip():
         story.append(Spacer(1, 14))
-        com_h = ParagraphStyle("com_h", parent=styles["Heading3"], textColor=colors.HexColor("#2C4C3B"), fontSize=12, spaceAfter=4)
-        com_body = ParagraphStyle("com_body", parent=styles["Normal"], fontSize=9.5, textColor=colors.HexColor("#1E1E1E"), leading=13)
+        com_h = ParagraphStyle("com_h", parent=styles["Heading3"], textColor=colors.HexColor("#7C3AED"), fontSize=12, spaceAfter=4)
+        com_body = ParagraphStyle("com_body", parent=styles["Normal"], fontSize=9.5, textColor=colors.HexColor("#0F172A"), leading=13)
         story.append(Paragraph("Comunicazioni del centro", com_h))
         # converte newline in <br/>
         text_html = (comunicazioni.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br/>"))
@@ -1423,7 +1423,7 @@ async def seed_super_admin_and_demo():
             "role": "docente",
             "studio_id": studio_id,
             "specializzazione": "Matematica",
-            "color": "#2C4C3B",
+            "color": "#7C3AED",
             "slot_minuti": 60,
             "active": True,
             "created_at": now_utc().isoformat(),
@@ -1474,7 +1474,7 @@ async def seed_super_admin_and_demo():
         await db.users.insert_one({
             "_id": prof_id, "nome": prof_nome, "cognome": prof_cognome, "email": prof_email,
             "password_hash": hash_password(prof_pwd), "role": "docente", "studio_id": sid_new,
-            "color": "#4C6B8B" if tip == "studio_legale" else "#D96C4A",
+            "color": "#60A5FA" if tip == "studio_legale" else "#2DD4BF",
             "slot_minuti": 30 if tip == "studio_medico" else 60,
             "active": True, "created_at": now_utc().isoformat(),
         })

@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Plus, Edit2, Trash2, X, GraduationCap, CalendarClock, Users as UsersIcon, BookOpen } from "lucide-react";
 import { tipologiaLabels } from "@/lib/tipologia";
 
-const COLORS = ["#2C4C3B", "#D96C4A", "#4C6B8B", "#D4A373", "#8B5A2B", "#4A5D23"];
+const COLORS = ["#7C3AED", "#2DD4BF", "#60A5FA", "#F59E0B", "#EC4899", "#14B8A6"];
 const DURATE = [15, 30, 45, 60, 90, 120];
 
 function emptyForm() {
@@ -146,7 +146,7 @@ export default function Docenti() {
                     <tr key={d.id} data-testid={`docente-row-${d.id}`}>
                       <td>
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: d.color || "#2C4C3B" }}>
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: d.color || "#7C3AED" }}>
                             {d.nome?.[0]}{d.cognome?.[0]}
                           </div>
                           <div className="font-semibold">{d.nome} {d.cognome}</div>
@@ -183,7 +183,7 @@ export default function Docenti() {
               {items.map((d) => (
                 <div key={d.id} className="p-4" data-testid={`docente-card-${d.id}`}>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ background: d.color || "#2C4C3B" }}>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ background: d.color || "#7C3AED" }}>
                       {d.nome?.[0]}{d.cognome?.[0]}
                     </div>
                     <div className="min-w-0 flex-1">

@@ -1,0 +1,30 @@
+{
+  "summary": "Iter 12 - Rebrand Prenotika SaaS Italia VALIDATO end-to-end. Backend: 6/6 pytest passati (test_iter11_piva_pdf.py riusato come regressione P.IVA + carta intestata PDF). Frontend: tutti i criteri visivi+funzionali del rebrand verificati su /login (NON loggato) e /dashboard (loggato admin@demo.it). Screenshot in /app/test_reports/iter12_login_rebrand.png e iter12_dashboard_rebrand.png. Nessuna regressione: P.IVA persiste dopo reload, tutti i data-testid critici funzionano.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter11_piva_pdf.py",
+    "/app/test_reports/pytest/iter12_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Rebrand pulito: Logo.jsx supporta variant=icon (PNG /prenotika-icon.png) e variant=mark (SVG fallback con gradient brand). Buon design difensivo.",
+    "Login.jsx: 3 anim-blob inline-styled con animationDelay scaglionato (0s/3s/6s) per effetto naturale. Headline 'intelligente' usa background-clip:text+gradient inline. CSS animations definite in index.css (anim-blob keyframes). Pulito.",
+    "index.html: theme-color #7C3AED, favicon /prenotika-icon.png, title 'Prenotika — Smart Booking SaaS' tutti applicati. apple-touch-icon presente.",
+    "Tutti i data-testid esistenti preservati: login-form, login-email-input, login-password-input, login-submit-button, demo-{admin,docente,super-admin}-demo-button (nota: 'super-admin' deriva da label 'Super Admin' lowercased; testid effettivo è 'demo-super-admin-button' confermato), nav-link-*, dashboard-page, settings-piva-input, settings-submit-button, report-page. Nessuna regressione testabile.",
+    "PRE-ESISTENTE (gia' segnalato in iter11): console hydration warning React '<span> cannot be a child of <option>' su Report.jsx select Docenti. E' editor instrumentation (x-component su <option>), non bug applicativo. Da ignorare in produzione.",
+    "PDF brand color (#7C3AED): non verificato per byte-match diretto nel content stream (reportlab serializza il colore come triplet RGB normalizzato '0.486 0.227 0.929 rg', non come stringa hex), ma il test test_pdf_header_contains_anagrafica_text verifica indirettamente che il PDF e' generato correttamente con header carta intestata. La validazione visiva del colore viola richiederebbe rendering PDF (out of scope)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (6/6 pytest iter11 regression)", "frontend": "100% (login rebrand + dashboard rebrand + P.IVA regression)"},
+  "test_credentials": "admin@demo.it / Admin123! (centro_studi)",
+  "seed_data_creation": "P.IVA studio Centro Studi Demo cambiata a IT12121212121 (idempotent ai test successivi). Logo PNG rumoroso 200x80 sempre presente.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Rebrand v1.0 validato. Login page mostra: hero dark midnight + 3 blob viola/cyan/blu animati + headline 'La gestione intelligente degli appuntamenti.' con 'intelligente' in gradient + logo PNG + 'Bentornato.' + gradient Accedi button. Sidebar dopo login: logo PNG + 'Prenotika' + 'SMART BOOKING' uppercase. theme-color/favicon/title impostati. P.IVA fix iter11 ancora valido. Test pytest iter11 riutilizzabile come regression suite.",
+  "rca of the issue": "N/A - solo rebrand visivo, nessun bug riscontrato. Verificate sia regressione P.IVA (iter11) che integrita' di tutti i data-testid critici."
+}

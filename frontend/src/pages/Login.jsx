@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { formatApiError } from "@/lib/api";
-import { CalendarDays, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Logo from "@/components/Logo";
 
 const DEMOS = [
@@ -43,29 +43,36 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
-      {/* Left visual */}
-      <div className="hidden lg:flex relative items-end p-12 overflow-hidden" style={{ background: "linear-gradient(160deg, #2C4C3B 0%, #3C634D 100%)" }}>
-        <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+    <div className="min-h-screen grid lg:grid-cols-2 relative overflow-hidden">
+      {/* Left visual - glassmorphism + gradient depth */}
+      <div className="hidden lg:flex relative items-end p-12 overflow-hidden" style={{ background: "linear-gradient(160deg, #0F172A 0%, #1E1B4B 45%, #0F172A 100%)" }}>
+        {/* Animated blobs */}
+        <div className="anim-blob" style={{ background: "#7C3AED", width: 380, height: 380, top: "-60px", left: "-80px" }} />
+        <div className="anim-blob" style={{ background: "#2DD4BF", width: 320, height: 320, bottom: "-80px", right: "-60px", animationDelay: "3s" }} />
+        <div className="anim-blob" style={{ background: "#60A5FA", width: 240, height: 240, top: "40%", left: "30%", animationDelay: "6s", opacity: 0.35 }} />
+
+        <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)', backgroundSize: '28px 28px' }} />
+
         <div className="relative z-10 text-white max-w-md">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm text-xs tracking-widest uppercase font-semibold mb-6">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#D96C4A]" /> Gestione Appuntamenti
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs tracking-[0.18em] uppercase font-semibold mb-7">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#2DD4BF] animate-pulse" /> SaaS · Agenda Multi-operatore
           </div>
-          <h1 className="font-display text-5xl font-black tracking-tight leading-[1.05] mb-5">
-            Tempo. Persone. <br />
-            <span className="text-[#E6C8AC]">Tutto al posto giusto.</span>
+          <h1 className="font-display text-5xl xl:text-6xl font-extrabold tracking-tight leading-[1.02] mb-5">
+            La gestione <br />
+            <span style={{ background: "linear-gradient(120deg, #A78BFA 0%, #60A5FA 50%, #2DD4BF 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>intelligente</span> <br />
+            degli appuntamenti.
           </h1>
-          <p className="text-white/75 text-base leading-relaxed">
-            La piattaforma SaaS per centri studi e professionisti: gestisci docenti, clienti e disponibilità in un unico calendario, pensato per il mobile.
+          <p className="text-white/70 text-base leading-relaxed">
+            Tutte le agende del tuo studio, in un&apos;unica piattaforma. Organizza il tempo. Coordina il team. Ottimizza il lavoro.
           </p>
-          <div className="mt-10 grid grid-cols-3 gap-4 text-white/80">
+          <div className="mt-10 grid grid-cols-3 gap-4 text-white/85">
             {[
               { k: "Multi-tenant", v: "Studi isolati" },
-              { k: "Orari flessibili", v: "Per giorno e fascia" },
-              { k: "Mobile-first", v: "Ovunque tu sia" },
+              { k: "Orari custom", v: "Per professionista" },
+              { k: "Mobile-first", v: "Sempre con te" },
             ].map((s) => (
-              <div key={s.k}>
-                <div className="text-xs uppercase tracking-[0.18em] text-white/60 mb-1">{s.k}</div>
+              <div key={s.k} className="border-l border-white/15 pl-3">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-white/55 mb-1.5">{s.k}</div>
                 <div className="text-sm font-medium">{s.v}</div>
               </div>
             ))}
@@ -74,18 +81,18 @@ export default function Login() {
       </div>
 
       {/* Form */}
-      <div className="flex items-center justify-center p-6 sm:p-10">
-        <form onSubmit={submit} className="w-full max-w-md" data-testid="login-form">
-          <div className="flex items-center gap-2 mb-8">
-            <Logo size={40} />
+      <div className="flex items-center justify-center p-6 sm:p-10 relative">
+        <form onSubmit={submit} className="w-full max-w-md relative z-10" data-testid="login-form">
+          <div className="flex items-center gap-3 mb-9">
+            <Logo size={44} />
             <div>
-              <div className="font-display text-xl font-bold leading-none">Prenotika</div>
-              <div className="text-[11px] text-[color:var(--text-2)] tracking-wider uppercase mt-0.5">SaaS Agenda</div>
+              <div className="font-display text-xl font-bold leading-none tracking-tight">Prenotika</div>
+              <div className="text-[10px] text-[color:var(--text-2)] tracking-[0.22em] uppercase mt-1">Smart Booking SaaS</div>
             </div>
           </div>
 
-          <h2 className="font-display text-3xl font-bold mb-1.5">Bentornato</h2>
-          <p className="text-[color:var(--text-2)] mb-7">Accedi al tuo centro studi.</p>
+          <h2 className="font-display text-3xl font-bold mb-1.5 tracking-tight">Bentornato.</h2>
+          <p className="text-[color:var(--text-2)] mb-7">Accedi al pannello del tuo studio.</p>
 
           <label className="block text-sm font-medium mb-1.5">Email</label>
           <input
