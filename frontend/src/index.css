@@ -282,6 +282,40 @@
     33% { transform: translate(30px, -40px) scale(1.1); }
     66% { transform: translate(-20px, 30px) scale(0.95); }
   }
+
+  /* --- Aurora gradient mesh (hero 2026) --- */
+  .aurora-mesh {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(at 18% 22%, rgba(124, 58, 237, 0.55) 0px, transparent 50%),
+      radial-gradient(at 78% 18%, rgba(96, 165, 250, 0.45) 0px, transparent 50%),
+      radial-gradient(at 22% 82%, rgba(45, 212, 191, 0.40) 0px, transparent 50%),
+      radial-gradient(at 80% 78%, rgba(168, 85, 247, 0.45) 0px, transparent 50%),
+      radial-gradient(at 50% 50%, rgba(14, 165, 233, 0.30) 0px, transparent 60%);
+    filter: blur(40px) saturate(140%);
+    opacity: 0.85;
+    animation: aurora-shift 22s ease-in-out infinite;
+    mix-blend-mode: screen;
+  }
+  @keyframes aurora-shift {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25% { transform: translate(-3%, 2%) scale(1.05); }
+    50% { transform: translate(3%, -2%) scale(0.98); }
+    75% { transform: translate(-2%, -3%) scale(1.03); }
+  }
+
+  /* --- Marquee scroll --- */
+  .marquee-track {
+    animation: marquee-scroll 42s linear infinite;
+    width: max-content;
+    will-change: transform;
+  }
+  @keyframes marquee-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  .group:hover .group-hover\:translate-x-1 { transform: translateX(0.25rem); }
 }
 
 ::selection { background: rgba(124, 58, 237, 0.22); color: var(--text); }

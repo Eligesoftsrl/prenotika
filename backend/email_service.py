@@ -500,6 +500,7 @@ async def send_lead_notification(
     telefono = _html.escape(lead.get("telefono") or "—")
     tipologia = _html.escape(lead.get("tipologia") or "—")
     studio = _html.escape(lead.get("studio") or "—")
+    piano = _html.escape(lead.get("piano_interesse") or "—")
     messaggio = _html.escape(lead.get("messaggio") or "—").replace("\n", "<br/>")
     subject = f"[Prenotika] Nuovo lead da {nome}"
     html_body = f"""\
@@ -514,6 +515,7 @@ async def send_lead_notification(
         <tr><td style="color:#475569;padding:6px 0">Telefono</td><td>{telefono}</td></tr>
         <tr><td style="color:#475569;padding:6px 0">Tipologia</td><td>{tipologia}</td></tr>
         <tr><td style="color:#475569;padding:6px 0">Studio</td><td>{studio}</td></tr>
+        <tr><td style="color:#475569;padding:6px 0">Piano interesse</td><td style="font-weight:600;color:#7C3AED">{piano}</td></tr>
         <tr><td style="color:#475569;padding:6px 0;vertical-align:top">Messaggio</td><td>{messaggio}</td></tr>
       </table>
     </div>

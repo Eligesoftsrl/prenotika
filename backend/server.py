@@ -291,6 +291,7 @@ class LeadCreate(BaseModel):
     tipologia: Optional[str] = None
     studio: Optional[str] = None
     messaggio: Optional[str] = None
+    piano_interesse: Optional[str] = None
 
 # -----------------------------------------------------------------------------
 # Mongo helpers (use id as _id)
@@ -845,13 +846,11 @@ async def update_appuntamento(app_id: str, body: AppuntamentoUpdate, user: dict 
     return hydrated[0]
 
 @api.delete("/appuntamenti/{app_id}", status_code=204)
-async def delete_appuntamento(app_id: str, user: dict = Depends(require_role("admin", "docente"))):
+async def delete_appuntamento(app_id: str, user: dict = Depends(require_role("admin"))):
     sid = _scope_studio_id(user)
     target = await db.appuntamenti.find_one({"_id": app_id, "studio_id": sid})
     if not target:
         raise HTTPException(status_code=404, detail="Appuntamento non trovato")
-    if user["role"] == "docente" and target["docente_id"] != user["id"]:
-        raise HTTPException(status_code=403, detail="Non autorizzato")
     await db.appuntamenti.delete_one({"_id": app_id})
     # Invia email di disdetta al cliente (non bloccante)
     try:
@@ -933,6 +932,7 @@ async def create_lead(body: LeadCreate):
         "tipologia": body.tipologia,
         "studio": (body.studio or "").strip() or None,
         "messaggio": (body.messaggio or "").strip() or None,
+        "piano_interesse": (body.piano_interesse or "").strip() or None,
         "created_at": datetime.now(timezone.utc),
         "status": "new",
     }

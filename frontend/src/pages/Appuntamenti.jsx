@@ -370,7 +370,7 @@ export default function Appuntamenti() {
                             {ev.materia_descrizione && (
                               <div className="text-[9px] opacity-80 truncate w-full leading-tight">{ev.materia_descrizione}</div>
                             )}
-                            {toMin(ev.dal) === m && (
+                            {isAdmin && toMin(ev.dal) === m && (
                               <button onClick={() => remove(ev.id)} className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 text-white/85 hover:text-white" data-testid={`appuntamento-delete-${ev.id}`}><Trash2 size={11} /></button>
                             )}
                           </div>
@@ -432,7 +432,7 @@ export default function Appuntamenti() {
                               <span className="text-lg">
                                 {slot.dal}<span className="text-sm opacity-80">/{slot.al}</span>
                               </span>
-                              <button onClick={() => remove(ev.id)} className="opacity-80 hover:opacity-100" data-testid={`day-delete-${ev.id}-${slot.dal}`}><Trash2 size={14} /></button>
+                              {isAdmin && <button onClick={() => remove(ev.id)} className="opacity-80 hover:opacity-100" data-testid={`day-delete-${ev.id}-${slot.dal}`}><Trash2 size={14} /></button>}
                             </div>
                             <div className="px-4 py-3 bg-[color:var(--surface-2)] text-center border-x border-b border-[color:var(--border)] rounded-b-lg">
                               <div className="font-semibold">{ev.cliente_nome}</div>
