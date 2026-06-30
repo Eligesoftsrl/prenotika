@@ -71,6 +71,14 @@ def create_access_token(user_id: str, role: str, studio_id: Optional[str]) -> st
 # -----------------------------------------------------------------------------
 Role = Literal["super_admin", "admin", "docente"]
 Tipologia = Literal["centro_studi", "studio_legale", "studio_medico"]
+Plan = Literal["free", "pro", "business"]
+
+# Limiti professionisti per piano. None = illimitato.
+PLAN_LIMITS_PROFESSIONISTI = {
+    "free": 1,
+    "pro": 5,
+    "business": None,
+}
 
 class StudioBase(BaseModel):
     nome: str
@@ -80,6 +88,7 @@ class StudioBase(BaseModel):
     piva: Optional[str] = None
     note: Optional[str] = None
     tipologia: Tipologia = "centro_studi"
+    plan: Plan = "free"
     comunicazioni: Optional[str] = None  # testo libero mostrato in calce ai report PDF
     logo_base64: Optional[str] = None    # dataURL/base64 PNG-JPEG del logo stampato in cima ai PDF
 
@@ -91,6 +100,7 @@ class StudioUpdate(BaseModel):
     piva: Optional[str] = None
     note: Optional[str] = None
     tipologia: Optional[Tipologia] = None
+    plan: Optional[Plan] = None
     comunicazioni: Optional[str] = None
     logo_base64: Optional[str] = None
 
@@ -392,6 +402,7 @@ async def create_studio(body: StudioCreate, _: dict = Depends(require_role("supe
         "piva": body.piva,
         "note": body.note,
         "tipologia": body.tipologia,
+        "plan": body.plan or "free",
         "active": True,
         "created_at": now_utc().isoformat(),
     }
@@ -418,6 +429,20 @@ async def get_my_studio(user: dict = Depends(require_role("admin", "docente"))):
     fresh = await db.studios.find_one({"_id": sid})
     return _from_mongo(fresh)
 
+@api.get("/studio/quota")
+async def get_studio_quota(user: dict = Depends(require_role("admin", "docente"))):
+    sid = _scope_studio_id(user)
+    studio_doc = await db.studios.find_one({"_id": sid})
+    plan = (studio_doc or {}).get("plan", "free")
+    limit = PLAN_LIMITS_PROFESSIONISTI.get(plan)
+    used = await db.users.count_documents({"studio_id": sid, "role": "docente", "active": True})
+    return {
+        "plan": plan,
+        "professionisti_used": used,
+        "professionisti_limit": limit,  # None = illimitato
+        "can_add_more": True if limit is None else used < limit,
+    }
+
 @api.patch("/studio", response_model=Studio)
 async def update_my_studio(body: StudioUpdate, user: dict = Depends(require_role("admin"))):
     sid = _scope_studio_id(user)
@@ -439,6 +464,17 @@ async def delete_studio(studio_id: str, _: dict = Depends(require_role("super_ad
     await db.docente_materie.delete_many({"studio_id": studio_id})
     return
 
+@api.patch("/studios/{studio_id}", response_model=Studio)
+async def update_studio_as_super(studio_id: str, body: StudioUpdate, _: dict = Depends(require_role("super_admin"))):
+    target = await db.studios.find_one({"_id": studio_id})
+    if not target:
+        raise HTTPException(status_code=404, detail="Studio non trovato")
+    updates = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    if updates:
+        await db.studios.update_one({"_id": studio_id}, {"$set": updates})
+    fresh = await db.studios.find_one({"_id": studio_id})
+    return _from_mongo(fresh)
+
 # -----------------------------------------------------------------------------
 # Docenti routes (admin within studio)
 # -----------------------------------------------------------------------------
@@ -457,6 +493,17 @@ async def list_docenti(user: dict = Depends(require_role("admin", "docente"))):
 @api.post("/docenti", response_model=UserPublic, status_code=201)
 async def create_docente(body: DocenteCreate, user: dict = Depends(require_role("admin"))):
     sid = _scope_studio_id(user)
+    # Enforcement quota professionisti per piano
+    studio_doc = await db.studios.find_one({"_id": sid})
+    plan = (studio_doc or {}).get("plan", "free")
+    limit = PLAN_LIMITS_PROFESSIONISTI.get(plan)
+    if limit is not None:
+        current_count = await db.users.count_documents({"studio_id": sid, "role": "docente", "active": True})
+        if current_count >= limit:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Limite del piano {plan.capitalize()} raggiunto ({limit} professionisti). Passa a un piano superiore per aggiungere altri operatori.",
+            )
     email = body.email.lower().strip()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Email già in uso")
@@ -1661,6 +1708,13 @@ async def seed_super_admin_and_demo():
 
     # Patch: garantisci che gli studi esistenti abbiano un valore di tipologia
     await db.studios.update_many({"tipologia": {"$exists": False}}, {"$set": {"tipologia": "centro_studi"}})
+    # Patch: garantisci che ogni studio abbia un piano (free di default per i pre-esistenti)
+    await db.studios.update_many({"plan": {"$exists": False}}, {"$set": {"plan": "free"}})
+    # Per lo studio demo principale impostiamo Business così l'utente può testare senza limiti
+    await db.studios.update_many(
+        {"_id": os.environ.get("DEMO_STUDIO_ID")} if os.environ.get("DEMO_STUDIO_ID") else {"nome": os.environ.get("DEMO_STUDIO_NAME", "Centro Studi Demo")},
+        {"$set": {"plan": "business"}},
+    )
 
     # Seed 2 ulteriori studi demo per tipologie diverse
     for nome, tip, admin_email, admin_pwd, prof_email, prof_pwd, prof_nome, prof_cognome, spec in [

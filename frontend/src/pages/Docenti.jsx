@@ -26,13 +26,15 @@ export default function Docenti() {
   const [form, setForm] = useState(emptyForm());
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [quota, setQuota] = useState(null);
 
   const load = async () => {
     setLoading(true);
     try {
-      const [docs, mat] = await Promise.all([api.get("/docenti"), api.get("/materie")]);
+      const [docs, mat, q] = await Promise.all([api.get("/docenti"), api.get("/materie"), api.get("/studio/quota").catch(() => ({ data: null }))]);
       setItems(docs.data);
       setMaterie(mat.data);
+      if (q?.data) setQuota(q.data);
       // Fetch materie per ciascun docente in parallelo
       const map = {};
       await Promise.all(docs.data.map(async (d) => {
@@ -116,10 +118,36 @@ export default function Docenti() {
           <h1 className="font-display text-3xl sm:text-4xl font-black tracking-tight">{L.docenti}</h1>
           <p className="text-[color:var(--text-2)] mt-1">Gestisci il team del tuo {studio?.tipologia === "studio_medico" ? "studio medico" : studio?.tipologia === "studio_legale" ? "studio legale" : "centro studi"}.</p>
         </div>
-        <button onClick={openCreate} className="btn-primary" data-testid="docente-create-button">
-          <Plus size={16} /> Nuovo {L.docente.toLowerCase()}
-        </button>
+        <div className="flex items-center gap-3">
+          {quota && (
+            <div className="text-right text-xs" data-testid="quota-indicator">
+              <div className="font-semibold uppercase tracking-[0.18em] text-[color:var(--text-2)] text-[10px]">Piano {quota.plan}</div>
+              <div className="font-display font-bold text-base text-[color:var(--text)] mt-0.5">
+                {quota.professionisti_used}{quota.professionisti_limit !== null ? ` / ${quota.professionisti_limit}` : ""}
+                <span className="text-[color:var(--text-2)] text-xs font-normal ml-1">{quota.professionisti_limit === null ? "illimitati" : "professionisti"}</span>
+              </div>
+            </div>
+          )}
+          <button
+            onClick={openCreate}
+            disabled={quota && !quota.can_add_more}
+            title={quota && !quota.can_add_more ? `Limite del piano ${quota.plan} raggiunto. Contatta il super admin per cambiare piano.` : ""}
+            className="btn-primary"
+            data-testid="docente-create-button"
+          >
+            <Plus size={16} /> Nuovo {L.docente.toLowerCase()}
+          </button>
+        </div>
       </div>
+      {quota && !quota.can_add_more && (
+        <div className="surface-card p-4 mb-5 flex items-start gap-3 border-l-4 border-[color:var(--warning)]" data-testid="quota-warning">
+          <div className="text-[color:var(--warning)] text-2xl leading-none">⚠</div>
+          <div>
+            <div className="font-semibold text-sm">Limite del piano {quota.plan.toUpperCase()} raggiunto</div>
+            <div className="text-xs text-[color:var(--text-2)] mt-0.5">Hai utilizzato tutti i {quota.professionisti_limit} professionisti previsti dal piano. Per aggiungerne altri, chiedi al super admin di passare a un piano superiore.</div>
+          </div>
+        </div>
+      )}
 
       <div className="surface-card overflow-hidden">
         {loading ? (

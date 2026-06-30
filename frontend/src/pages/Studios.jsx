@@ -6,10 +6,16 @@ import { TIPOLOGIE } from "@/lib/tipologia";
 
 function emptyForm() {
   return {
-    nome: "", sede: "", telefono: "", email: "", piva: "", note: "", tipologia: "centro_studi",
+    nome: "", sede: "", telefono: "", email: "", piva: "", note: "", tipologia: "centro_studi", plan: "free",
     admin_nome: "", admin_cognome: "", admin_email: "", admin_password: "",
   };
 }
+
+const PIANI = [
+  { value: "free", label: "Free · 1 professionista", color: "bg-slate-100 text-slate-700" },
+  { value: "pro", label: "Pro · 5 professionisti", color: "bg-indigo-100 text-indigo-700" },
+  { value: "business", label: "Business · illimitato", color: "bg-emerald-100 text-emerald-700" },
+];
 
 export default function Studios() {
   const [items, setItems] = useState([]);
@@ -67,18 +73,35 @@ export default function Studios() {
         ) : (
           <table className="table-clean w-full">
             <thead>
-              <tr><th>Nome</th><th>Tipologia</th><th>Sede</th><th>Email</th><th>P.IVA</th><th></th></tr>
+              <tr><th>Nome</th><th>Tipologia</th><th>Piano</th><th>Sede</th><th>Email</th><th></th></tr>
             </thead>
             <tbody>
               {items.map((s) => {
                 const tip = TIPOLOGIE.find((t) => t.value === s.tipologia);
+                const piano = PIANI.find((p) => p.value === (s.plan || "free"));
                 return (
                 <tr key={s.id} data-testid={`studio-row-${s.id}`}>
                   <td className="font-semibold">{s.nome}</td>
                   <td><span className="pill">{tip?.label || s.tipologia}</span></td>
+                  <td>
+                    <select
+                      value={s.plan || "free"}
+                      onChange={async (e) => {
+                        try {
+                          await api.patch(`/studios/${s.id}`, { plan: e.target.value });
+                          await load();
+                        } catch { /* ignore */ }
+                      }}
+                      className={`text-xs font-bold rounded-full px-3 py-1 border-0 cursor-pointer ${piano?.color || "bg-slate-100"}`}
+                      data-testid={`studio-plan-select-${s.id}`}
+                    >
+                      <option value="free">Free</option>
+                      <option value="pro">Pro</option>
+                      <option value="business">Business</option>
+                    </select>
+                  </td>
                   <td className="text-[color:var(--text-2)]">{s.sede || "—"}</td>
                   <td className="text-[color:var(--text-2)]">{s.email || "—"}</td>
-                  <td className="text-[color:var(--text-2)]">{s.piva || "—"}</td>
                   <td className="text-right">
                     <button onClick={() => remove(s)} className="btn-danger" data-testid={`studio-delete-${s.id}`}><Trash2 size={13} /></button>
                   </td>
@@ -100,6 +123,13 @@ export default function Studios() {
                 {TIPOLOGIE.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
               </select>
               <div className="text-xs text-[color:var(--text-2)] mt-1">Determina le etichette (Studente/Docente/Materia ecc.) e la logica di associazione.</div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Piano <span className="text-[color:var(--secondary)]">*</span></label>
+              <select className="input-base" value={form.plan} onChange={(e) => setForm({ ...form, plan: e.target.value })} required data-testid="studio-plan-select">
+                {PIANI.map((p) => (<option key={p.value} value={p.value}>{p.label}</option>))}
+              </select>
+              <div className="text-xs text-[color:var(--text-2)] mt-1">Determina il limite massimo di professionisti che il tenant può creare.</div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Sede" value={form.sede} onChange={(v) => setForm({ ...form, sede: v })} testid="studio-sede-input" />

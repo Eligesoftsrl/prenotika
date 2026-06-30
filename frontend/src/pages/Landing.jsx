@@ -531,7 +531,7 @@ export default function Landing() {
                 excluded: [],
               },
               {
-                name: "Pro", tagline: "Per studi attivi", price: "29", period: "€ / mese", cta: "Inizia gratis 14 giorni", accent: true, badge: "Più scelto",
+                name: "Pro", tagline: "Per studi attivi", price: "14", period: "€ / mese", cta: "Inizia gratis 14 giorni", accent: true, badge: "Più scelto",
                 features: [
                   "Fino a 5 professionisti",
                   "Tutto del piano Free",
@@ -542,7 +542,7 @@ export default function Landing() {
                 excluded: [],
               },
               {
-                name: "Business", tagline: "Per centri e cliniche", price: "79", period: "€ / mese", cta: "Parla col team", accent: false, badge: null,
+                name: "Business", tagline: "Per centri e cliniche", price: "24", period: "€ / mese", cta: "Parla col team", accent: false, badge: null,
                 features: [
                   "Professionisti illimitati",
                   "Tutto del piano Pro",
@@ -629,7 +629,7 @@ export default function Landing() {
             transition={{ duration: 0.7 }}
             className="font-display text-2xl sm:text-3xl font-bold leading-snug tracking-tight"
           >
-            &ldquo;Con Prenotika ho finalmente un&apos;unica agenda per tutti i nostri docenti. Le famiglie ricevono email di conferma automatiche e i ragazzi non si dimenticano più della lezione. È diventato uno strumento di cui non posso più fare a meno.&rdquo;
+            &ldquo;Prima gestivamo studenti, docenti e lezioni con planning cartacei e tanta &laquo;memoria umana&raquo;. Con Prenotika tutto è in un&apos;unica agenda viva: niente più appunti persi, niente più sovrapposizioni. Le famiglie ricevono email di conferma automatiche e i ragazzi non si dimenticano più della lezione.&rdquo;
           </motion.blockquote>
           <div className="mt-6 flex items-center justify-center gap-3">
             <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-display font-bold" style={{ background: "var(--grad-brand)" }}>F</div>
