@@ -64,7 +64,17 @@ export default function Impostazioni() {
   const onSubmit = async (e) => {
     e.preventDefault(); setBusy(true); setError(""); setSuccess("");
     try {
-      await api.patch("/studio", form);
+      // Normalizza stringhe vuote -> null per campi opzionali (specie email/piva),
+      // ECCETTO logo_base64 e comunicazioni: lì "" vuol dire "cancella" e deve passare al backend
+      const CLEARABLE = new Set(["logo_base64", "comunicazioni"]);
+      const payload = {};
+      for (const k of Object.keys(form)) {
+        const v = form[k];
+        if (k === "nome") payload[k] = v;                  // required
+        else if (CLEARABLE.has(k)) payload[k] = v;         // "" = cancella esplicito
+        else payload[k] = (v === "" ? null : v);           // optional: "" -> null
+      }
+      await api.patch("/studio", payload);
       setSuccess("Impostazioni salvate.");
       if (refresh) refresh();
       setTimeout(() => setSuccess(""), 3000);

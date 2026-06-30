@@ -1125,36 +1125,80 @@ async def report_appuntamenti_pdf(
     buf = BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)
     styles = getSampleStyleSheet()
-    h1 = ParagraphStyle("h1", parent=styles["Heading1"], textColor=colors.HexColor("#2C4C3B"), fontSize=20, spaceAfter=4)
     h2 = ParagraphStyle("h2", parent=styles["Heading2"], textColor=colors.HexColor("#1E1E1E"), fontSize=14, spaceBefore=10, spaceAfter=6)
     small = ParagraphStyle("small", parent=styles["Normal"], textColor=colors.HexColor("#5C5C5C"), fontSize=9)
     body = ParagraphStyle("body", parent=styles["Normal"], fontSize=10)
 
     story = []
-    # Logo del centro (se configurato) - dataURL base64
+    # ---- Carta intestata: logo (sx) + nome + dati anagrafici (dx) ----
+    logo_flowable = None
     logo_raw = (studio or {}).get("logo_base64")
     if logo_raw:
         try:
             payload = logo_raw.split(",", 1)[1] if logo_raw.startswith("data:") else logo_raw
             img_bytes = _b64.b64decode(payload)
-            # Pre-valida con PIL (verifica integrità e formato)
             from PIL import Image as PILImage
             with PILImage.open(BytesIO(img_bytes)) as _probe:
                 _probe.verify()
-            # Riapre lo stream per reportlab (verify() chiude il file)
             img_io = BytesIO(img_bytes)
             img = RLImage(img_io)
             iw, ih = img.imageWidth, img.imageHeight
-            target_h = 22 * mm
+            target_h = 24 * mm
             ratio = target_h / float(ih) if ih else 1.0
             img.drawHeight = target_h
-            img.drawWidth = min(60 * mm, iw * ratio)
+            img.drawWidth = min(40 * mm, iw * ratio)
             img.hAlign = "LEFT"
-            story.append(img)
-            story.append(Spacer(1, 4))
+            logo_flowable = img
         except Exception as _e:
             logger.warning(f"Logo studio non valido, ignorato: {_e}")
-    story.append(Paragraph(studio_nome, h1))
+
+    # Costruisce il blocco anagrafica come Paragraph multilinea
+    studio_d = studio or {}
+    anagrafica_lines = []
+    if studio_d.get("sede"):
+        anagrafica_lines.append(studio_d["sede"])
+    contact_bits = []
+    if studio_d.get("telefono"):
+        contact_bits.append(f"Tel. {studio_d['telefono']}")
+    if studio_d.get("email"):
+        contact_bits.append(studio_d["email"])
+    if contact_bits:
+        anagrafica_lines.append(" • ".join(contact_bits))
+    if studio_d.get("piva"):
+        anagrafica_lines.append(f"P.IVA {studio_d['piva']}")
+
+    head_name_style = ParagraphStyle("hn", parent=styles["Heading1"], textColor=colors.HexColor("#2C4C3B"), fontSize=18, spaceAfter=2, leading=22)
+    head_anag_style = ParagraphStyle("ha", parent=styles["Normal"], textColor=colors.HexColor("#5C5C5C"), fontSize=9, leading=12)
+
+    right_block = [Paragraph(studio_nome, head_name_style)]
+    if anagrafica_lines:
+        right_block.append(Paragraph("<br/>".join(
+            x.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") for x in anagrafica_lines
+        ), head_anag_style))
+
+    if logo_flowable is not None:
+        header_tbl = Table(
+            [[logo_flowable, right_block]],
+            colWidths=[45 * mm, 135 * mm],
+        )
+        header_tbl.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        story.append(header_tbl)
+    else:
+        for p in right_block:
+            story.append(p)
+    # Linea separatrice
+    sep = Table([[""]], colWidths=[180 * mm], rowHeights=[0.6])
+    sep.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.7, colors.HexColor("#2C4C3B"))]))
+    story.append(Spacer(1, 4))
+    story.append(sep)
+    story.append(Spacer(1, 6))
+
     period_it = {"day": "Giorno", "week": "Settimana", "month": "Mese"}.get(period, period)
     sub = f"Report appuntamenti — {period_it}: {label}"
     if docente_id and docenti:

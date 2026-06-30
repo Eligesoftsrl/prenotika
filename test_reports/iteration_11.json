@@ -1,0 +1,32 @@
+{
+  "summary": "Iter 11 - Bug fix P.IVA + carta intestata PDF VALIDATI. Backend: 6/6 pytest passati (test_iter11_piva_pdf.py): GET /studio, PATCH solo P.IVA persiste, PATCH con email=null + P.IVA -> 200 (no piu' 422), PATCH con email='' -> 422 (conferma RCA: EmailStr rifiuta stringa vuota), PDF con logo embedded (/Subtype /Image presente) + size>2500B usando PNG rumoroso non-comprimibile, anagrafica nel PDF (estratto via pypdf) contiene 'Centro Studi Demo', 'P.IVA', 'Via Roma', 'info@centrostudi.it', '12345678901', '+39 02 1234567'. Frontend: TEST1 admin@demo.it login -> /impostazioni -> P.IVA cambiata in IT77665544332 -> messaggio successo visibile -> reload -> P.IVA persiste. TEST2 svuotato email + cambiata P.IVA in IT55443322110 -> success (NO 422) -> reload -> P.IVA persiste. TEST3 /report period=week date=2026-02-09 -> click report-download -> response /api/reports/appuntamenti.pdf 200 application/pdf. Carta intestata visibile in /impostazioni con logo preview (PNG rumoroso impostato dai test).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter11_piva_pdf.py",
+    "/app/test_reports/pytest/iter11_results.xml",
+    "/app/test_reports/iter11_impostazioni.png",
+    "/app/test_reports/iter11_report.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "RCA del bug originale confermata: pydantic StudioUpdate.email: Optional[EmailStr] rifiuta '' con 422. Il fix frontend Impostazioni.jsx:69-76 normalizza '' -> null per campi non-CLEARABLE: corretto. Mantiene '' per logo_base64/comunicazioni (backend usa exclude_unset e $set anche per stringhe vuote).",
+    "Backend PATCH /studio (server.py:392-399) usa 'if v is not None' come filtro: questo significa che inviando email=null dal frontend, il campo email NON viene aggiornato (rimane il valore precedente). E' coerente con la semantica 'null = preserva', ma noto che se in futuro si volesse permettere all'utente di CANCELLARE l'email/sede/telefono dall'UI, occorrera' un meccanismo diverso (es. inviare '' come per logo_base64/comunicazioni, ma allora email dovra' diventare Optional[str] con validazione custom invece di EmailStr). Non bloccante: i campi cancellabili dall'UI sono solo logo_base64 e comunicazioni.",
+    "Carta intestata PDF (server.py:1133-1200) implementata correttamente: logo verificato via PIL.verify() prima dell'embedding (sicurezza), fallback grazioso se logo invalido (log + ignore), uso di Table 2 colonne 45mm+135mm, escaping HTML & < > nei Paragraph (XSS protection), linea separatrice verde brand. Anagrafica costruita condizionalmente (solo se i campi sono valorizzati): elegante.",
+    "MINOR (preesistente, gia' segnalato in iter10): console warning hydration React '<span> cannot be a child of <option>' dovuto a x-component instrumentation dell'editor su tag <option> in Report.jsx select Docenti. Artefatto runtime editor, non bug applicativo, ignorabile in produzione."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter11_piva_pdf.py (nuovo)"
+  ],
+  "success_rate": {"backend": "100% (6/6 pytest)", "frontend": "100% (3/3 scenari UI)"},
+  "test_credentials": "admin@demo.it / Admin123! (centro_studi). Vedi /app/memory/test_credentials.md",
+  "seed_data_creation": "Modificato studio Centro Studi Demo: P.IVA finale IT55443322110, telefono '+39 02 1234567', sede 'Via Roma 1, Milano', email 'info@centrostudi.it', logo PNG 200x80 rumoroso. Stato lasciato cosi' (idempotent ai test successivi).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Bug fix P.IVA + carta intestata PDF validati end-to-end. test_iter11_piva_pdf.py riutilizzabile come regression test. Per testare PDF in futuro: usare PIL per generare logo con noise (random pixels) cosi' la compressione FlateDecode non riduce il PDF sotto 2500B; per validare testo nel PDF usare pypdf.PdfReader.extract_text() NON ricerca diretta nei bytes (stream sono ASCII85+Flate compressi). Console hydration warning sui <option> e' editor instrumentation, ignorare.",
+  "rca of the issue": "RCA: pydantic StudioUpdate.email: Optional[EmailStr] = None rifiuta stringa vuota '' con HTTP 422 'value is not a valid email address: An email address must have an @-sign.'. Il form Impostazioni inviava form.email='' (default React controlled input quando l'utente svuota il campo) anche quando l'utente voleva solo cambiare la P.IVA -> tutto il PATCH falliva -> P.IVA non si salvava. Mitigation applicata in Impostazioni.jsx onSubmit (linee 64-84): introdotto set CLEARABLE={'logo_base64','comunicazioni'} che mantengono '' (semantica 'cancella esplicito'); tutti gli altri campi optional con '' vengono normalizzati a null prima del PATCH. Backend.PATCH /studio filtra null con 'if v is not None', quindi null='non aggiornare' = comportamento corretto e sicuro. Verificato che '' continua a dare 422 (test_patch_email_empty_string_returns_422 conferma RCA)."
+}
