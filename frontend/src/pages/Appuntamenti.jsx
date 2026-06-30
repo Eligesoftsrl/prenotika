@@ -85,6 +85,16 @@ export default function Appuntamenti() {
   };
   useEffect(() => { load(); }, [da, a, selectedDocenteId]);
 
+  // Quando cambia selectedDay (es. da vista mese -> giorno), allinea weekStart alla sua settimana
+  // cosi' /api/appuntamenti viene fetchato per quel range e gli appuntamenti del giorno appaiono.
+  useEffect(() => {
+    const ws = startOfWeek(selectedDay);
+    if (fmtISO(ws) !== fmtISO(weekStart)) {
+      setWeekStart(ws);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDay]);
+
   // Carica appuntamenti del MESE quando vista=month
   useEffect(() => {
     if (viewMode !== "month" || !selectedDocenteId) { setMonthItems([]); return; }
@@ -120,19 +130,23 @@ export default function Appuntamenti() {
     return map;
   }, [monthItems]);
 
-  // Range orario: from min(orari.dal) to max(orari.al). Fallback 8-19 se nessuna disponibilità.
+  // Range orario: dal min(orari.dal) al max(orari.al), esteso per coprire eventuali
+  // appuntamenti fuori-disponibilità (es. creati manualmente fuori dai consueti orari).
   const dayRange = useMemo(() => {
-    if (orari.length === 0) return { startMin: 8 * 60, endMin: 19 * 60 };
     let s = Infinity, e = -Infinity;
     orari.forEach((o) => {
       s = Math.min(s, toMin(o.dal));
       e = Math.max(e, toMin(o.al));
     });
-    // Allinea al multiplo di slotMinuti
+    items.forEach((a) => {
+      s = Math.min(s, toMin(a.dal));
+      e = Math.max(e, toMin(a.al));
+    });
+    if (!isFinite(s) || !isFinite(e)) return { startMin: 8 * 60, endMin: 19 * 60 };
     s = Math.floor(s / slotMinuti) * slotMinuti;
     e = Math.ceil(e / slotMinuti) * slotMinuti;
     return { startMin: s, endMin: e };
-  }, [orari, slotMinuti]);
+  }, [orari, items, slotMinuti]);
 
   // Genera gli slot per ogni giorno: array di {dal, al, isAvailable, appointment|null}
   const computeDaySlots = (date) => {
