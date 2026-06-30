@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api, formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -277,7 +278,6 @@ export default function Docenti() {
 
 export function Modal({ title, onClose, children, size = "md" }) {
   const maxW = size === "lg" ? "max-w-2xl" : size === "xl" ? "max-w-3xl" : "max-w-lg";
-  // Block scroll della pagina sottostante senza far collassare il body (usa scrollY fissato)
   React.useEffect(() => {
     const scrollY = window.scrollY;
     document.body.style.position = "fixed";
@@ -294,10 +294,12 @@ export function Modal({ title, onClose, children, size = "md" }) {
       window.scrollTo(0, scrollY);
     };
   }, []);
-  return (
+  // Render in document.body via Portal: cosi' il position:fixed è rispetto al viewport reale,
+  // indipendentemente da eventuali transform/filter sui parent del componente che apre il modal.
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6" data-testid="modal">
       <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative w-full ${maxW} bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-2xl anim-fade-up flex flex-col max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden`}>
+      <div className={`relative w-full ${maxW} bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-2xl flex flex-col max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden`}>
         <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[color:var(--border)] bg-[color:var(--surface)] shrink-0">
           <h3 className="font-display text-xl font-bold pr-4 truncate">{title}</h3>
           <button onClick={onClose} className="btn-secondary shrink-0" data-testid="modal-close" aria-label="Chiudi"><X size={16} /></button>
@@ -306,7 +308,8 @@ export function Modal({ title, onClose, children, size = "md" }) {
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

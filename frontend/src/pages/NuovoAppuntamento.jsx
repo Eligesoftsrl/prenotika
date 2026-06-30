@@ -135,7 +135,7 @@ export default function NuovoAppuntamento() {
   const noAlunni = alunni.length === 0 && !!form.docente_id;
 
   return (
-    <div data-testid="nuovo-appuntamento-page" className="max-w-3xl mx-auto">
+    <div data-testid="nuovo-appuntamento-page">
       <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1.5 text-sm text-[color:var(--text-2)] hover:text-[color:var(--text)] mb-4" data-testid="back-button">
         <ArrowLeft size={14} /> Torna al calendario
       </button>
@@ -163,9 +163,9 @@ export default function NuovoAppuntamento() {
           </button>
         </div>
       ) : (
-      <form onSubmit={onSubmit} className="surface-card p-6 space-y-5" data-testid="appuntamento-form">
+      <form onSubmit={onSubmit} className="surface-card p-6 grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-5" data-testid="appuntamento-form">
         {isAdmin && (
-          <div>
+          <div className="lg:col-span-2">
             <label className="block text-sm font-medium mb-1.5">{L.docente} *</label>
             <select className="input-base" value={form.docente_id} onChange={(e) => setForm({ ...form, docente_id: e.target.value })} required data-testid="app-docente-select">
               {docenti.map((d) => (<option key={d.id} value={d.id}>{d.nome} {d.cognome}</option>))}
@@ -174,7 +174,7 @@ export default function NuovoAppuntamento() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className="block text-sm font-medium mb-1.5">Data *</label>
             <input type="date" className="input-base" value={form.data} onChange={(e) => { setForm({ ...form, data: e.target.value }); setRecurrenceDates([]); }} required data-testid="app-data-input" />
@@ -226,9 +226,9 @@ export default function NuovoAppuntamento() {
         </div>
 
         {/* Ricorrenza */}
-        <div className="border-t border-[color:var(--border)] pt-4">
+        <div className="lg:col-span-2 border-t border-[color:var(--border)] pt-4">
           <div className="label-eyebrow mb-2">Vuoi prenotare anche i prossimi {giornoLabel}? (stesso orario)</div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
             {recurrenceOptions.map((iso) => {
               const checked = recurrenceDates.includes(iso);
               const d = new Date(iso + "T00:00:00");
@@ -243,16 +243,16 @@ export default function NuovoAppuntamento() {
           </div>
         </div>
 
-        <div>
+        <div className="lg:col-span-2">
           <label className="block text-sm font-medium mb-1.5">Note</label>
           <textarea rows={3} className="input-base" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} data-testid="app-note-input" />
         </div>
 
-        {error && <div className="text-sm text-[color:var(--error)] bg-[#FBEFEF] border border-[#E5C4C4] px-3 py-2 rounded-lg" data-testid="app-form-error">{error}</div>}
+        {error && <div className="lg:col-span-2 text-sm text-[color:var(--error)] bg-[#FBEFEF] border border-[#E5C4C4] px-3 py-2 rounded-lg" data-testid="app-form-error">{error}</div>}
 
-        <div className="flex gap-2 pt-2 border-t border-[color:var(--border)]">
-          <button type="button" onClick={() => navigate(-1)} className="btn-secondary flex-1 justify-center" data-testid="app-cancel-button">Annulla</button>
-          <button type="submit" disabled={busy} className="btn-primary flex-1 justify-center" data-testid="app-submit-button">
+        <div className="lg:col-span-2 flex gap-2 pt-2 border-t border-[color:var(--border)]">
+          <button type="button" onClick={() => navigate(-1)} className="btn-secondary flex-1 lg:flex-none lg:px-8 justify-center" data-testid="app-cancel-button">Annulla</button>
+          <button type="submit" disabled={busy} className="btn-primary flex-1 lg:flex-none lg:px-10 justify-center" data-testid="app-submit-button">
             {busy ? "Salvataggio…" : `Registra${recurrenceDates.length > 0 ? ` (${recurrenceDates.length + 1})` : ""}`}
           </button>
         </div>
