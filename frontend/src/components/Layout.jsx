@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { LayoutDashboard, Calendar, Users, GraduationCap, Clock, Building2, LogOut, Menu, X, BookOpen, Settings, FileText, Plane } from "lucide-react";
+import { LayoutDashboard, Calendar, Users, GraduationCap, Clock, Building2, LogOut, Menu, X, BookOpen, Settings, FileText, Plane, Inbox } from "lucide-react";
 import { tipologiaLabels } from "@/lib/tipologia";
 import Logo from "@/components/Logo";
 
@@ -21,7 +21,10 @@ export default function Layout() {
   const L = tipologiaLabels(studio?.tipologia);
 
   const items = isSuper
-    ? [{ to: "/studios", icon: Building2, label: "Centri Studi", testid: "nav-link-studios" }]
+    ? [
+        { to: "/studios", icon: Building2, label: "Centri Studi", testid: "nav-link-studios" },
+        { to: "/leads", icon: Inbox, label: "Richieste", testid: "nav-link-leads" },
+      ]
     : [
         { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", testid: "nav-link-dashboard" },
         { to: "/appuntamenti", icon: Calendar, label: "Appuntamenti", testid: "nav-link-appuntamenti" },

@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 15 — Leads (super_admin) endpoints + upgrade modal quota flow. Backend: 6/6 pytest tests PASS (list super_admin 200, list admin 403, POST public 201, PATCH status persistence, DELETE 204, patch-forbidden admin). Frontend: super_admin nav-link-leads, /leads page, lead-row-*, lead-detail, filter+search, status change PATCH, mailto reply — ALL OK. Upgrade modal: with plan=free and 2 docenti (over quota), clicking docente-create-button opens upgrade-modal directly with 'PIANO FREE', dark card 'PIANO PRO €14', upgrade-contact-btn -> mailto:team@zioners.com, upgrade-close-btn dismisses. Regression suite iter11/13/14 → 29/29 PASS. Demo studio restored to plan=business, TEST_ leads cleaned.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Docenti → openCreate quota check", "issue": "Race condition: docente-create-button is clickable BEFORE quota state finishes loading. If admin clicks the button in the ~200-500ms before /api/studio/quota resolves, quota is null, so the guard `if (quota && !quota.can_add_more)` fails and the docente creation form opens instead of the upgrade modal. Reproduced once during automated testing when clicking immediately after nav. Once quota-indicator is rendered, behavior is correct. Suggested fix: disable docente-create-button (or show a spinner) while quota is loading, or fall back to the 403 interception path (which already works) — but the UX requirement is to avoid opening the form at all when at limit.", "affected_selectors": ["docente-create-button", "quota-indicator"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter15_leads_upgrade.py",
+    "/app/test_reports/pytest/iter15_results.xml"
+  ],
+  "action_items": [
+    "(Minor UX) Docenti page: gate docente-create-button on quota loading (disabled state or defer click) so the upgrade modal always intercepts clicks at limit, avoiding the race where the docente form opens first when the button is clicked before /api/studio/quota resolves."
+  ],
+  "critical_code_review_comments": [
+    "Docenti.jsx line 55-72 openCreate: relies on `quota` state being populated; consider showing loader or disabling button while quota=null to prevent accidental form open.",
+    "Leads.jsx: no pagination — list_leads returns up to 500 leads; fine for MVP but consider pagination when volume grows.",
+    "server.py update_lead uses PATCH but returns 200 with full object — OK; ensure LeadUpdate ignores unknown fields (Pydantic default is to raise) — currently accepts only status/notes which is correct."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter15_leads_upgrade.py (created)"
+  ],
+  "success_rate": {"backend": "100% (6/6 new + 29/29 regression)", "frontend": "100% (Leads page + upgrade modal happy path)"},
+  "test_credentials": "superadmin@eligehub.it/SuperAdmin123! and admin@demo.it/Admin123! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Created 2 test leads via public POST /api/leads for UI list rendering; ALL TEST_ prefixed leads deleted at end. Demo studio plan flipped to free during upgrade test, restored to business at end.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter15 verified Leads endpoints (GET/PATCH/DELETE with super_admin gate) and upgrade modal on /docenti. Race condition on quota loading is documented as an integration issue for main agent; not blocking. Demo studio (id=95064d29-4598-4be5-abfc-4ee57bcbd4d8) is back to plan=business with 2 docenti seed. Public POST /api/leads works without auth. All regression tests iter11/13/14 still green.",
+  "rca of the issue": "Race condition RCA: `Docenti.jsx` renders <button data-testid='docente-create-button'> immediately, while quota is fetched via `Promise.all([...api.get('/studio/quota')])` inside `load()`. Between mount and quota resolution, `quota` state is null. If the button is clicked during that window, `if (quota && !quota.can_add_more)` short-circuits to false because `quota` is null, so `setShowModal(true)` runs, opening the docente form instead of the upgrade modal. Mitigation: (a) disable button while quota===null, or (b) initialize quota with a pessimistic default, or (c) await quota inside openCreate before deciding. The backend 403 fallback (onSubmit catch) still protects data integrity, but the UX requirement ('cliccando Nuovo docente il modal si apre direttamente') is only met when quota is loaded first."
+}

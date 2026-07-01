@@ -19,6 +19,7 @@ import NuovoAppuntamento from "@/pages/NuovoAppuntamento";
 import Studios from "@/pages/Studios";
 import Landing from "@/pages/Landing";
 import Eccezioni from "@/pages/Eccezioni";
+import Leads from "@/pages/Leads";
 
 function AppRedirect() {
   const { user, loading } = useAuth();
@@ -51,6 +52,7 @@ function App() {
               <Route path="/appuntamenti" element={<ProtectedRoute roles={["admin", "docente"]}><Appuntamenti /></ProtectedRoute>} />
               <Route path="/appuntamenti/nuovo" element={<ProtectedRoute roles={["admin", "docente"]}><NuovoAppuntamento /></ProtectedRoute>} />
               <Route path="/studios" element={<ProtectedRoute roles={["super_admin"]}><Studios /></ProtectedRoute>} />
+              <Route path="/leads" element={<ProtectedRoute roles={["super_admin"]}><Leads /></ProtectedRoute>} />
             </Route>
             <Route path="*" element={<AppRedirect />} />
           </Routes>

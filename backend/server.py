@@ -993,6 +993,31 @@ async def create_lead(body: LeadCreate):
         logger.warning(f"Notifica lead fallita: {e}")
     return {"ok": True, "id": doc["_id"]}
 
+class LeadUpdate(BaseModel):
+    status: Optional[Literal["new", "contacted", "converted", "closed"]] = None
+    notes: Optional[str] = None
+
+@api.get("/leads")
+async def list_leads(_: dict = Depends(require_role("super_admin"))):
+    items = await db.leads.find({}).sort([("created_at", -1)]).to_list(500)
+    return [_from_mongo(x) for x in items]
+
+@api.patch("/leads/{lead_id}")
+async def update_lead(lead_id: str, body: LeadUpdate, _: dict = Depends(require_role("super_admin"))):
+    target = await db.leads.find_one({"_id": lead_id})
+    if not target:
+        raise HTTPException(status_code=404, detail="Lead non trovato")
+    updates = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    if updates:
+        await db.leads.update_one({"_id": lead_id}, {"$set": updates})
+    fresh = await db.leads.find_one({"_id": lead_id})
+    return _from_mongo(fresh)
+
+@api.delete("/leads/{lead_id}", status_code=204)
+async def delete_lead(lead_id: str, _: dict = Depends(require_role("super_admin"))):
+    await db.leads.delete_one({"_id": lead_id})
+    return
+
 # -----------------------------------------------------------------------------
 # Eccezioni / ferie professionista
 # -----------------------------------------------------------------------------

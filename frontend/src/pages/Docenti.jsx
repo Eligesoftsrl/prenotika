@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api, formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Edit2, Trash2, X, GraduationCap, CalendarClock, Users as UsersIcon, BookOpen } from "lucide-react";
+import { Plus, Edit2, Trash2, X, GraduationCap, CalendarClock, Users as UsersIcon, BookOpen, Sparkles, Mail } from "lucide-react";
 import { tipologiaLabels } from "@/lib/tipologia";
 
 const COLORS = ["#7C3AED", "#2DD4BF", "#60A5FA", "#F59E0B", "#EC4899", "#14B8A6"];
@@ -27,6 +27,7 @@ export default function Docenti() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [quota, setQuota] = useState(null);
+  const [upgradeModal, setUpgradeModal] = useState(null); // { currentPlan, suggestedPlan, limit }
 
   const load = async () => {
     setLoading(true);
@@ -52,6 +53,18 @@ export default function Docenti() {
   useEffect(() => { load(); }, []);
 
   const openCreate = () => {
+    // Se al limite del piano → mostra direttamente il modal upgrade invece del form
+    if (quota && !quota.can_add_more) {
+      const currentPlan = quota.plan || "free";
+      const suggestedPlan = currentPlan === "free" ? "Pro" : "Business";
+      setUpgradeModal({
+        currentPlan: currentPlan.toUpperCase(),
+        suggestedPlan,
+        suggestedLimit: currentPlan === "free" ? 5 : "illimitati",
+        suggestedPrice: currentPlan === "free" ? "€14" : "€24",
+      });
+      return;
+    }
     setEditing(null);
     setForm(emptyForm());
     setError("");
@@ -98,7 +111,20 @@ export default function Docenti() {
       setShowModal(false);
       await load();
     } catch (err) {
-      setError(formatApiError(err?.response?.data?.detail) || "Errore");
+      // Intercetta 403 quota → mostra modal upgrade elegante
+      if (err?.response?.status === 403 && (err?.response?.data?.detail || "").toLowerCase().includes("limite del piano")) {
+        const currentPlan = quota?.plan || "free";
+        const suggestedPlan = currentPlan === "free" ? "Pro" : "Business";
+        setUpgradeModal({
+          currentPlan: currentPlan.toUpperCase(),
+          suggestedPlan,
+          suggestedLimit: currentPlan === "free" ? 5 : "illimitati",
+          suggestedPrice: currentPlan === "free" ? "€14" : "€24",
+        });
+        setShowModal(false);
+      } else {
+        setError(formatApiError(err?.response?.data?.detail) || "Errore");
+      }
     } finally {
       setBusy(false);
     }
@@ -130,8 +156,6 @@ export default function Docenti() {
           )}
           <button
             onClick={openCreate}
-            disabled={quota && !quota.can_add_more}
-            title={quota && !quota.can_add_more ? `Limite del piano ${quota.plan} raggiunto. Contatta il super admin per cambiare piano.` : ""}
             className="btn-primary"
             data-testid="docente-create-button"
           >
@@ -243,6 +267,46 @@ export default function Docenti() {
           </>
         )}
       </div>
+
+      {upgradeModal && (
+        <Modal title="" onClose={() => setUpgradeModal(null)}>
+          <div className="text-center py-2" data-testid="upgrade-modal">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ background: "var(--grad-brand)", boxShadow: "0 20px 40px -12px rgba(124,58,237,0.55)" }}>
+              <Sparkles size={28} strokeWidth={1.7} className="text-white" />
+            </div>
+            <div className="label-eyebrow mb-1">Piano {upgradeModal.currentPlan}</div>
+            <h3 className="font-display text-2xl sm:text-3xl font-black tracking-tight mb-2">Hai raggiunto il limite del tuo piano</h3>
+            <p className="text-sm text-[color:var(--text-2)] mb-6 max-w-md mx-auto">
+              Il piano <strong>{upgradeModal.currentPlan}</strong> di Prenotika include un numero limitato di professionisti. Passa a <strong className="text-[color:var(--primary)]">{upgradeModal.suggestedPlan}</strong> per aggiungere fino a <strong>{upgradeModal.suggestedLimit}</strong> operatori.
+            </p>
+            <div className="rounded-2xl p-6 mb-5 relative overflow-hidden" style={{ background: "linear-gradient(160deg,#0F172A 0%,#1E1B4B 55%,#312E81 100%)", color: "#fff" }}>
+              <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.18em]" style={{ background: "var(--grad-brand)", color: "#fff" }}>Più scelto</div>
+              <div className="text-xs uppercase tracking-[0.22em] text-white/60 mb-2">Piano {upgradeModal.suggestedPlan}</div>
+              <div className="flex items-end justify-center gap-1 mb-3">
+                <span className="font-display text-5xl font-extrabold tracking-tight" style={{ background: "linear-gradient(120deg,#A78BFA,#60A5FA,#2DD4BF)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>{upgradeModal.suggestedPrice}</span>
+                <span className="text-sm pb-1.5 text-white/65">/ mese</span>
+              </div>
+              <div className="text-xs text-white/70 space-y-1 max-w-xs mx-auto text-left">
+                <div>✓ Fino a {upgradeModal.suggestedLimit} professionisti</div>
+                <div>✓ Reminder 24h automatici</div>
+                <div>✓ Supporto prioritario</div>
+                {upgradeModal.suggestedPlan === "Business" && <><div>✓ Branding personalizzato</div><div>✓ Accesso API + SLA 99,9%</div></>}
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 justify-center">
+              <a
+                href={`mailto:team@zioners.com?subject=Prenotika — Richiesta upgrade a piano ${upgradeModal.suggestedPlan}&body=Ciao team,%0D%0A%0D%0Avorrei aggiornare il piano del mio studio da ${upgradeModal.currentPlan} a ${upgradeModal.suggestedPlan}.%0D%0A%0D%0AGrazie.`}
+                className="btn-primary justify-center"
+                data-testid="upgrade-contact-btn"
+              >
+                <Mail size={14} /> Contatta il team di Prenotika
+              </a>
+              <button onClick={() => setUpgradeModal(null)} className="btn-secondary justify-center" data-testid="upgrade-close-btn">Non ora</button>
+            </div>
+            <p className="text-[10px] text-[color:var(--text-3)] mt-4">Il team ti risponderà entro 24h · team@zioners.com</p>
+          </div>
+        </Modal>
+      )}
 
       {showModal && (
         <Modal title={editing ? "Modifica docente" : "Nuovo docente"} onClose={() => setShowModal(false)}>
