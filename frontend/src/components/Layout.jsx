@@ -1,6 +1,7 @@
-import React, { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
 import { LayoutDashboard, Calendar, Users, GraduationCap, Clock, Building2, LogOut, Menu, X, BookOpen, Settings, FileText, Plane, Inbox } from "lucide-react";
 import { tipologiaLabels } from "@/lib/tipologia";
 import Logo from "@/components/Logo";
@@ -14,16 +15,33 @@ const ROLE_LABEL = {
 export default function Layout() {
   const { user, studio, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
+  const [leadsCount, setLeadsCount] = useState(0);
 
   const isSuper = user?.role === "super_admin";
   const isAdmin = user?.role === "admin";
+
+  // Polling contatore lead nuovi (solo per super admin)
+  useEffect(() => {
+    if (!isSuper) return;
+    let cancelled = false;
+    const fetchCount = async () => {
+      try {
+        const { data } = await api.get("/leads/count?status=new");
+        if (!cancelled) setLeadsCount(data?.count || 0);
+      } catch { /* ignore */ }
+    };
+    fetchCount();
+    const t = setInterval(fetchCount, 45000); // refresh ogni 45s
+    return () => { cancelled = true; clearInterval(t); };
+  }, [isSuper, location.pathname]);
   const L = tipologiaLabels(studio?.tipologia);
 
   const items = isSuper
     ? [
         { to: "/studios", icon: Building2, label: "Centri Studi", testid: "nav-link-studios" },
-        { to: "/leads", icon: Inbox, label: "Richieste", testid: "nav-link-leads" },
+        { to: "/leads", icon: Inbox, label: "Richieste", testid: "nav-link-leads", badge: leadsCount },
       ]
     : [
         { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", testid: "nav-link-dashboard" },
@@ -64,7 +82,16 @@ export default function Layout() {
               onClick={() => setOpen(false)}
             >
               <it.icon size={18} strokeWidth={1.6} />
-              <span>{it.label}</span>
+              <span className="flex-1">{it.label}</span>
+              {it.badge > 0 && (
+                <span
+                  className="ml-auto min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full text-[10px] font-bold text-white"
+                  style={{ background: "linear-gradient(135deg,#EF4444 0%,#F97316 100%)", boxShadow: "0 4px 10px -2px rgba(239,68,68,0.5)" }}
+                  data-testid={`${it.testid}-badge`}
+                >
+                  {it.badge > 99 ? "99+" : it.badge}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

@@ -1002,6 +1002,12 @@ async def list_leads(_: dict = Depends(require_role("super_admin"))):
     items = await db.leads.find({}).sort([("created_at", -1)]).to_list(500)
     return [_from_mongo(x) for x in items]
 
+@api.get("/leads/count")
+async def count_leads(status: Optional[str] = None, _: dict = Depends(require_role("super_admin"))):
+    q = {"status": status} if status else {}
+    n = await db.leads.count_documents(q)
+    return {"count": n, "status": status}
+
 @api.patch("/leads/{lead_id}")
 async def update_lead(lead_id: str, body: LeadUpdate, _: dict = Depends(require_role("super_admin"))):
     target = await db.leads.find_one({"_id": lead_id})
