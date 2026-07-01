@@ -156,6 +156,8 @@ export default function Docenti() {
           )}
           <button
             onClick={openCreate}
+            disabled={quota === null}
+            title={quota === null ? "Caricamento…" : ""}
             className="btn-primary"
             data-testid="docente-create-button"
           >
