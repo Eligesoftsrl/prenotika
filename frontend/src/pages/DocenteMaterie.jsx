@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { api, formatApiError } from "@/lib/api";
 import { ArrowLeft, Plus, Trash2, BookOpen } from "lucide-react";
@@ -15,7 +15,7 @@ export default function DocenteMaterie() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [docs, mine, tutte] = await Promise.all([
@@ -27,8 +27,8 @@ export default function DocenteMaterie() {
       setMie(mine.data);
       setTutte(tutte.data);
     } finally { setLoading(false); }
-  };
-  useEffect(() => { load(); }, [docenteId]);
+  }, [docenteId]);
+  useEffect(() => { load(); }, [load]);
 
   const associate = async (e) => {
     e.preventDefault();

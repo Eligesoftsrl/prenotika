@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { api, formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { tipologiaLabels } from "@/lib/tipologia";
@@ -32,14 +32,14 @@ export default function Eccezioni() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isAdmin]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!docenteId) return;
     const params = isAdmin ? `?docente_id=${docenteId}` : "";
     const { data } = await api.get(`/eccezioni${params}`);
     setEccezioni(data || []);
-  };
+  }, [docenteId, isAdmin]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [docenteId]);
+  useEffect(() => { load(); }, [load]);
 
   const submit = async (e) => {
     e.preventDefault();

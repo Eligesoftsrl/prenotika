@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { api, formatApiError, API_BASE } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -71,7 +71,7 @@ export default function Appuntamenti() {
   const docenteSel = docenti.find((d) => d.id === selectedDocenteId);
   const slotMinuti = docenteSel?.slot_minuti || 60;
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!selectedDocenteId) { setItems([]); setOrari([]); return; }
     setLoading(true);
     try {
@@ -82,8 +82,8 @@ export default function Appuntamenti() {
       setItems(appResp.data);
       setOrari(orResp.data);
     } finally { setLoading(false); }
-  };
-  useEffect(() => { load(); }, [da, a, selectedDocenteId]);
+  }, [selectedDocenteId, da, a]);
+  useEffect(() => { load(); }, [load]);
 
   // Quando cambia selectedDay (es. da vista mese -> giorno), allinea weekStart alla sua settimana
   // cosi' /api/appuntamenti viene fetchato per quel range e gli appuntamenti del giorno appaiono.

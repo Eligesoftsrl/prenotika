@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -44,15 +44,15 @@ export default function Orari() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!docenteId) { setOrari([]); setLoading(false); return; }
     setLoading(true);
     try {
       const { data } = await api.get("/orari", { params: { docente_id: docenteId } });
       setOrari(data);
     } finally { setLoading(false); }
-  };
-  useEffect(() => { load(); }, [docenteId]);
+  }, [docenteId]);
+  useEffect(() => { load(); }, [load]);
 
   const onAdd = async (e) => {
     e.preventDefault(); setBusy(true); setError("");

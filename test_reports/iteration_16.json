@@ -1,0 +1,27 @@
+{
+  "summary": "Regression testing of useCallback refactor on 5 pages (Appuntamenti, DocenteAlunni, DocenteMaterie, Eccezioni, Orari) after fix for CI=true Vercel build. All flows working identically. No infinite re-render loops, no react-hooks/exhaustive-deps warnings in console.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "All 5 refactored files correctly use useCallback with proper deps and useEffect([load]) pattern.",
+    "Appuntamenti.jsx load deps [selectedDocenteId, da, a] - correct (da/a derived from weekStart via useMemo->days).",
+    "Eccezioni.jsx load deps [docenteId, isAdmin] - correct.",
+    "Orari.jsx load deps [docenteId] - correct.",
+    "DocenteAlunni.jsx and DocenteMaterie.jsx load deps [docenteId] - correct.",
+    "Note: one unrelated console error about <span> inside <option> from Emergent's dev instrumentation (x-file-name attrs) — pre-existing, not caused by this refactor."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (not tested)", "frontend": "100%" },
+  "test_credentials": "admin@demo.it / Admin123! (from problem statement, verified working)",
+  "seed_data_creation": "None; used existing seed docenti (Marco Bianchi, Sara Test30) and clienti.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Refactor useCallback + [load] verified: (1) Appuntamenti — dropdown switch Marco Bianchi -> Sara Test30 triggers refetch, calendar re-renders with new slot_minuti (60->30). (2) Eccezioni — dropdown switch OK, lista si aggiorna. (3) Orari — Marco Bianchi mostra 10 blocchi orari, Sara Test30 ne mostra 5, confermando refetch al cambio docente. (4) DocenteAlunni — pagina carica 2 alunni; associa un cliente -> lista passa a 3; disassocia -> torna a 2 (load() richiamato dopo mutation). (5) DocenteMaterie — pagina carica 2 materie correttamente. Nessun warning React hook/dependency, nessun loop di rerender.",
+  "rca of the issue": "Non applicabile: nessun bug rilevato dopo il refactor."
+}
