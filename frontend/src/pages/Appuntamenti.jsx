@@ -65,7 +65,7 @@ export default function Appuntamenti() {
       }
     });
     api.get("/clienti").then(({ data }) => setClienti(data));
-  }, [location.key]);
+  }, [location.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const docenteSel = docenti.find((d) => d.id === selectedDocenteId);
   const slotMinuti = docenteSel?.slot_minuti || 60;
@@ -91,6 +91,7 @@ export default function Appuntamenti() {
     if (fmtISO(ws) !== fmtISO(weekStart)) {
       setWeekStart(ws);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDay]);
 
   // Carica appuntamenti del MESE quando vista=month
@@ -597,7 +598,7 @@ function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdm
       setForm((f) => ({ ...f, materia_id: mat.find((m) => m.id === f.materia_id) ? f.materia_id : "" }));
     }).finally(() => setLoadingAlunni(false));
     setForm((f) => ({ ...f, al: addMinutes(f.dal, slot) }));
-  }, [form.docente_id, clienti]);
+  }, [form.docente_id, clienti]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Carica gli slot liberi quando cambia docente o data
   useEffect(() => {

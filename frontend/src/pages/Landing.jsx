@@ -151,7 +151,7 @@ export default function Landing() {
   useEffect(() => {
     const t = setInterval(() => setTickerIdx((i) => (i + 1) % tickerItems.length), 2800);
     return () => clearInterval(t);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectPlan = (planName) => {
     setForm((f) => ({ ...f, piano_interesse: planName, messaggio: f.messaggio || `Sono interessato al piano ${planName}. Vorrei attivare la prova gratuita di 14 giorni.` }));

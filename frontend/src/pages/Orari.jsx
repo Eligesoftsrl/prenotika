@@ -38,7 +38,7 @@ export default function Orari() {
     if (isAdmin) {
       api.get("/docenti").then(({ data }) => {
         setDocenti(data);
-        if (!docenteId && data[0]) setDocenteId(data[0].id);
+        if (data[0]) setDocenteId((prev) => prev || data[0].id);
       });
     }
   }, [isAdmin]);

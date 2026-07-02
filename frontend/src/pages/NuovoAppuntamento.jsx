@@ -54,7 +54,7 @@ export default function NuovoAppuntamento() {
         setForm((f) => ({ ...f, docente_id: data[0].id }));
       }
     });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Quando cambia docente: carica clienti + materie + ricalcola "al"
   useEffect(() => {
@@ -73,7 +73,7 @@ export default function NuovoAppuntamento() {
       }
     });
     setForm((f) => ({ ...f, al: addMinutes(f.dal, slot) }));
-  }, [form.docente_id]);
+  }, [form.docente_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onDalChange = (v) => setForm((f) => ({ ...f, dal: v, al: addMinutes(v, slot) }));
 

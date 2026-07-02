@@ -29,7 +29,7 @@ export default function Eccezioni() {
       setDocenti(data || []);
       if (data && data.length && !docenteId) setDocenteId(data[0].id);
     });
-  }, [user, isAdmin]);
+  }, [user, isAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
     if (!docenteId) return;
