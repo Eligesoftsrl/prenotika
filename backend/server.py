@@ -1660,27 +1660,35 @@ async def ensure_indexes():
     await db.leads.create_index("status")
 
 async def seed_super_admin():
-    """Seed idempotente del solo super_admin. Nessun dato demo viene creato:
-    studi, admin e professionisti verranno creati dall'utente in produzione."""
-    super_email = os.environ["SUPER_ADMIN_EMAIL"].lower().strip()
-    super_password = os.environ["SUPER_ADMIN_PASSWORD"]
-    existing_super = await db.users.find_one({"email": super_email})
-    if not existing_super:
-        await db.users.insert_one({
-            "_id": new_id(),
-            "nome": "Super",
-            "cognome": "Admin",
-            "email": super_email,
-            "password_hash": hash_password(super_password),
-            "role": "super_admin",
-            "studio_id": None,
-            "active": True,
-            "created_at": now_utc().isoformat(),
-        })
-        logger.info("Seeded super_admin %s", super_email)
-    elif not verify_password(super_password, existing_super["password_hash"]):
-        await db.users.update_one({"_id": existing_super["_id"]}, {"$set": {"password_hash": hash_password(super_password)}})
-        logger.info("Updated super_admin password")
+    """Seed idempotente del super_admin (opzionale).
+
+    - Se le env SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD NON sono impostate,
+      il seed viene skippato (in produzione l'utente super_admin esiste già in DB).
+    - Se sono impostate, il super_admin viene creato o la password aggiornata.
+    """
+    super_email = os.environ.get("SUPER_ADMIN_EMAIL")
+    super_password = os.environ.get("SUPER_ADMIN_PASSWORD")
+    if not super_email or not super_password:
+        logger.info("SUPER_ADMIN_* non impostate: skip seed super_admin")
+    else:
+        super_email = super_email.lower().strip()
+        existing_super = await db.users.find_one({"email": super_email})
+        if not existing_super:
+            await db.users.insert_one({
+                "_id": new_id(),
+                "nome": "Super",
+                "cognome": "Admin",
+                "email": super_email,
+                "password_hash": hash_password(super_password),
+                "role": "super_admin",
+                "studio_id": None,
+                "active": True,
+                "created_at": now_utc().isoformat(),
+            })
+            logger.info("Seeded super_admin %s", super_email)
+        elif not verify_password(super_password, existing_super["password_hash"]):
+            await db.users.update_one({"_id": existing_super["_id"]}, {"$set": {"password_hash": hash_password(super_password)}})
+            logger.info("Updated super_admin password")
 
     # Patch retro-compatibilità sui documenti pre-esistenti (safe in produzione)
     await db.studios.update_many({"tipologia": {"$exists": False}}, {"$set": {"tipologia": "centro_studi"}})

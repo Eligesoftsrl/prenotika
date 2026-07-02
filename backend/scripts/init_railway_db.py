@@ -50,8 +50,12 @@ async def _ensure_indexes(db):
 
 
 async def _seed_super_admin(db):
-    email = os.environ["SUPER_ADMIN_EMAIL"].lower().strip()
-    password = os.environ["SUPER_ADMIN_PASSWORD"]
+    email = os.environ.get("SUPER_ADMIN_EMAIL")
+    password = os.environ.get("SUPER_ADMIN_PASSWORD")
+    if not email or not password:
+        print("  [SKIP] SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD non impostate")
+        return
+    email = email.lower().strip()
     existing = await db.users.find_one({"email": email})
     if not existing:
         await db.users.insert_one({
