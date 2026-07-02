@@ -1,7 +1,16 @@
 import axios from "axios";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-export const API_BASE = `${BACKEND_URL}/api`;
+
+if (!BACKEND_URL || BACKEND_URL === "undefined") {
+  console.error(
+    "[Prenotika] REACT_APP_BACKEND_URL non è configurato. " +
+    "Le chiamate API falliranno. Configura la variabile d'ambiente su Vercel " +
+    "(Settings → Environment Variables) puntando al backend Railway, poi rifai il deploy."
+  );
+}
+
+export const API_BASE = `${BACKEND_URL || ""}/api`;
 
 export const api = axios.create({
   baseURL: API_BASE,

@@ -21,6 +21,7 @@ import Landing from "@/pages/Landing";
 import Privacy from "@/pages/Privacy";
 import Eccezioni from "@/pages/Eccezioni";
 import Leads from "@/pages/Leads";
+import CookieBanner from "@/components/CookieBanner";
 
 function AppRedirect() {
   const { user, loading } = useAuth();
@@ -58,6 +59,7 @@ function App() {
             </Route>
             <Route path="*" element={<AppRedirect />} />
           </Routes>
+          <CookieBanner />
         </BrowserRouter>
       </AuthProvider>
     </div>

@@ -41,7 +41,6 @@ export default function Orari() {
         if (!docenteId && data[0]) setDocenteId(data[0].id);
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
   const load = useCallback(async () => {
