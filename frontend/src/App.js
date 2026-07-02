@@ -18,6 +18,7 @@ import Appuntamenti from "@/pages/Appuntamenti";
 import NuovoAppuntamento from "@/pages/NuovoAppuntamento";
 import Studios from "@/pages/Studios";
 import Landing from "@/pages/Landing";
+import Privacy from "@/pages/Privacy";
 import Eccezioni from "@/pages/Eccezioni";
 import Leads from "@/pages/Leads";
 
@@ -36,6 +37,7 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/privacy" element={<Privacy />} />
             <Route path="/login" element={<Login />} />
             <Route path="/app" element={<AppRedirect />} />
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>

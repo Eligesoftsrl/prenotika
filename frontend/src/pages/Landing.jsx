@@ -114,7 +114,7 @@ const TiltCard = ({ children, className = "", testid }) => {
 export default function Landing() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ nome: "", email: "", telefono: "", tipologia: "centro_studi", studio: "", messaggio: "", piano_interesse: "" });
+  const [form, setForm] = useState({ nome: "", email: "", telefono: "", tipologia: "centro_studi", studio: "", messaggio: "", piano_interesse: "", privacy: false });
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
@@ -151,7 +151,6 @@ export default function Landing() {
   useEffect(() => {
     const t = setInterval(() => setTickerIdx((i) => (i + 1) % tickerItems.length), 2800);
     return () => clearInterval(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectPlan = (planName) => {
@@ -162,11 +161,17 @@ export default function Landing() {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!form.privacy) {
+      setError("Devi accettare l'informativa privacy per proseguire.");
+      return;
+    }
     setBusy(true); setError("");
     try {
-      await api.post("/leads", form);
+      const payload = { ...form };
+      delete payload.privacy;
+      await api.post("/leads", payload);
       setSent(true);
-      setForm({ nome: "", email: "", telefono: "", tipologia: "centro_studi", studio: "", messaggio: "", piano_interesse: "" });
+      setForm({ nome: "", email: "", telefono: "", tipologia: "centro_studi", studio: "", messaggio: "", piano_interesse: "", privacy: false });
     } catch (err) {
       setError(formatApiError(err?.response?.data?.detail) || "Errore nell'invio. Riprova.");
     } finally { setBusy(false); }
@@ -698,6 +703,19 @@ export default function Landing() {
                   </div>
                   <div><label className="label-eyebrow block mb-1.5">Azienda</label><input className="input-base" value={form.studio} onChange={(e) => setForm({ ...form, studio: e.target.value })} data-testid="lead-studio" /></div>
                   <div><label className="label-eyebrow block mb-1.5">Messaggio</label><textarea rows={3} className="input-base resize-none" value={form.messaggio} onChange={(e) => setForm({ ...form, messaggio: e.target.value })} placeholder="Raccontaci brevemente come gestisci oggi gli appuntamenti..." data-testid="lead-messaggio" /></div>
+                  <label className="flex items-start gap-2.5 text-xs text-[color:var(--text-2)] leading-relaxed cursor-pointer select-none pt-1" data-testid="lead-privacy-label">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 w-4 h-4 accent-[color:var(--primary)] cursor-pointer flex-shrink-0"
+                      checked={form.privacy}
+                      onChange={(e) => setForm({ ...form, privacy: e.target.checked })}
+                      data-testid="lead-privacy-checkbox"
+                      required
+                    />
+                    <span>
+                      Ho letto e accetto l&apos;<a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-[color:var(--primary)]">informativa sulla privacy</a> e acconsento al trattamento dei miei dati personali ai sensi del Reg. UE 2016/679 (GDPR) per essere ricontattato/a in merito alla mia richiesta. *
+                    </span>
+                  </label>
                 </div>
                 {error && <div className="text-sm text-[color:var(--error)] mt-3" data-testid="lead-form-error">{error}</div>}
                 <MagneticButton type="submit" disabled={busy} className="btn-primary w-full justify-center mt-5" data-testid="lead-submit-button">
@@ -733,13 +751,23 @@ export default function Landing() {
 
       {/* ==================== FOOTER ==================== */}
       <footer className="border-t border-[color:var(--border)] bg-white">
-        <div className="max-w-6xl mx-auto px-5 sm:px-8 py-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <Logo size={28} />
-            <div className="text-sm font-display font-bold">Prenotika</div>
-            <span className="text-[10px] tracking-[0.22em] uppercase text-[color:var(--text-2)] ml-2">Smart Booking</span>
+        <div className="max-w-6xl mx-auto px-5 sm:px-8 py-10">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5">
+              <Logo size={28} />
+              <div className="text-sm font-display font-bold">Prenotika</div>
+              <span className="text-[10px] tracking-[0.22em] uppercase text-[color:var(--text-2)] ml-2">Smart Booking</span>
+            </div>
+            <div className="text-xs text-[color:var(--text-2)]">© {new Date().getFullYear()} Prenotika · La gestione intelligente degli appuntamenti.</div>
           </div>
-          <div className="text-xs text-[color:var(--text-2)]">© {new Date().getFullYear()} Prenotika · La gestione intelligente degli appuntamenti.</div>
+          <div className="mt-6 pt-6 border-t border-[color:var(--border)] text-xs text-[color:var(--text-2)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div data-testid="footer-legal">
+              Prenotika è un prodotto sviluppato da <strong className="text-[color:var(--text)]">Eligesoft Srl</strong> · Partita IVA: <strong className="text-[color:var(--text)]">04532690650</strong>
+            </div>
+            <div className="flex items-center gap-4">
+              <a href="/privacy" className="hover:text-[color:var(--primary)] transition-colors" data-testid="footer-privacy-link">Privacy</a>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
