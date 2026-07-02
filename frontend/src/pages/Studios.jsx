@@ -55,11 +55,11 @@ export default function Studios() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <div className="label-eyebrow mb-1.5">Piattaforma</div>
-          <h1 className="font-display text-3xl sm:text-4xl font-black tracking-tight">Centri Studi</h1>
-          <p className="text-[color:var(--text-2)] mt-1">Crea e gestisci i tenant della piattaforma.</p>
+          <h1 className="font-display text-3xl sm:text-4xl font-black tracking-tight">Aziende</h1>
+          <p className="text-[color:var(--text-2)] mt-1">Crea e gestisci le aziende (tenant) della piattaforma.</p>
         </div>
         <button onClick={() => { setForm(emptyForm()); setShowModal(true); setError(""); }} className="btn-primary" data-testid="studio-create-button">
-          <Plus size={16} /> Nuovo centro
+          <Plus size={16} /> Nuova azienda
         </button>
       </div>
 
@@ -67,8 +67,8 @@ export default function Studios() {
         {loading ? <div className="p-10 text-center text-[color:var(--text-2)]">Caricamento…</div> : items.length === 0 ? (
           <div className="p-12 text-center">
             <Building2 className="mx-auto mb-3 text-[color:var(--border)]" size={36} />
-            <h3 className="font-display text-lg font-bold mb-1">Nessun centro studi</h3>
-            <p className="text-sm text-[color:var(--text-2)] mb-4">Crea il primo tenant per iniziare.</p>
+            <h3 className="font-display text-lg font-bold mb-1">Nessuna azienda</h3>
+            <p className="text-sm text-[color:var(--text-2)] mb-4">Crea la prima azienda per iniziare.</p>
           </div>
         ) : (
           <table className="table-clean w-full">
@@ -113,10 +113,10 @@ export default function Studios() {
       </div>
 
       {showModal && (
-        <Modal title="Nuovo Centro Studi" onClose={() => setShowModal(false)}>
+        <Modal title="Nuova Azienda" onClose={() => setShowModal(false)}>
           <form onSubmit={onSubmit} className="space-y-3.5" data-testid="studio-form">
-            <div className="label-eyebrow">Dati centro</div>
-            <Field label="Nome centro" required value={form.nome} onChange={(v) => setForm({ ...form, nome: v })} testid="studio-nome-input" />
+            <div className="label-eyebrow">Dati azienda</div>
+            <Field label="Nome azienda" required value={form.nome} onChange={(v) => setForm({ ...form, nome: v })} testid="studio-nome-input" />
             <div>
               <label className="block text-sm font-medium mb-1.5">Tipologia <span className="text-[color:var(--secondary)]">*</span></label>
               <select className="input-base" value={form.tipologia} onChange={(e) => setForm({ ...form, tipologia: e.target.value })} required data-testid="studio-tipologia-select">

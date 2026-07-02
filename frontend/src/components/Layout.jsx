@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
-import { LayoutDashboard, Calendar, Users, GraduationCap, Clock, Building2, LogOut, Menu, X, BookOpen, Settings, FileText, Plane, Inbox } from "lucide-react";
+import { LayoutDashboard, Calendar, Users, GraduationCap, Clock, Building2, LogOut, Menu, X, BookOpen, Settings, FileText, Plane, Inbox, UserCog } from "lucide-react";
 import { tipologiaLabels } from "@/lib/tipologia";
 import Logo from "@/components/Logo";
 
@@ -38,10 +38,13 @@ export default function Layout() {
   }, [isSuper, location.pathname]);
   const L = tipologiaLabels(studio?.tipologia);
 
+  const accountItem = { to: "/account", icon: UserCog, label: "Account", testid: "nav-link-account" };
+
   const items = isSuper
     ? [
-        { to: "/studios", icon: Building2, label: "Centri Studi", testid: "nav-link-studios" },
+        { to: "/studios", icon: Building2, label: "Aziende", testid: "nav-link-studios" },
         { to: "/leads", icon: Inbox, label: "Richieste", testid: "nav-link-leads", badge: leadsCount },
+        accountItem,
       ]
     : [
         { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", testid: "nav-link-dashboard" },
@@ -57,6 +60,7 @@ export default function Layout() {
               { to: "/impostazioni", icon: Settings, label: "Impostazioni", testid: "nav-link-impostazioni" },
             ]
           : []),
+        accountItem,
       ];
 
   const SideContent = (

@@ -157,6 +157,10 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -376,6 +380,20 @@ async def get_me(user: dict = Depends(get_current_user)):
         if st:
             studio = _from_mongo(st)
     return {"user": user, "studio": studio}
+
+
+@api.post("/auth/change-password")
+async def change_password(body: ChangePasswordRequest, user: dict = Depends(get_current_user)):
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=400, detail="La nuova password deve avere almeno 8 caratteri")
+    doc = await db.users.find_one({"_id": user["id"]})
+    if not doc or not verify_password(body.current_password, doc["password_hash"]):
+        raise HTTPException(status_code=401, detail="Password attuale non corretta")
+    await db.users.update_one(
+        {"_id": user["id"]},
+        {"$set": {"password_hash": hash_password(body.new_password)}},
+    )
+    return {"ok": True}
 
 # -----------------------------------------------------------------------------
 # Studio routes (super_admin)
@@ -1693,6 +1711,26 @@ async def seed_super_admin():
     # Patch retro-compatibilità sui documenti pre-esistenti (safe in produzione)
     await db.studios.update_many({"tipologia": {"$exists": False}}, {"$set": {"tipologia": "centro_studi"}})
     await db.studios.update_many({"plan": {"$exists": False}}, {"$set": {"plan": "free"}})
+
+
+@app.on_event("startup")
+async def on_startup():
+    await ensure_indexes()
+    await seed_super_admin()
+    try:
+        from reminder_scheduler import start_reminder_scheduler
+        start_reminder_scheduler(db)
+    except Exception as e:
+        logger.warning(f"Impossibile avviare reminder scheduler: {e}")
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    try:
+        from reminder_scheduler import shutdown_reminder_scheduler
+        shutdown_reminder_scheduler()
+    except Exception:
+        pass
+    client.close()
 
 
 @app.on_event("startup")
