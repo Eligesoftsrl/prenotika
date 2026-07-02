@@ -5,12 +5,6 @@ import { formatApiError } from "@/lib/api";
 import { ArrowRight } from "lucide-react";
 import Logo from "@/components/Logo";
 
-const DEMOS = [
-  { label: "Admin Demo", email: "admin@demo.it", password: "Admin123!" },
-  { label: "Docente Demo", email: "docente@demo.it", password: "Docente123!" },
-  { label: "Super Admin", email: "superadmin@eligehub.it", password: "SuperAdmin123!" },
-];
-
 export default function Login() {
   const { user, login } = useAuth();
   const [email, setEmail] = useState("");
@@ -35,11 +29,6 @@ export default function Login() {
     } finally {
       setBusy(false);
     }
-  };
-
-  const fillDemo = (d) => {
-    setEmail(d.email);
-    setPassword(d.password);
   };
 
   return (
@@ -126,23 +115,6 @@ export default function Login() {
           <button type="submit" disabled={busy} className="btn-primary w-full justify-center mt-6" data-testid="login-submit-button">
             {busy ? "Accesso…" : (<>Accedi <ArrowRight size={16} /></>)}
           </button>
-
-          <div className="mt-8 pt-6 border-t border-[color:var(--border)]">
-            <div className="label-eyebrow mb-2">Account demo</div>
-            <div className="flex flex-wrap gap-2">
-              {DEMOS.map((d) => (
-                <button
-                  type="button"
-                  key={d.email}
-                  onClick={() => fillDemo(d)}
-                  className="btn-secondary text-xs"
-                  data-testid={`demo-${d.label.toLowerCase().replace(/\s+/g, '-')}-button`}
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
-          </div>
         </form>
       </div>
     </div>

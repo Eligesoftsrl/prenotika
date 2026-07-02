@@ -1655,8 +1655,13 @@ async def ensure_indexes():
     await db.docente_clienti.create_index([("studio_id", 1), ("docente_id", 1), ("cliente_id", 1)], unique=True)
     await db.materie.create_index([("studio_id", 1), ("descrizione", 1)], unique=True)
     await db.docente_materie.create_index([("studio_id", 1), ("docente_id", 1), ("materia_id", 1)], unique=True)
+    await db.eccezioni.create_index([("studio_id", 1), ("docente_id", 1), ("data_inizio", 1)])
+    await db.leads.create_index([("created_at", -1)])
+    await db.leads.create_index("status")
 
-async def seed_super_admin_and_demo():
+async def seed_super_admin():
+    """Seed idempotente del solo super_admin. Nessun dato demo viene creato:
+    studi, admin e professionisti verranno creati dall'utente in produzione."""
     super_email = os.environ["SUPER_ADMIN_EMAIL"].lower().strip()
     super_password = os.environ["SUPER_ADMIN_PASSWORD"]
     existing_super = await db.users.find_one({"email": super_email})
@@ -1677,157 +1682,15 @@ async def seed_super_admin_and_demo():
         await db.users.update_one({"_id": existing_super["_id"]}, {"$set": {"password_hash": hash_password(super_password)}})
         logger.info("Updated super_admin password")
 
-    # Demo studio + admin + docente
-    demo_studio = await db.studios.find_one({"nome": os.environ["DEMO_STUDIO_NAME"]})
-    if not demo_studio:
-        studio_id = new_id()
-        await db.studios.insert_one({
-            "_id": studio_id,
-            "nome": os.environ["DEMO_STUDIO_NAME"],
-            "sede": "Via Roma 1, Milano",
-            "telefono": "+39 02 1234567",
-            "email": "info@demo.it",
-            "piva": "IT01234567890",
-            "tipologia": "centro_studi",
-            "note": "Studio demo precaricato",
-            "active": True,
-            "created_at": now_utc().isoformat(),
-        })
-        await db.users.insert_one({
-            "_id": new_id(),
-            "nome": "Anna",
-            "cognome": "Rossi",
-            "email": os.environ["DEMO_ADMIN_EMAIL"].lower().strip(),
-            "password_hash": hash_password(os.environ["DEMO_ADMIN_PASSWORD"]),
-            "role": "admin",
-            "studio_id": studio_id,
-            "active": True,
-            "created_at": now_utc().isoformat(),
-        })
-        docente_id = new_id()
-        await db.users.insert_one({
-            "_id": docente_id,
-            "nome": "Marco",
-            "cognome": "Bianchi",
-            "email": os.environ["DEMO_DOCENTE_EMAIL"].lower().strip(),
-            "password_hash": hash_password(os.environ["DEMO_DOCENTE_PASSWORD"]),
-            "role": "docente",
-            "studio_id": studio_id,
-            "specializzazione": "Matematica",
-            "color": "#7C3AED",
-            "slot_minuti": 60,
-            "active": True,
-            "created_at": now_utc().isoformat(),
-        })
-        # Seed default availability Mon-Fri 9-13 and 15-18
-        for g in range(0, 5):
-            await db.orari.insert_many([
-                {"_id": new_id(), "studio_id": studio_id, "docente_id": docente_id, "giorno": g, "dal": "09:00", "al": "13:00"},
-                {"_id": new_id(), "studio_id": studio_id, "docente_id": docente_id, "giorno": g, "dal": "15:00", "al": "18:00"},
-            ])
-        # Seed a couple of demo clienti
-        cli1_id = new_id()
-        cli2_id = new_id()
-        await db.clienti.insert_many([
-            {"_id": cli1_id, "studio_id": studio_id, "nome": "Luca", "cognome": "Verdi", "email": "luca.verdi@example.com", "cellulare": "+39 333 1111111", "created_at": now_utc().isoformat()},
-            {"_id": cli2_id, "studio_id": studio_id, "nome": "Giulia", "cognome": "Neri", "email": "giulia.neri@example.com", "cellulare": "+39 333 2222222", "created_at": now_utc().isoformat()},
-        ])
-        # Associate both demo clienti to the demo docente (relazione "pubblico")
-        await db.docente_clienti.insert_many([
-            {"_id": new_id(), "studio_id": studio_id, "docente_id": docente_id, "cliente_id": cli1_id, "created_at": now_utc().isoformat()},
-            {"_id": new_id(), "studio_id": studio_id, "docente_id": docente_id, "cliente_id": cli2_id, "created_at": now_utc().isoformat()},
-        ])
-        logger.info("Seeded demo studio + admin + docente + clienti")
-
-    # Patch: garantisci che gli studi esistenti abbiano un valore di tipologia
+    # Patch retro-compatibilità sui documenti pre-esistenti (safe in produzione)
     await db.studios.update_many({"tipologia": {"$exists": False}}, {"$set": {"tipologia": "centro_studi"}})
-    # Patch: garantisci che ogni studio abbia un piano (free di default per i pre-esistenti)
     await db.studios.update_many({"plan": {"$exists": False}}, {"$set": {"plan": "free"}})
-    # Per lo studio demo principale impostiamo Business così l'utente può testare senza limiti
-    await db.studios.update_many(
-        {"_id": os.environ.get("DEMO_STUDIO_ID")} if os.environ.get("DEMO_STUDIO_ID") else {"nome": os.environ.get("DEMO_STUDIO_NAME", "Centro Studi Demo")},
-        {"$set": {"plan": "business"}},
-    )
 
-    # Seed 2 ulteriori studi demo per tipologie diverse
-    for nome, tip, admin_email, admin_pwd, prof_email, prof_pwd, prof_nome, prof_cognome, spec in [
-        ("Studio Legale Demo", "studio_legale", "admin@legale.it", "Admin123!", "avv@legale.it", "Avv123!", "Carlo", "Russo", "Diritto civile"),
-        ("Studio Medico Demo", "studio_medico", "admin@medico.it", "Admin123!", "med@medico.it", "Med123!", "Laura", "Conti", "Cardiologia"),
-    ]:
-        existing = await db.studios.find_one({"nome": nome})
-        if existing:
-            continue
-        sid_new = new_id()
-        await db.studios.insert_one({
-            "_id": sid_new, "nome": nome, "sede": "Via Demo 2, Milano", "telefono": "+39 02 7654321",
-            "email": "info@demo.it", "piva": None, "tipologia": tip,
-            "note": "Studio demo precaricato", "active": True, "created_at": now_utc().isoformat(),
-        })
-        await db.users.insert_one({
-            "_id": new_id(), "nome": "Admin", "cognome": nome.split()[1], "email": admin_email,
-            "password_hash": hash_password(admin_pwd), "role": "admin", "studio_id": sid_new,
-            "active": True, "created_at": now_utc().isoformat(),
-        })
-        prof_id = new_id()
-        await db.users.insert_one({
-            "_id": prof_id, "nome": prof_nome, "cognome": prof_cognome, "email": prof_email,
-            "password_hash": hash_password(prof_pwd), "role": "docente", "studio_id": sid_new,
-            "color": "#60A5FA" if tip == "studio_legale" else "#2DD4BF",
-            "slot_minuti": 30 if tip == "studio_medico" else 60,
-            "active": True, "created_at": now_utc().isoformat(),
-        })
-        # spec/materia
-        mat_id = new_id()
-        await db.materie.insert_one({
-            "_id": mat_id, "studio_id": sid_new, "descrizione": spec, "prezzo": None,
-            "created_at": now_utc().isoformat(),
-        })
-        await db.docente_materie.insert_one({
-            "_id": new_id(), "studio_id": sid_new, "docente_id": prof_id, "materia_id": mat_id,
-            "created_at": now_utc().isoformat(),
-        })
-        # disponibilità Lun-Ven 9-13
-        for g in range(0, 5):
-            await db.orari.insert_one({"_id": new_id(), "studio_id": sid_new, "docente_id": prof_id, "giorno": g, "dal": "09:00", "al": "13:00"})
-        # cliente di esempio
-        cli_id = new_id()
-        client_label = "Mario Bianchi" if tip == "studio_legale" else "Anna Verdi"
-        n, cn = client_label.split()
-        await db.clienti.insert_one({
-            "_id": cli_id, "studio_id": sid_new, "nome": n, "cognome": cn,
-            "email": None, "cellulare": "+39 333 0000000", "created_at": now_utc().isoformat(),
-        })
-        await db.docente_clienti.insert_one({
-            "_id": new_id(), "studio_id": sid_new, "docente_id": prof_id, "cliente_id": cli_id,
-            "created_at": now_utc().isoformat(),
-        })
-        logger.info("Seeded %s with admin %s", nome, admin_email)
-    demo_studio_after = await db.studios.find_one({"nome": os.environ["DEMO_STUDIO_NAME"]})
-    if demo_studio_after:
-        sid = demo_studio_after["_id"]
-        demo_docente = await db.users.find_one({"studio_id": sid, "role": "docente"})
-        if demo_docente:
-            # ensure slot_minuti
-            if not demo_docente.get("slot_minuti"):
-                await db.users.update_one({"_id": demo_docente["_id"]}, {"$set": {"slot_minuti": 60}})
-            # ensure alunni links
-            existing_links = await db.docente_clienti.count_documents({"studio_id": sid, "docente_id": demo_docente["_id"]})
-            if existing_links == 0:
-                clienti = await db.clienti.find({"studio_id": sid}).to_list(50)
-                for c in clienti:
-                    await db.docente_clienti.insert_one({
-                        "_id": new_id(),
-                        "studio_id": sid,
-                        "docente_id": demo_docente["_id"],
-                        "cliente_id": c["_id"],
-                        "created_at": now_utc().isoformat(),
-                    })
-                logger.info("Patched demo: linked %d alunni to demo docente", len(clienti))
 
 @app.on_event("startup")
 async def on_startup():
     await ensure_indexes()
-    await seed_super_admin_and_demo()
+    await seed_super_admin()
     try:
         from reminder_scheduler import start_reminder_scheduler
         start_reminder_scheduler(db)
