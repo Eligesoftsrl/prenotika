@@ -128,6 +128,12 @@ export default function Login() {
           <button type="submit" disabled={busy} className="btn-primary w-full justify-center mt-6" data-testid="login-submit-button">
             {busy ? "Accesso…" : (<>Accedi <ArrowRight size={16} /></>)}
           </button>
+
+          <div className="mt-5 text-center">
+            <a href="/forgot-password" className="text-sm text-[color:var(--text-2)] hover:text-[color:var(--primary)] transition-colors" data-testid="login-forgot-link">
+              Password dimenticata?
+            </a>
+          </div>
         </form>
       </div>
     </div>

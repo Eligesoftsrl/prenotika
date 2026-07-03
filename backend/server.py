@@ -6,6 +6,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 import os
 import logging
+import secrets
 import uuid
 import bcrypt
 import jwt
@@ -159,6 +160,13 @@ class LoginRequest(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
+    new_password: str
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
     new_password: str
 
 class LoginResponse(BaseModel):
@@ -392,6 +400,65 @@ async def change_password(body: ChangePasswordRequest, user: dict = Depends(get_
     await db.users.update_one(
         {"_id": user["id"]},
         {"$set": {"password_hash": hash_password(body.new_password)}},
+    )
+    return {"ok": True}
+
+
+@api.post("/auth/forgot-password")
+async def forgot_password(body: ForgotPasswordRequest):
+    """Genera token di reset e invia email. Risponde sempre 200 per non rivelare esistenza email."""
+    email = body.email.lower().strip()
+    user = await db.users.find_one({"email": email, "active": {"$ne": False}})
+    if user:
+        token = secrets.token_urlsafe(32)
+        expires_at = now_utc() + timedelta(minutes=60)
+        await db.password_resets.insert_one({
+            "_id": new_id(),
+            "user_id": user["_id"],
+            "token": token,
+            "expires_at": expires_at.isoformat(),
+            "used": False,
+            "created_at": now_utc().isoformat(),
+        })
+        frontend_url = os.environ.get("FRONTEND_URL", "").rstrip("/")
+        if not frontend_url:
+            frontend_url = "https://www.prenotika.com"
+        reset_url = f"{frontend_url}/reset-password?token={token}"
+        try:
+            from email_service import send_password_reset_email
+            await send_password_reset_email(
+                to_email=email,
+                to_name=f"{user.get('nome','')} {user.get('cognome','')}".strip(),
+                reset_url=reset_url,
+            )
+        except Exception as e:
+            logger.warning("send_password_reset_email failed: %s", e)
+    # Sempre 200 anche se l'utente non esiste (privacy)
+    return {"ok": True}
+
+
+@api.post("/auth/reset-password")
+async def reset_password(body: ResetPasswordRequest):
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=400, detail="La password deve avere almeno 8 caratteri")
+    rec = await db.password_resets.find_one({"token": body.token})
+    if not rec:
+        raise HTTPException(status_code=400, detail="Link non valido")
+    if rec.get("used"):
+        raise HTTPException(status_code=400, detail="Link già utilizzato")
+    try:
+        expires_at = datetime.fromisoformat(rec["expires_at"])
+    except Exception:
+        expires_at = now_utc() - timedelta(seconds=1)
+    if expires_at < now_utc():
+        raise HTTPException(status_code=400, detail="Link scaduto. Richiedine uno nuovo.")
+    await db.users.update_one(
+        {"_id": rec["user_id"]},
+        {"$set": {"password_hash": hash_password(body.new_password)}},
+    )
+    await db.password_resets.update_one(
+        {"_id": rec["_id"]},
+        {"$set": {"used": True, "used_at": now_utc().isoformat()}},
     )
     return {"ok": True}
 
@@ -1676,6 +1743,8 @@ async def ensure_indexes():
     await db.eccezioni.create_index([("studio_id", 1), ("docente_id", 1), ("data_inizio", 1)])
     await db.leads.create_index([("created_at", -1)])
     await db.leads.create_index("status")
+    await db.password_resets.create_index("token", unique=True)
+    await db.password_resets.create_index("expires_at")
 
 async def seed_super_admin():
     """Seed idempotente del super_admin (opzionale).

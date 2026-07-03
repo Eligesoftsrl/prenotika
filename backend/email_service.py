@@ -17,7 +17,7 @@ import httpx
 logger = logging.getLogger("eligehub.email")
 
 BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
-BREVO_SENDER_EMAIL = os.environ.get("BREVO_SENDER_EMAIL", "team@zioners.com")
+BREVO_SENDER_EMAIL = os.environ.get("BREVO_SENDER_EMAIL", "booking@prenotika.com")
 BREVO_SENDER_NAME = os.environ.get("BREVO_SENDER_NAME", "Prenotika")
 APP_TIMEZONE = os.environ.get("APP_TIMEZONE", "Europe/Rome")
 BREVO_URL = "https://api.brevo.com/v3/smtp/email"
@@ -488,11 +488,46 @@ async def send_reminder_email(
         subject=subject, html_content=html_body,
     )
 
+async def send_password_reset_email(
+    *,
+    to_email: str,
+    to_name: str,
+    reset_url: str,
+) -> Optional[str]:
+    """Invia email di recupero password con magic link (valido 60 min)."""
+    subject = "Reimposta la tua password Prenotika"
+    safe_name = _html.escape(to_name or "")
+    html_body = f"""\
+<!doctype html><html><body style="font-family:'Inter',Arial,sans-serif;color:#0F172A;background:#F8FAFC;padding:24px">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #E2E8F0;border-radius:14px;overflow:hidden;box-shadow:0 6px 22px -6px rgba(15,23,42,0.06)">
+    <div style="background:linear-gradient(135deg,#7C3AED 0%,#60A5FA 50%,#2DD4BF 100%);padding:22px 28px;color:#fff;font-family:'Sora',Arial,sans-serif;font-weight:800;font-size:22px;letter-spacing:-0.02em">Prenotika</div>
+    <div style="padding:28px;font-size:14px;line-height:1.65">
+      <h1 style="font-family:'Sora',Arial,sans-serif;font-size:22px;font-weight:800;color:#0F172A;margin:0 0 12px">Reimposta la tua password</h1>
+      <p style="margin:0 0 14px;color:#334155">Ciao {safe_name},</p>
+      <p style="margin:0 0 18px;color:#334155">abbiamo ricevuto una richiesta di reset password per il tuo account Prenotika. Clicca il bottone qui sotto per scegliere una nuova password. Il link è valido per <strong>60 minuti</strong>.</p>
+      <p style="text-align:center;margin:26px 0">
+        <a href="{reset_url}" style="display:inline-block;padding:14px 30px;background:linear-gradient(135deg,#7C3AED 0%,#2DD4BF 100%);color:#fff;text-decoration:none;font-weight:700;border-radius:14px;font-size:14px;letter-spacing:0.01em;box-shadow:0 10px 22px -6px rgba(124,58,237,0.45)">Reimposta la password</a>
+      </p>
+      <p style="margin:18px 0 8px;color:#64748B;font-size:12px">Se il bottone non funziona, copia e incolla questo link nel browser:</p>
+      <p style="margin:0 0 22px;font-size:12px;word-break:break-all;color:#7C3AED">{reset_url}</p>
+      <hr style="border:none;border-top:1px solid #E2E8F0;margin:22px 0" />
+      <p style="margin:0;color:#64748B;font-size:12px;line-height:1.6">Se non hai richiesto tu il reset, ignora questa email: la tua password attuale resta invariata. Per qualsiasi problema, contatta <a href="mailto:booking@prenotika.com" style="color:#7C3AED">booking@prenotika.com</a>.</p>
+    </div>
+    <div style="padding:14px 28px;background:#F8FAFC;font-size:11px;color:#94A3B8;text-align:center;border-top:1px solid #E2E8F0">Prenotika · La gestione intelligente degli appuntamenti</div>
+  </div>
+</body></html>"""
+    return await _send_brevo(
+        to_email=to_email, to_name=to_name or to_email,
+        subject=subject, html_content=html_body,
+    )
+
+
+
 
 async def send_lead_notification(
     *,
     lead: dict,
-    notify_to: str = "team@zioners.com",
+    notify_to: str = "booking@prenotika.com",
 ) -> Optional[str]:
     """Notifica al team di un nuovo lead/contatto dalla landing."""
     nome = _html.escape(lead.get("nome", ""))

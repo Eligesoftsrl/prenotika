@@ -20,6 +20,8 @@ import Studios from "@/pages/Studios";
 import Landing from "@/pages/Landing";
 import Privacy from "@/pages/Privacy";
 import Account from "@/pages/Account";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import Eccezioni from "@/pages/Eccezioni";
 import Leads from "@/pages/Leads";
 import CookieBanner from "@/components/CookieBanner";
@@ -41,6 +43,8 @@ function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/app" element={<AppRedirect />} />
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route path="/dashboard" element={<ProtectedRoute roles={["admin", "docente"]}><Dashboard /></ProtectedRoute>} />
