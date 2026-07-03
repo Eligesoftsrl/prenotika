@@ -488,6 +488,63 @@ async def send_reminder_email(
         subject=subject, html_content=html_body,
     )
 
+async def send_welcome_admin_email(
+    *,
+    to_email: str,
+    to_name: str,
+    studio_nome: str,
+    login_email: str,
+    temp_password: str,
+    login_url: str,
+    setup_url: str,
+) -> Optional[str]:
+    """Invia email di benvenuto all'admin di uno studio appena creato.
+    Include credenziali temporanee e un magic link per impostare subito
+    una nuova password (valido 7 giorni)."""
+    subject = f"Benvenuto in Prenotika · {studio_nome}"
+    safe_name = _html.escape(to_name or "")
+    safe_studio = _html.escape(studio_nome or "")
+    safe_email = _html.escape(login_email)
+    safe_pwd = _html.escape(temp_password)
+    html_body = f"""\
+<!doctype html><html><body style="font-family:'Inter',Arial,sans-serif;color:#0F172A;background:#F8FAFC;padding:24px">
+  <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #E2E8F0;border-radius:14px;overflow:hidden;box-shadow:0 8px 26px -8px rgba(15,23,42,0.08)">
+    <div style="background:linear-gradient(135deg,#7C3AED 0%,#60A5FA 50%,#2DD4BF 100%);padding:26px 30px;color:#fff">
+      <div style="font-family:'Sora',Arial,sans-serif;font-weight:800;font-size:22px;letter-spacing:-0.02em">Prenotika</div>
+      <div style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;margin-top:4px;opacity:0.9">Smart Booking</div>
+    </div>
+    <div style="padding:30px;font-size:14px;line-height:1.65">
+      <h1 style="font-family:'Sora',Arial,sans-serif;font-size:24px;font-weight:800;color:#0F172A;margin:0 0 12px;letter-spacing:-0.01em">Ciao {safe_name}, benvenuto! 👋</h1>
+      <p style="margin:0 0 14px;color:#334155">Il tuo spazio Prenotika per <strong>{safe_studio}</strong> è stato attivato. Da qui potrai gestire agenda, professionisti, appuntamenti e report in modo veloce e ordinato.</p>
+
+      <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:18px 20px;margin:22px 0">
+        <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#7C3AED;font-weight:700;margin-bottom:10px">Le tue credenziali</div>
+        <table style="width:100%;font-size:14px;border-collapse:collapse">
+          <tr><td style="padding:4px 0;color:#64748B;width:120px">Email login</td><td style="padding:4px 0;color:#0F172A;font-weight:600">{safe_email}</td></tr>
+          <tr><td style="padding:4px 0;color:#64748B">Password iniziale</td><td style="padding:4px 0;color:#0F172A;font-family:'JetBrains Mono',Menlo,Consolas,monospace;font-weight:600;background:#F1F5F9;padding-left:8px;border-radius:6px;display:inline-block;padding:4px 10px">{safe_pwd}</td></tr>
+        </table>
+      </div>
+
+      <p style="margin:0 0 8px;color:#334155">Ti consigliamo di <strong>impostare subito una tua password personale</strong> con il link sicuro qui sotto (valido 7 giorni):</p>
+      <p style="text-align:center;margin:22px 0">
+        <a href="{setup_url}" style="display:inline-block;padding:14px 30px;background:linear-gradient(135deg,#7C3AED 0%,#2DD4BF 100%);color:#fff;text-decoration:none;font-weight:700;border-radius:14px;font-size:14px;letter-spacing:0.01em;box-shadow:0 10px 22px -6px rgba(124,58,237,0.45)">Imposta la tua password</a>
+      </p>
+
+      <p style="margin:18px 0 6px;color:#64748B;font-size:12px">In alternativa, puoi accedere subito con le credenziali sopra da:</p>
+      <p style="margin:0 0 22px;font-size:13px"><a href="{login_url}" style="color:#7C3AED;font-weight:600">{login_url}</a></p>
+
+      <hr style="border:none;border-top:1px solid #E2E8F0;margin:22px 0" />
+      <p style="margin:0;color:#64748B;font-size:12px;line-height:1.6">Per qualsiasi domanda scrivici a <a href="mailto:booking@prenotika.com" style="color:#7C3AED">booking@prenotika.com</a>. Siamo felici di averti a bordo. 🚀</p>
+    </div>
+    <div style="padding:16px 30px;background:#F8FAFC;font-size:11px;color:#94A3B8;text-align:center;border-top:1px solid #E2E8F0">Prenotika · La gestione intelligente degli appuntamenti · Eligesoft Srl · P.IVA 04532690650</div>
+  </div>
+</body></html>"""
+    return await _send_brevo(
+        to_email=to_email, to_name=to_name or to_email,
+        subject=subject, html_content=html_body,
+    )
+
+
 async def send_password_reset_email(
     *,
     to_email: str,

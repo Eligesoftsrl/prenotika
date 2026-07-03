@@ -506,6 +506,32 @@ async def create_studio(body: StudioCreate, _: dict = Depends(require_role("supe
     }
     await db.users.insert_one(admin_doc)
 
+    # Invio email di benvenuto (best-effort: NON bloccare la creazione se fallisce).
+    try:
+        setup_token = secrets.token_urlsafe(32)
+        await db.password_resets.insert_one({
+            "_id": new_id(),
+            "user_id": admin_doc["_id"],
+            "token": setup_token,
+            "expires_at": (now_utc() + timedelta(days=7)).isoformat(),
+            "used": False,
+            "created_at": now_utc().isoformat(),
+        })
+        frontend_url = (os.environ.get("FRONTEND_URL") or "https://www.prenotika.com").rstrip("/")
+        from email_service import send_welcome_admin_email
+        await send_welcome_admin_email(
+            to_email=admin_doc["email"],
+            to_name=f"{admin_doc['nome']} {admin_doc['cognome']}".strip(),
+            studio_nome=studio_doc["nome"],
+            login_email=admin_doc["email"],
+            temp_password=body.admin_password,
+            login_url=f"{frontend_url}/login",
+            setup_url=f"{frontend_url}/reset-password?token={setup_token}",
+        )
+        logger.info("Welcome email sent to %s for studio %s", admin_doc["email"], studio_doc["nome"])
+    except Exception as e:
+        logger.warning("Welcome email failed (studio creato comunque): %s", e)
+
     return _from_mongo(studio_doc)
 
 @api.get("/studio")
