@@ -317,7 +317,7 @@ export default function Appuntamenti() {
           </div>
           <div className="hidden sm:flex items-center gap-3 text-xs mb-3 px-1">
             <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[#2DD4BF]" /> Libero</div>
-            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm" style={{background: docenteSel?.color || "#7C3AED"}} /> Prenotato</div>
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm" style={{ background: "linear-gradient(135deg,#7C3AED,#4C1D95)" }} /> Prenotato</div>
             <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[color:var(--surface-2)] border border-[color:var(--border)]" /> Non disponibile</div>
           </div>
 
@@ -357,7 +357,7 @@ export default function Appuntamenti() {
                           <div
                             key={`${m}-${di}`}
                             className="rounded-md p-1 text-[10px] text-white shadow-sm relative group min-h-[44px] flex flex-col items-center justify-center text-center"
-                            style={{ background: docenteSel?.color || "#7C3AED" }}
+                            style={{ background: "linear-gradient(135deg,#7C3AED 0%,#4C1D95 100%)" }}
                             data-testid={`appuntamento-${ev.id}-${toHHMM(m)}`}
                             title={`${ev.cliente_nome} • ${ev.dal}-${ev.al}${ev.note ? ` • ${ev.note}` : ""}`}
                           >
@@ -427,7 +427,7 @@ export default function Appuntamenti() {
                       if (ev) {
                         return (
                           <div key={slot.m} className="rounded-lg overflow-hidden" data-testid={`day-row-${slot.dal}`}>
-                            <div className="px-4 py-2.5 text-white font-bold flex items-center justify-between" style={{ background: docenteSel?.color || "#7C3AED" }}>
+                            <div className="px-4 py-2.5 text-white font-bold flex items-center justify-between" style={{ background: "linear-gradient(135deg,#7C3AED 0%,#4C1D95 100%)" }}>
                               <span className="text-lg">
                                 {slot.dal}<span className="text-sm opacity-80">/{slot.al}</span>
                               </span>
