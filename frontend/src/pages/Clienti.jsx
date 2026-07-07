@@ -1,12 +1,75 @@
 import React, { useEffect, useState } from "react";
-import { api, formatApiError } from "@/lib/api";
-import { Plus, Edit2, Trash2, Users } from "lucide-react";
+import { api, formatApiError, API_BASE } from "@/lib/api";
+import { Plus, Edit2, Trash2, Users, FileText } from "lucide-react";
 import { Modal, Field } from "./Docenti";
 import { useAuth } from "@/context/AuthContext";
 import { tipologiaLabels } from "@/lib/tipologia";
 
 function emptyForm() {
   return { nome: "", cognome: "", email: "", cellulare: "", residenza: "", cap: "", indirizzo: "", data_nascita: "", note: "" };
+}
+
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+
+function ReportModal({ cliente, L, onClose }) {
+  const [period, setPeriod] = useState("month");
+  const [refDate, setRefDate] = useState(todayISO());
+  const [busy, setBusy] = useState(false);
+  const download = async () => {
+    setBusy(true);
+    try {
+      const params = new URLSearchParams({ period, data: refDate, cliente_id: cliente.id });
+      const token = localStorage.getItem("eh_token");
+      const resp = await fetch(`${API_BASE}/reports/appuntamenti.pdf?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!resp.ok) {
+        const j = await resp.json().catch(() => ({}));
+        alert(j.detail || "Errore nella generazione del PDF");
+        return;
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `report-${cliente.cognome}-${cliente.nome}-${period}-${refDate}.pdf`.toLowerCase();
+      document.body.appendChild(link); link.click(); link.remove();
+      URL.revokeObjectURL(url);
+      onClose();
+    } finally { setBusy(false); }
+  };
+  return (
+    <Modal title={`Report — ${cliente.cognome} ${cliente.nome}`} onClose={onClose}>
+      <div className="space-y-4" data-testid="report-cliente-modal">
+        <div>
+          <label className="label-eyebrow block mb-2">Periodo</label>
+          <div className="flex p-0.5 rounded-lg bg-[color:var(--surface-2)] w-fit">
+            {[{v:"day",label:"Giorno"},{v:"week",label:"Settimana"},{v:"month",label:"Mese"}].map((o) => (
+              <button key={o.v} type="button" onClick={() => setPeriod(o.v)} className={`px-3.5 py-1.5 text-xs font-semibold rounded-md ${period === o.v ? "bg-white shadow-sm" : "text-[color:var(--text-2)]"}`} data-testid={`report-cliente-period-${o.v}`}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="label-eyebrow block mb-1.5">Data di riferimento</label>
+          <input type="date" className="input-base" value={refDate} onChange={(e) => setRefDate(e.target.value)} data-testid="report-cliente-date" />
+          <div className="text-xs text-[color:var(--text-2)] mt-1">
+            {period === "day" && "Verrà generato il PDF del giorno selezionato."}
+            {period === "week" && "Verrà generato il PDF della settimana (lun–dom) contenente la data."}
+            {period === "month" && "Verrà generato il PDF dell'intero mese della data selezionata."}
+          </div>
+        </div>
+        <div className="rounded-lg bg-[color:var(--surface-2)] px-3 py-2.5 text-xs text-[color:var(--text-2)]">
+          Il PDF conterrà tutti gli appuntamenti di <strong className="text-[color:var(--text)]">{cliente.cognome} {cliente.nome}</strong> nel periodo, con data, orario, {L.docente.toLowerCase()}, {L.materia.toLowerCase()} e note.
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center">Annulla</button>
+          <button type="button" onClick={download} disabled={busy} className="btn-primary flex-1 justify-center" data-testid="report-cliente-download">
+            <FileText size={14} /> {busy ? "Generazione…" : "Scarica PDF"}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
 }
 
 export default function Clienti() {
@@ -21,6 +84,7 @@ export default function Clienti() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
+  const [reportCliente, setReportCliente] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -121,12 +185,15 @@ export default function Clienti() {
                       <td className="text-[color:var(--text-2)]">{c.cellulare || "—"}</td>
                       <td className="text-[color:var(--text-2)]">{c.residenza || "—"}</td>
                       <td className="text-right">
-                        {isAdmin && (
-                          <div className="flex justify-end gap-2">
-                            <button onClick={() => openEdit(c)} className="btn-secondary text-xs" data-testid={`cliente-edit-${c.id}`}><Edit2 size={13} /></button>
-                            <button onClick={() => remove(c)} className="btn-danger" data-testid={`cliente-delete-${c.id}`}><Trash2 size={13} /></button>
-                          </div>
-                        )}
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => setReportCliente(c)} className="btn-secondary text-xs" data-testid={`cliente-report-${c.id}`} title="Genera report PDF"><FileText size={13} /></button>
+                          {isAdmin && (
+                            <>
+                              <button onClick={() => openEdit(c)} className="btn-secondary text-xs" data-testid={`cliente-edit-${c.id}`}><Edit2 size={13} /></button>
+                              <button onClick={() => remove(c)} className="btn-danger" data-testid={`cliente-delete-${c.id}`}><Trash2 size={13} /></button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -144,8 +211,14 @@ export default function Clienti() {
                   </div>
                   {isAdmin && (
                     <div className="mt-3 flex gap-2">
+                      <button onClick={() => setReportCliente(c)} className="btn-secondary text-xs flex-1 justify-center"><FileText size={13} /> Report</button>
                       <button onClick={() => openEdit(c)} className="btn-secondary text-xs flex-1 justify-center"><Edit2 size={13} /> Modifica</button>
                       <button onClick={() => remove(c)} className="btn-danger flex-1 justify-center"><Trash2 size={13} /> Elimina</button>
+                    </div>
+                  )}
+                  {!isAdmin && (
+                    <div className="mt-3">
+                      <button onClick={() => setReportCliente(c)} className="btn-secondary text-xs w-full justify-center"><FileText size={13} /> Report</button>
                     </div>
                   )}
                 </div>
@@ -157,8 +230,7 @@ export default function Clienti() {
 
       {showModal && (
         <Modal title={editing ? "Modifica cliente" : "Nuovo cliente"} onClose={() => setShowModal(false)}>
-          <form onSubmit={onSubmit} className="space-y-3.5" data-testid="cliente-form">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <form onSubmit={onSubmit} className="space-y-3.5" data-testid="cliente-form">            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Nome" required value={form.nome} onChange={(v) => setForm({ ...form, nome: v })} testid="cliente-nome-input" />
               <Field label="Cognome" required value={form.cognome} onChange={(v) => setForm({ ...form, cognome: v })} testid="cliente-cognome-input" />
             </div>
@@ -183,6 +255,10 @@ export default function Clienti() {
             </div>
           </form>
         </Modal>
+      )}
+
+      {reportCliente && (
+        <ReportModal cliente={reportCliente} L={L} onClose={() => setReportCliente(null)} />
       )}
     </div>
   );

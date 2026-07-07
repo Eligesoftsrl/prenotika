@@ -89,6 +89,34 @@ export default function NuovoAppuntamento() {
 
   useEffect(() => { loadSlots(); }, [loadSlots]);
 
+  // Anteprima settimana: 7 giorni con conteggio slot liberi
+  const weekPreviewDays = useMemo(() => {
+    if (!form.data) return [];
+    const d0 = new Date(form.data + "T00:00:00");
+    const dow = (d0.getDay() + 6) % 7; // Lun=0
+    const monday = new Date(d0);
+    monday.setDate(monday.getDate() - dow);
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(d.getDate() + i);
+      return d.toISOString().slice(0, 10);
+    });
+  }, [form.data]);
+
+  const [weekAvail, setWeekAvail] = useState({}); // { iso: count }
+  useEffect(() => {
+    if (!form.docente_id || weekPreviewDays.length === 0) { setWeekAvail({}); return; }
+    let cancelled = false;
+    Promise.all(
+      weekPreviewDays.map((iso) =>
+        api.get("/disponibilita", { params: { docente_id: form.docente_id, data: iso } })
+          .then(({ data }) => [iso, (data.slots || []).length])
+          .catch(() => [iso, 0])
+      )
+    ).then((entries) => { if (!cancelled) setWeekAvail(Object.fromEntries(entries)); });
+    return () => { cancelled = true; };
+  }, [form.docente_id, weekPreviewDays]);
+
   // Se lo slot selezionato non è più valido dopo il refresh, deselezionalo
   useEffect(() => {
     if (!form.dal) return;
@@ -310,6 +338,47 @@ export default function NuovoAppuntamento() {
             <div>
               <label className="label-eyebrow block mb-1.5"><CalendarIcon size={11} className="inline mr-1" /> Data</label>
               <input type="date" className="input-base" min={today} value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value, dal: "", al: "" })} required data-testid="app-data-input" />
+
+              {/* Anteprima settimana */}
+              {weekPreviewDays.length > 0 && (
+                <div className="mt-3">
+                  <div className="text-[10px] tracking-[0.2em] uppercase text-[color:var(--text-2)] font-semibold mb-1.5">Questa settimana</div>
+                  <div className="grid grid-cols-7 gap-1" data-testid="week-preview">
+                    {weekPreviewDays.map((iso) => {
+                      const count = weekAvail[iso];
+                      const active = iso === form.data;
+                      const past = iso < today;
+                      const busy = count === 0;
+                      const label = fmtDayLabel(iso);
+                      return (
+                        <button
+                          type="button"
+                          key={iso}
+                          onClick={() => !past && setForm((f) => ({ ...f, data: iso, dal: "", al: "" }))}
+                          disabled={past}
+                          data-testid={`week-day-${iso}`}
+                          className={`relative p-1.5 rounded-lg text-center transition-all border ${
+                            past ? "opacity-40 cursor-not-allowed border-transparent bg-transparent" :
+                            active ? "text-white border-transparent shadow-md" :
+                            busy ? "border-[color:var(--border)] bg-[color:var(--surface-2)] hover:border-[color:var(--warning)]" :
+                            "border-[color:var(--border)] bg-white hover:border-[color:var(--primary)] hover:-translate-y-0.5"
+                          }`}
+                          style={active && !past ? { background: "linear-gradient(135deg,#7C3AED,#2DD4BF)" } : {}}
+                          title={busy ? "Nessuno slot libero" : count ? `${count} slot liberi` : "Verifica…"}
+                        >
+                          <div className="text-[9px] uppercase font-bold tracking-wider opacity-70">{label.dow}</div>
+                          <div className="text-sm font-black tabular-nums leading-none mt-0.5">{label.day}</div>
+                          <div className={`text-[9px] mt-0.5 font-semibold ${active ? "text-white/85" : busy ? "text-[color:var(--warning)]" : "text-[color:var(--success)]"}`}>
+                            {count === undefined ? "…" : count === 0 ? "0" : `${count}`}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="text-[10px] text-[color:var(--text-2)] mt-1.5">Numero = slot liberi in quel giorno</div>
+                </div>
+              )}
+
               <div className="mt-3 rounded-xl p-3 bg-gradient-to-br from-[#7C3AED]/5 to-[#2DD4BF]/5 border border-[color:var(--border)]">
                 <div className="text-[10px] tracking-[0.2em] uppercase text-[color:var(--text-2)] font-semibold">Riepilogo</div>
                 <div className="mt-1.5 text-sm space-y-0.5">

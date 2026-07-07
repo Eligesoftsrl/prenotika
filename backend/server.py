@@ -1459,39 +1459,64 @@ async def report_appuntamenti_pdf(
     period: str = "week",            # day | week | month
     data: Optional[str] = None,      # YYYY-MM-DD (default oggi)
     docente_id: Optional[str] = None,  # se None: tutti
+    cliente_id: Optional[str] = None,  # NEW: se settato, report per singolo studente/cliente
     user: dict = Depends(require_role("admin", "docente")),
 ):
     sid = _scope_studio_id(user)
     ref = date.fromisoformat(data) if data else date.today()
     start, end, label = _date_range_for(period, ref)
 
-    # Docenti scope
-    if user["role"] == "docente":
-        docente_id = user["id"]
-    docenti_q = {"studio_id": sid, "role": "docente"}
-    if docente_id:
-        docenti_q["_id"] = docente_id
-    docenti = await db.users.find(docenti_q).sort("cognome", 1).to_list(500)
-    if not docenti:
-        raise HTTPException(status_code=404, detail="Nessun docente trovato")
-
     # Studio info
     studio = await db.studios.find_one({"_id": sid})
     studio_nome = studio["nome"] if studio else "Centro Studi"
 
-    # Appuntamenti del range, hydrated
-    app_q = {
-        "studio_id": sid,
-        "data": {"$gte": start.isoformat(), "$lte": end.isoformat()},
-        "docente_id": {"$in": [d["_id"] for d in docenti]},
-    }
-    raw_app = await db.appuntamenti.find(app_q).sort([("data", 1), ("dal", 1)]).to_list(5000)
-    hydrated = await _hydrate_appuntamenti(raw_app)
+    # ---------- Modalità PER CLIENTE ----------
+    if cliente_id:
+        cliente = await db.clienti.find_one({"_id": cliente_id, "studio_id": sid})
+        if not cliente:
+            raise HTTPException(status_code=404, detail="Cliente non trovato")
+        # I docenti possono generare solo report dei clienti a loro associati
+        if user["role"] == "docente":
+            assoc = await db.docente_clienti.find_one({
+                "studio_id": sid, "docente_id": user["id"], "cliente_id": cliente_id
+            })
+            if not assoc:
+                raise HTTPException(status_code=403, detail="Non autorizzato per questo cliente")
 
-    by_docente: dict[str, list[dict]] = {d["_id"]: [] for d in docenti}
-    for a in hydrated:
-        if a["docente_id"] in by_docente:
-            by_docente[a["docente_id"]].append(a)
+        app_q = {
+            "studio_id": sid,
+            "cliente_id": cliente_id,
+            "data": {"$gte": start.isoformat(), "$lte": end.isoformat()},
+        }
+        if user["role"] == "docente":
+            app_q["docente_id"] = user["id"]
+        raw_app = await db.appuntamenti.find(app_q).sort([("data", 1), ("dal", 1)]).to_list(5000)
+        hydrated = await _hydrate_appuntamenti(raw_app)
+        cliente_full_name = f"{cliente.get('cognome','')} {cliente.get('nome','')}".strip() or "—"
+    else:
+        # ---------- Modalità PER DOCENTE (esistente) ----------
+        if user["role"] == "docente":
+            docente_id = user["id"]
+        docenti_q = {"studio_id": sid, "role": "docente"}
+        if docente_id:
+            docenti_q["_id"] = docente_id
+        docenti = await db.users.find(docenti_q).sort("cognome", 1).to_list(500)
+        if not docenti:
+            raise HTTPException(status_code=404, detail="Nessun docente trovato")
+        app_q = {
+            "studio_id": sid,
+            "data": {"$gte": start.isoformat(), "$lte": end.isoformat()},
+            "docente_id": {"$in": [d["_id"] for d in docenti]},
+        }
+        raw_app = await db.appuntamenti.find(app_q).sort([("data", 1), ("dal", 1)]).to_list(5000)
+        hydrated = await _hydrate_appuntamenti(raw_app)
+
+    by_docente: dict[str, list[dict]] = {}
+    if not cliente_id:
+        by_docente = {d["_id"]: [] for d in docenti}
+        for a in hydrated:
+            if a["docente_id"] in by_docente:
+                by_docente[a["docente_id"]].append(a)
 
     # Merge appuntamenti consecutivi stesso cliente, stesso docente, stessa data
     def _merge_consecutive(rows: list[dict]) -> list[dict]:
@@ -1522,6 +1547,9 @@ async def report_appuntamenti_pdf(
 
     for did in list(by_docente.keys()):
         by_docente[did] = _merge_consecutive(by_docente[did])
+    if cliente_id:
+        # Per-cliente: merge consecutivi su tutta la lista (già ordinata cronologicamente)
+        hydrated = _merge_consecutive(hydrated)
 
     # Build PDF
     buf = BytesIO()
@@ -1602,41 +1630,45 @@ async def report_appuntamenti_pdf(
     story.append(Spacer(1, 6))
 
     period_it = {"day": "Giorno", "week": "Settimana", "month": "Mese"}.get(period, period)
-    sub = f"Report appuntamenti — {period_it}: {label}"
-    if docente_id and docenti:
-        d = docenti[0]
-        sub += f" — Docente: {d['nome']} {d['cognome']}"
+    if cliente_id:
+        sub = f"Report appuntamenti — {period_it}: {label} — Studente: {cliente_full_name}"
+    else:
+        sub = f"Report appuntamenti — {period_it}: {label}"
+        if docente_id and docenti:
+            d = docenti[0]
+            sub += f" — Docente: {d['nome']} {d['cognome']}"
     story.append(Paragraph(sub, small))
     story.append(Spacer(1, 6))
 
     total_appuntamenti = 0
-    for d in docenti:
-        list_d = by_docente.get(d["_id"], [])
-        if not list_d and docente_id is None:
-            continue  # in modalità "tutti", salta i docenti senza appuntamenti
-        story.append(Paragraph(f"{d['nome']} {d['cognome']}", h2))
+    if cliente_id:
+        # -------- Rendering PER CLIENTE --------
+        story.append(Paragraph(cliente_full_name, h2))
+        contact_bits = []
+        if cliente.get("email"): contact_bits.append(cliente["email"])
+        if cliente.get("cellulare"): contact_bits.append(f"Tel. {cliente['cellulare']}")
         story.append(Paragraph(
-            f"Email: {d.get('email','—')} • Durata slot: {d.get('slot_minuti', 60)} min • Totale appuntamenti: {len(list_d)}",
+            f"{' • '.join(contact_bits) if contact_bits else '—'} • Totale appuntamenti: {len(hydrated)}",
             small,
         ))
         story.append(Spacer(1, 4))
-        if not list_d:
+        if not hydrated:
             story.append(Paragraph("Nessun appuntamento nel periodo selezionato.", body))
         else:
-            data_rows = [["Data", "Giorno", "Dalle", "Alle", "Cliente", "Materia", "Stato", "Note"]]
-            for a in list_d:
+            data_rows = [["Data", "Giorno", "Dalle", "Alle", "Docente", "Corso", "Stato", "Note"]]
+            for a in hydrated:
                 dt = date.fromisoformat(a["data"])
                 data_rows.append([
                     dt.strftime("%d/%m/%Y"),
                     _GIORNI_IT[dt.weekday()],
                     a["dal"],
                     a["al"],
-                    a.get("cliente_nome") or "—",
+                    a.get("docente_nome") or "—",
                     a.get("materia_descrizione") or "—",
                     a.get("stato", "confermato"),
                     (a.get("note") or "")[:60],
                 ])
-            tbl = Table(data_rows, colWidths=[22*mm, 22*mm, 13*mm, 13*mm, 42*mm, 28*mm, 20*mm, 24*mm], repeatRows=1)
+            tbl = Table(data_rows, colWidths=[22*mm, 22*mm, 13*mm, 13*mm, 38*mm, 32*mm, 20*mm, 24*mm], repeatRows=1)
             tbl.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#7C3AED")),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -1652,8 +1684,53 @@ async def report_appuntamenti_pdf(
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
             ]))
             story.append(tbl)
-            total_appuntamenti += len(list_d)
+            total_appuntamenti = len(hydrated)
         story.append(Spacer(1, 8))
+    else:
+        for d in docenti:
+            list_d = by_docente.get(d["_id"], [])
+            if not list_d and docente_id is None:
+                continue  # in modalità "tutti", salta i docenti senza appuntamenti
+            story.append(Paragraph(f"{d['nome']} {d['cognome']}", h2))
+            story.append(Paragraph(
+                f"Email: {d.get('email','—')} • Durata slot: {d.get('slot_minuti', 60)} min • Totale appuntamenti: {len(list_d)}",
+                small,
+            ))
+            story.append(Spacer(1, 4))
+            if not list_d:
+                story.append(Paragraph("Nessun appuntamento nel periodo selezionato.", body))
+            else:
+                data_rows = [["Data", "Giorno", "Dalle", "Alle", "Cliente", "Materia", "Stato", "Note"]]
+                for a in list_d:
+                    dt = date.fromisoformat(a["data"])
+                    data_rows.append([
+                        dt.strftime("%d/%m/%Y"),
+                        _GIORNI_IT[dt.weekday()],
+                        a["dal"],
+                        a["al"],
+                        a.get("cliente_nome") or "—",
+                        a.get("materia_descrizione") or "—",
+                        a.get("stato", "confermato"),
+                        (a.get("note") or "")[:60],
+                    ])
+                tbl = Table(data_rows, colWidths=[22*mm, 22*mm, 13*mm, 13*mm, 42*mm, 28*mm, 20*mm, 24*mm], repeatRows=1)
+                tbl.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#7C3AED")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#F8FAFC"), colors.white]),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("ALIGN", (0, 0), (3, -1), "CENTER"),
+                    ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#E2E8F0")),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]))
+                story.append(tbl)
+                total_appuntamenti += len(list_d)
+            story.append(Spacer(1, 8))
 
     if total_appuntamenti == 0:
         story.append(Paragraph("Nessun appuntamento nel periodo selezionato.", body))
