@@ -16,6 +16,12 @@ function fmtDayLabel(iso) {
   };
 }
 
+function toMinutes(hhmm) {
+  if (!hhmm) return 0;
+  const [h, m] = hhmm.split(":").map((x) => parseInt(x, 10));
+  return h * 60 + m;
+}
+
 export default function NuovoAppuntamento() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -117,18 +123,24 @@ export default function NuovoAppuntamento() {
     return () => { cancelled = true; };
   }, [form.docente_id, weekPreviewDays]);
 
-  // Se lo slot/range selezionato non è più valido dopo il refresh, deseleziona
+  // Helper: verifica che il range [dal, al] sia coperto da slot consecutivi liberi in una data
+  const isRangeCoveredBy = (slots, dal, al) => {
+    if (!dal || !al || dal >= al) return false;
+    let cur = dal;
+    let guard = 0;
+    while (cur < al) {
+      const s = slots.find((x) => x.dal === cur);
+      if (!s) return false;
+      cur = s.al;
+      if (++guard > 60) return false;
+    }
+    return cur === al;
+  };
+
+  // Se il range selezionato non è più valido dopo il refresh degli slot, deseleziona
   useEffect(() => {
     if (!form.dal || !form.al) return;
-    // Verifica che TUTTI gli slot 60min fra dal e al esistano ancora nei liberi
-    const covered = [];
-    let cur = form.dal;
-    while (cur < form.al) {
-      const s = availableSlots.find((x) => x.dal === cur);
-      if (!s) { setForm((f) => ({ ...f, dal: "", al: "" })); return; }
-      covered.push(s); cur = s.al;
-    }
-    if (covered.length === 0 || covered[covered.length - 1].al !== form.al) {
+    if (!isRangeCoveredBy(availableSlots, form.dal, form.al)) {
       setForm((f) => ({ ...f, dal: "", al: "" }));
     }
   }, [availableSlots]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -151,30 +163,15 @@ export default function NuovoAppuntamento() {
       return;
     }
     let cancelled = false;
-    // Ricava la lista dei single-slot 60min necessari nel range dal-al
-    const need = [];
-    let cur = form.dal;
-    while (cur < form.al) {
-      const s = availableSlots.find((x) => x.dal === cur);
-      if (!s) break;
-      need.push({ dal: s.dal, al: s.al });
-      cur = s.al;
-    }
-    if (need.length === 0) { setRecurrenceSlots([]); return; }
     Promise.all(
       recurrenceOptions.map((iso) =>
         api.get("/disponibilita", { params: { docente_id: form.docente_id, data: iso } })
-          .then(({ data }) => {
-            const slots = data.slots || [];
-            // tutti gli slot del range devono essere presenti
-            const free = need.every((n) => slots.some((s) => s.dal === n.dal && s.al === n.al));
-            return { iso, free };
-          })
+          .then(({ data }) => ({ iso, free: isRangeCoveredBy(data.slots || [], form.dal, form.al) }))
           .catch(() => ({ iso, free: false }))
       )
     ).then((res) => { if (!cancelled) setRecurrenceSlots(res); });
     return () => { cancelled = true; };
-  }, [form.docente_id, form.dal, form.al, recurrenceOptions, availableSlots]);
+  }, [form.docente_id, form.dal, form.al, recurrenceOptions]);
 
   // Se lo slot cambia, ripulisci le date di ricorrenza (per evitare selezioni ora occupate)
   useEffect(() => {
@@ -187,38 +184,30 @@ export default function NuovoAppuntamento() {
     setRecurrenceDates((prev) => prev.includes(iso) ? prev.filter((x) => x !== iso) : [...prev, iso]);
   };
 
-  // Selezione multi-slot consecutivi.
-  // form.dal e form.al rappresentano l'intervallo totale (es. 10:00-12:00 = due slot da 60min).
-  const isSlotSelected = (s) => form.dal && form.al && s.dal >= form.dal && s.al <= form.al;
-
-  const selectSlot = (s, idx) => {
-    // 1) Nessuna selezione: seleziona questo slot
-    if (!form.dal) { setForm((f) => ({ ...f, dal: s.dal, al: s.al })); return; }
-    // 2) Slot già selezionato singolarmente e ri-cliccato → deseleziona
-    if (form.dal === s.dal && form.al === s.al) { setForm((f) => ({ ...f, dal: "", al: "" })); return; }
-    // 3) Slot adiacente all'estremo destro? Estende in avanti (verifica consecutività)
-    if (s.dal === form.al) { setForm((f) => ({ ...f, al: s.al })); return; }
-    // 4) Slot adiacente all'estremo sinistro? Estende all'indietro
-    if (s.al === form.dal) { setForm((f) => ({ ...f, dal: s.dal })); return; }
-    // 5) È l'ultimo o il primo dello slot attuale? Riduce l'intervallo
-    if (form.dal !== form.al) {
-      // scorri per capire se s è il primo o l'ultimo dell'intervallo corrente
-      const selected = availableSlots.filter(isSlotSelected);
-      if (selected.length > 1) {
-        // Trim se clicca sull'ultimo pill selezionato
-        if (s.dal === selected[selected.length - 1].dal) {
-          setForm((f) => ({ ...f, al: selected[selected.length - 2].al }));
-          return;
-        }
-        if (s.al === selected[0].al) {
-          setForm((f) => ({ ...f, dal: selected[1].dal }));
-          return;
-        }
-      }
+  // Selezione tramite due dropdown Dalle/Alle
+  const startsOptions = availableSlots.map((s) => s.dal);
+  const endsOptions = useMemo(() => {
+    if (!form.dal) return [];
+    // A partire da form.dal, cammina in avanti tra slot consecutivi liberi
+    const results = [];
+    let cur = form.dal;
+    let guard = 0;
+    while (guard++ < 60) {
+      const s = availableSlots.find((x) => x.dal === cur);
+      if (!s) break;
+      results.push(s.al);
+      cur = s.al;
     }
-    // 6) Altrimenti: reset con nuovo slot
-    setForm((f) => ({ ...f, dal: s.dal, al: s.al }));
+    return results;
+  }, [form.dal, availableSlots]);
+
+  const setStart = (dal) => {
+    if (!dal) { setForm((f) => ({ ...f, dal: "", al: "" })); return; }
+    // Default: end = fine del primo slot dopo dal
+    const first = availableSlots.find((x) => x.dal === dal);
+    setForm((f) => ({ ...f, dal, al: first ? first.al : "" }));
   };
+  const setEnd = (al) => setForm((f) => ({ ...f, al }));
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -457,52 +446,80 @@ export default function NuovoAppuntamento() {
                   <div className="text-xs text-[color:var(--text-2)] mt-1">Il {L.docente.toLowerCase()} non ha orari configurati per questo giorno oppure sono già tutti occupati.</div>
                 </div>
               ) : (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2" data-testid="slots-grid">
-                  {availableSlots.map((s, idx) => {
-                    const active = isSlotSelected(s);
-                    const prev = availableSlots[idx - 1];
-                    const next = availableSlots[idx + 1];
-                    const prevSelected = active && prev && isSlotSelected(prev) && prev.al === s.dal;
-                    const nextSelected = active && next && isSlotSelected(next) && s.al === next.dal;
-                    const isFirst = active && !prevSelected;
-                    const isLast = active && !nextSelected;
-                    // Etichetta: DALLE sul primo slot selezionato, ALLE sull'ultimo di un range multi
-                    const showAlle = active && isLast && !isFirst; // solo se c'è più di uno selezionato
-                    return (
-                      <div key={`${s.dal}-${s.al}`} className="relative">
-                        {/* Connettore gradient tra pill consecutivi selezionati */}
-                        {nextSelected && (
-                          <div
-                            aria-hidden
-                            className="hidden sm:block absolute top-1/2 -right-2 w-2 h-2 -translate-y-1/2 z-10"
-                            style={{ background: "linear-gradient(90deg,#2DD4BF,#7C3AED)" }}
-                          />
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => selectSlot(s, idx)}
-                          data-testid={`slot-${s.dal}`}
-                          aria-pressed={active}
-                          className={`w-full group relative px-2 py-2.5 text-sm font-semibold transition-all border-2 ${
-                            active
-                              ? "text-white border-transparent shadow-lg shadow-[#7C3AED]/25"
-                              : "bg-white text-[color:var(--text)] border-[color:var(--border)] hover:border-[color:var(--primary)] hover:-translate-y-0.5"
-                          } ${
-                            active && !isFirst ? "sm:rounded-l-none" : "rounded-l-xl"
-                          } ${
-                            active && !isLast ? "sm:rounded-r-none" : "rounded-r-xl"
-                          } ${(!active || (isFirst && isLast)) ? "rounded-xl" : ""}`}
-                          style={active ? { background: "linear-gradient(135deg,#7C3AED,#2DD4BF)" } : {}}
-                        >
-                          <div className="text-[10px] tracking-widest opacity-70">{showAlle ? "ALLE" : "DALLE"}</div>
-                          <div className="tabular-nums">{showAlle ? s.al : s.dal}</div>
-                        </button>
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-[10px] tracking-[0.2em] uppercase text-[color:var(--text-2)] font-bold mb-1">Dalle</div>
+                      <select
+                        className="input-base tabular-nums font-semibold"
+                        value={form.dal}
+                        onChange={(e) => setStart(e.target.value)}
+                        data-testid="slot-dalle-select"
+                      >
+                        <option value="">Seleziona…</option>
+                        {startsOptions.map((t) => (<option key={t} value={t}>{t}</option>))}
+                      </select>
+                    </div>
+                    <div>
+                      <div className="text-[10px] tracking-[0.2em] uppercase text-[color:var(--text-2)] font-bold mb-1">Alle</div>
+                      <select
+                        className="input-base tabular-nums font-semibold"
+                        value={form.al}
+                        onChange={(e) => setEnd(e.target.value)}
+                        disabled={!form.dal}
+                        data-testid="slot-alle-select"
+                      >
+                        <option value="">{form.dal ? "Seleziona…" : "Prima scegli Dalle"}</option>
+                        {endsOptions.map((t) => (<option key={t} value={t}>{t}</option>))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Anteprima "pill" del range selezionato */}
+                  {form.dal && form.al && (
+                    <div className="mt-4">
+                      <div className="text-[10px] tracking-[0.2em] uppercase text-[color:var(--text-2)] font-semibold mb-1.5">Il tuo appuntamento</div>
+                      <div className="inline-flex items-stretch rounded-xl overflow-hidden shadow-lg shadow-[#7C3AED]/25" data-testid="slot-preview" style={{ background: "linear-gradient(135deg,#7C3AED,#2DD4BF)" }}>
+                        <div className="px-4 py-2.5 text-white">
+                          <div className="text-[10px] tracking-widest opacity-80">DALLE</div>
+                          <div className="tabular-nums font-bold">{form.dal}</div>
+                        </div>
+                        <div className="flex items-center px-2 text-white/80">→</div>
+                        <div className="px-4 py-2.5 text-white text-right">
+                          <div className="text-[10px] tracking-widest opacity-80">ALLE</div>
+                          <div className="tabular-nums font-bold">{form.al}</div>
+                        </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  )}
+
+                  {/* Elenco compatto degli altri slot liberi (informativo) */}
+                  <div className="mt-4">
+                    <div className="text-[10px] tracking-[0.2em] uppercase text-[color:var(--text-2)] font-semibold mb-1.5">Altri slot liberi</div>
+                    <div className="flex flex-wrap gap-1.5" data-testid="slots-grid">
+                      {availableSlots.map((s) => {
+                        const active = form.dal && form.al && s.dal >= form.dal && s.al <= form.al;
+                        return (
+                          <button
+                            type="button"
+                            key={s.dal}
+                            onClick={() => setStart(s.dal)}
+                            data-testid={`slot-${s.dal}`}
+                            className={`px-2.5 py-1 rounded-md text-xs font-semibold tabular-nums border transition-all ${active ? "text-white border-transparent" : "bg-white border-[color:var(--border)] hover:border-[color:var(--primary)]"}`}
+                            style={active ? { background: "linear-gradient(135deg,#7C3AED,#2DD4BF)" } : {}}
+                          >
+                            {s.dal}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="text-[10px] text-[color:var(--text-2)] mt-1.5">Click su un&apos;ora rapida per impostarla come <strong>Dalle</strong>, poi affina il <strong>Alle</strong>.</div>
+                  </div>
+                </>
               )}
-              {form.dal && <div className="mt-3 text-xs text-[color:var(--text-2)] inline-flex items-center gap-1.5"><CheckCircle2 size={13} className="text-[color:var(--success)]" /> Fine appuntamento: <strong className="text-[color:var(--text)]">{form.al}</strong></div>}
+              {form.dal && form.al && (
+                <div className="mt-3 text-xs text-[color:var(--text-2)] inline-flex items-center gap-1.5"><CheckCircle2 size={13} className="text-[color:var(--success)]" /> Durata: <strong className="text-[color:var(--text)]">{Math.round((toMinutes(form.al) - toMinutes(form.dal)))} minuti</strong></div>
+              )}
             </div>
           </div>
         </section>
