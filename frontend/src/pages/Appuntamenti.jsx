@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Plus, ChevronLeft, ChevronRight, Calendar as CalIcon, Trash2, Download, LayoutGrid, List } from "lucide-react";
 import { Modal } from "./Docenti";
 import { tipologiaLabels } from "@/lib/tipologia";
+import { fmtISO, todayISO } from "@/lib/dates";
 
 const GIORNI = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 7); // 7..20
@@ -17,7 +18,6 @@ function startOfWeek(d) {
   return date;
 }
 function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
-function fmtISO(d) { return d.toISOString().slice(0, 10); }
 function fmtShort(d) { return d.toLocaleDateString("it-IT", { day: "2-digit", month: "short" }); }
 function toMin(hhmm) { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; }
 function toHHMM(mins) {
@@ -539,7 +539,7 @@ function addMinutes(hhmm, minutes) {
 const GIORNI_LABEL = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
 function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdmin, currentDocenteId, tipologiaLabels: L, tipologia }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   // Se passato currentDocenteId, usa quello (anche per admin pre-seleziona dal calendario)
   const initialDocente = currentDocenteId || (isAdmin ? (docenti[0]?.id || "") : "");
   const initialDocObj = docenti.find((d) => d.id === initialDocente);
@@ -575,7 +575,7 @@ function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdm
   const recurrenceOptions = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(dateObj);
     d.setDate(d.getDate() + 7 * (i + 1));
-    return d.toISOString().slice(0, 10);
+    return fmtISO(d);
   });
 
   useEffect(() => {

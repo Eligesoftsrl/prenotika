@@ -4,12 +4,11 @@ import { Plus, Edit2, Trash2, Users, FileText } from "lucide-react";
 import { Modal, Field } from "./Docenti";
 import { useAuth } from "@/context/AuthContext";
 import { tipologiaLabels } from "@/lib/tipologia";
+import { todayISO } from "@/lib/dates";
 
 function emptyForm() {
   return { nome: "", cognome: "", email: "", cellulare: "", residenza: "", cap: "", indirizzo: "", data_nascita: "", note: "" };
 }
-
-function todayISO() { return new Date().toISOString().slice(0, 10); }
 
 function ReportModal({ cliente, L, onClose }) {
   const [period, setPeriod] = useState("month");

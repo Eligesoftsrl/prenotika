@@ -4,6 +4,7 @@ import { api, formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { ArrowLeft, Calendar as CalendarIcon, Clock, User, Users, BookOpen, Repeat, Sparkles, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { tipologiaLabels } from "@/lib/tipologia";
+import { fmtISO, todayISO } from "@/lib/dates";
 
 const GIORNI_LABEL = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
@@ -43,7 +44,7 @@ export default function NuovoAppuntamento() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   const initialDocenteId = defaults.docente_id || (user?.role === "docente" ? user.id : "");
   const [form, setForm] = useState({
     docente_id: initialDocenteId,
@@ -105,7 +106,7 @@ export default function NuovoAppuntamento() {
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(monday);
       d.setDate(d.getDate() + i);
-      return d.toISOString().slice(0, 10);
+      return fmtISO(d);
     });
   }, [form.data]);
 
@@ -155,7 +156,7 @@ export default function NuovoAppuntamento() {
     return Array.from({ length: 6 }, (_, i) => {
       const d = new Date(d0);
       d.setDate(d.getDate() + 7 * (i + 1));
-      return d.toISOString().slice(0, 10);
+      return fmtISO(d);
     });
   }, [form.data]);
 
