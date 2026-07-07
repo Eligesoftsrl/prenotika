@@ -460,18 +460,44 @@ export default function NuovoAppuntamento() {
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2" data-testid="slots-grid">
                   {availableSlots.map((s, idx) => {
                     const active = isSlotSelected(s);
+                    const prev = availableSlots[idx - 1];
+                    const next = availableSlots[idx + 1];
+                    const prevSelected = active && prev && isSlotSelected(prev) && prev.al === s.dal;
+                    const nextSelected = active && next && isSlotSelected(next) && s.al === next.dal;
+                    const isFirst = active && !prevSelected;
+                    const isLast = active && !nextSelected;
+                    // Etichetta: DALLE sul primo slot selezionato, ALLE sull'ultimo di un range multi
+                    const showAlle = active && isLast && !isFirst; // solo se c'è più di uno selezionato
                     return (
-                      <button
-                        type="button"
-                        key={`${s.dal}-${s.al}`}
-                        onClick={() => selectSlot(s, idx)}
-                        data-testid={`slot-${s.dal}`}
-                        className={`group relative px-2 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 ${active ? "text-white border-transparent shadow-lg shadow-[#7C3AED]/25" : "bg-white text-[color:var(--text)] border-[color:var(--border)] hover:border-[color:var(--primary)] hover:-translate-y-0.5"}`}
-                        style={active ? { background: "linear-gradient(135deg,#7C3AED,#2DD4BF)" } : {}}
-                      >
-                        <div className="text-[10px] tracking-widest opacity-70">DALLE</div>
-                        <div className="tabular-nums">{s.dal}</div>
-                      </button>
+                      <div key={`${s.dal}-${s.al}`} className="relative">
+                        {/* Connettore gradient tra pill consecutivi selezionati */}
+                        {nextSelected && (
+                          <div
+                            aria-hidden
+                            className="hidden sm:block absolute top-1/2 -right-2 w-2 h-2 -translate-y-1/2 z-10"
+                            style={{ background: "linear-gradient(90deg,#2DD4BF,#7C3AED)" }}
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => selectSlot(s, idx)}
+                          data-testid={`slot-${s.dal}`}
+                          aria-pressed={active}
+                          className={`w-full group relative px-2 py-2.5 text-sm font-semibold transition-all border-2 ${
+                            active
+                              ? "text-white border-transparent shadow-lg shadow-[#7C3AED]/25"
+                              : "bg-white text-[color:var(--text)] border-[color:var(--border)] hover:border-[color:var(--primary)] hover:-translate-y-0.5"
+                          } ${
+                            active && !isFirst ? "sm:rounded-l-none" : "rounded-l-xl"
+                          } ${
+                            active && !isLast ? "sm:rounded-r-none" : "rounded-r-xl"
+                          } ${(!active || (isFirst && isLast)) ? "rounded-xl" : ""}`}
+                          style={active ? { background: "linear-gradient(135deg,#7C3AED,#2DD4BF)" } : {}}
+                        >
+                          <div className="text-[10px] tracking-widest opacity-70">{showAlle ? "ALLE" : "DALLE"}</div>
+                          <div className="tabular-nums">{showAlle ? s.al : s.dal}</div>
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
