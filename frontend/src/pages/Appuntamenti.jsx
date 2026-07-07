@@ -497,8 +497,8 @@ export default function Appuntamenti() {
                   </div>
                   <div className="space-y-0.5">
                     {evs.slice(0, 3).map((e) => (
-                      <div key={e.id} className="text-[10px] rounded px-1 py-0.5 truncate text-white" style={{ background: docenteSel?.color || "#7C3AED" }} title={`${e.dal}-${e.al} ${e.cliente_nome}${e.materia_descrizione ? ' · ' + e.materia_descrizione : ''}`}>
-                        <span className="font-bold">{e.dal}</span> {e.cliente_nome}{e.materia_descrizione ? ` · ${e.materia_descrizione}` : ""}
+                      <div key={e.id} className="text-[10px] rounded px-1 py-0.5 truncate text-white" style={{ background: "linear-gradient(135deg,#7C3AED 0%,#4C1D95 100%)" }} title={`${e.dal}-${e.al} ${e.cliente_nome}${e.materia_descrizione ? ' · ' + e.materia_descrizione : ''}`}>
+                        <span className="font-bold tabular-nums">{e.dal}-{e.al}</span> {e.cliente_nome}{e.materia_descrizione ? ` · ${e.materia_descrizione}` : ""}
                       </div>
                     ))}
                     {evs.length > 3 && <div className="text-[9px] text-[color:var(--text-2)] font-semibold">+{evs.length - 3} altri</div>}
