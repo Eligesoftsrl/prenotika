@@ -117,11 +117,20 @@ export default function NuovoAppuntamento() {
     return () => { cancelled = true; };
   }, [form.docente_id, weekPreviewDays]);
 
-  // Se lo slot selezionato non è più valido dopo il refresh, deselezionalo
+  // Se lo slot/range selezionato non è più valido dopo il refresh, deseleziona
   useEffect(() => {
-    if (!form.dal) return;
-    const stillValid = availableSlots.some((s) => s.dal === form.dal && s.al === form.al);
-    if (!stillValid) setForm((f) => ({ ...f, dal: "", al: "" }));
+    if (!form.dal || !form.al) return;
+    // Verifica che TUTTI gli slot 60min fra dal e al esistano ancora nei liberi
+    const covered = [];
+    let cur = form.dal;
+    while (cur < form.al) {
+      const s = availableSlots.find((x) => x.dal === cur);
+      if (!s) { setForm((f) => ({ ...f, dal: "", al: "" })); return; }
+      covered.push(s); cur = s.al;
+    }
+    if (covered.length === 0 || covered[covered.length - 1].al !== form.al) {
+      setForm((f) => ({ ...f, dal: "", al: "" }));
+    }
   }, [availableSlots]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ricorrenza: 6 settimane successive
@@ -135,22 +144,37 @@ export default function NuovoAppuntamento() {
     });
   }, [form.data]);
 
-  // Verifica disponibilità dello slot corrente per ogni settimana futura
+  // Verifica disponibilità del range corrente per ogni settimana futura
   useEffect(() => {
     if (!form.docente_id || !form.dal || !form.al || recurrenceOptions.length === 0) {
       setRecurrenceSlots([]);
       return;
     }
     let cancelled = false;
+    // Ricava la lista dei single-slot 60min necessari nel range dal-al
+    const need = [];
+    let cur = form.dal;
+    while (cur < form.al) {
+      const s = availableSlots.find((x) => x.dal === cur);
+      if (!s) break;
+      need.push({ dal: s.dal, al: s.al });
+      cur = s.al;
+    }
+    if (need.length === 0) { setRecurrenceSlots([]); return; }
     Promise.all(
       recurrenceOptions.map((iso) =>
         api.get("/disponibilita", { params: { docente_id: form.docente_id, data: iso } })
-          .then(({ data }) => ({ iso, free: (data.slots || []).some((s) => s.dal === form.dal && s.al === form.al) }))
+          .then(({ data }) => {
+            const slots = data.slots || [];
+            // tutti gli slot del range devono essere presenti
+            const free = need.every((n) => slots.some((s) => s.dal === n.dal && s.al === n.al));
+            return { iso, free };
+          })
           .catch(() => ({ iso, free: false }))
       )
     ).then((res) => { if (!cancelled) setRecurrenceSlots(res); });
     return () => { cancelled = true; };
-  }, [form.docente_id, form.dal, form.al, recurrenceOptions]);
+  }, [form.docente_id, form.dal, form.al, recurrenceOptions, availableSlots]);
 
   // Se lo slot cambia, ripulisci le date di ricorrenza (per evitare selezioni ora occupate)
   useEffect(() => {
@@ -163,7 +187,38 @@ export default function NuovoAppuntamento() {
     setRecurrenceDates((prev) => prev.includes(iso) ? prev.filter((x) => x !== iso) : [...prev, iso]);
   };
 
-  const selectSlot = (s) => setForm((f) => ({ ...f, dal: s.dal, al: s.al }));
+  // Selezione multi-slot consecutivi.
+  // form.dal e form.al rappresentano l'intervallo totale (es. 10:00-12:00 = due slot da 60min).
+  const isSlotSelected = (s) => form.dal && form.al && s.dal >= form.dal && s.al <= form.al;
+
+  const selectSlot = (s, idx) => {
+    // 1) Nessuna selezione: seleziona questo slot
+    if (!form.dal) { setForm((f) => ({ ...f, dal: s.dal, al: s.al })); return; }
+    // 2) Slot già selezionato singolarmente e ri-cliccato → deseleziona
+    if (form.dal === s.dal && form.al === s.al) { setForm((f) => ({ ...f, dal: "", al: "" })); return; }
+    // 3) Slot adiacente all'estremo destro? Estende in avanti (verifica consecutività)
+    if (s.dal === form.al) { setForm((f) => ({ ...f, al: s.al })); return; }
+    // 4) Slot adiacente all'estremo sinistro? Estende all'indietro
+    if (s.al === form.dal) { setForm((f) => ({ ...f, dal: s.dal })); return; }
+    // 5) È l'ultimo o il primo dello slot attuale? Riduce l'intervallo
+    if (form.dal !== form.al) {
+      // scorri per capire se s è il primo o l'ultimo dell'intervallo corrente
+      const selected = availableSlots.filter(isSlotSelected);
+      if (selected.length > 1) {
+        // Trim se clicca sull'ultimo pill selezionato
+        if (s.dal === selected[selected.length - 1].dal) {
+          setForm((f) => ({ ...f, al: selected[selected.length - 2].al }));
+          return;
+        }
+        if (s.al === selected[0].al) {
+          setForm((f) => ({ ...f, dal: selected[1].dal }));
+          return;
+        }
+      }
+    }
+    // 6) Altrimenti: reset con nuovo slot
+    setForm((f) => ({ ...f, dal: s.dal, al: s.al }));
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -220,11 +275,11 @@ export default function NuovoAppuntamento() {
         <div className="absolute -top-16 -right-16 w-60 h-60 rounded-full opacity-30 blur-3xl" style={{ background: "#7C3AED" }} />
         <div className="absolute -bottom-20 -left-16 w-72 h-72 rounded-full opacity-20 blur-3xl" style={{ background: "#2DD4BF" }} />
         <div className="relative">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 backdrop-blur border border-white/15 text-[10px] tracking-[0.22em] uppercase font-semibold mb-3">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 backdrop-blur border border-white/15 text-[10px] tracking-[0.22em] uppercase font-semibold mb-3 text-white">
             <Sparkles size={11} /> Nuovo appuntamento
           </div>
-          <h1 className="font-display text-3xl sm:text-4xl font-black tracking-tight leading-tight">Fissa un incontro in pochi tocchi</h1>
-          <p className="text-white/70 mt-1.5 text-sm max-w-xl">Ti mostriamo solo gli orari davvero liberi. Scegli data, slot e — se vuoi — replicalo per le settimane successive.</p>
+          <h1 className="font-display text-3xl sm:text-4xl font-black tracking-tight leading-tight text-white">Fissa un incontro in pochi tocchi</h1>
+          <p className="text-white/70 mt-1.5 text-sm max-w-xl">Ti mostriamo solo gli orari davvero liberi. Clicca uno slot per selezionarlo, poi clicca uno slot adiacente per estendere la durata.</p>
         </div>
       </div>
 
@@ -403,13 +458,13 @@ export default function NuovoAppuntamento() {
                 </div>
               ) : (
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2" data-testid="slots-grid">
-                  {availableSlots.map((s) => {
-                    const active = form.dal === s.dal && form.al === s.al;
+                  {availableSlots.map((s, idx) => {
+                    const active = isSlotSelected(s);
                     return (
                       <button
                         type="button"
                         key={`${s.dal}-${s.al}`}
-                        onClick={() => selectSlot(s)}
+                        onClick={() => selectSlot(s, idx)}
                         data-testid={`slot-${s.dal}`}
                         className={`group relative px-2 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 ${active ? "text-white border-transparent shadow-lg shadow-[#7C3AED]/25" : "bg-white text-[color:var(--text)] border-[color:var(--border)] hover:border-[color:var(--primary)] hover:-translate-y-0.5"}`}
                         style={active ? { background: "linear-gradient(135deg,#7C3AED,#2DD4BF)" } : {}}
