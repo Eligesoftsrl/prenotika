@@ -50,8 +50,8 @@ export default function NuovoAppuntamento() {
     docente_id: initialDocenteId,
     cliente_id: "",
     data: defaults.data || today,
-    dal: "",
-    al: "",
+    dal: defaults.dal || "",
+    al: defaults.al || "",
     note: "",
     materia_id: "",
   });
