@@ -124,17 +124,20 @@ export default function NuovoAppuntamento() {
   }, [form.docente_id, weekPreviewDays]);
 
   // Helper: verifica che il range [dal, al] sia coperto da slot consecutivi liberi in una data
+  // Usa confronto numerico (minuti) invece di stringhe per essere robusto a piccole differenze di formato
   const isRangeCoveredBy = (slots, dal, al) => {
-    if (!dal || !al || dal >= al) return false;
-    let cur = dal;
+    if (!dal || !al) return false;
+    const target = toMinutes(al);
+    let cur = toMinutes(dal);
+    if (cur >= target) return false;
     let guard = 0;
-    while (cur < al) {
-      const s = slots.find((x) => x.dal === cur);
+    while (cur < target) {
+      const s = slots.find((x) => toMinutes(x.dal) === cur);
       if (!s) return false;
-      cur = s.al;
+      cur = toMinutes(s.al);
       if (++guard > 60) return false;
     }
-    return cur === al;
+    return cur === target;
   };
 
   // Se il range selezionato non è più valido dopo il refresh degli slot, deseleziona
@@ -492,29 +495,6 @@ export default function NuovoAppuntamento() {
                       </div>
                     </div>
                   )}
-
-                  {/* Elenco compatto degli altri slot liberi (informativo) */}
-                  <div className="mt-4">
-                    <div className="text-[10px] tracking-[0.2em] uppercase text-[color:var(--text-2)] font-semibold mb-1.5">Altri slot liberi</div>
-                    <div className="flex flex-wrap gap-1.5" data-testid="slots-grid">
-                      {availableSlots.map((s) => {
-                        const active = form.dal && form.al && s.dal >= form.dal && s.al <= form.al;
-                        return (
-                          <button
-                            type="button"
-                            key={s.dal}
-                            onClick={() => setStart(s.dal)}
-                            data-testid={`slot-${s.dal}`}
-                            className={`px-2.5 py-1 rounded-md text-xs font-semibold tabular-nums border transition-all ${active ? "text-white border-transparent" : "bg-white border-[color:var(--border)] hover:border-[color:var(--primary)]"}`}
-                            style={active ? { background: "linear-gradient(135deg,#7C3AED,#2DD4BF)" } : {}}
-                          >
-                            {s.dal}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="text-[10px] text-[color:var(--text-2)] mt-1.5">Click su un&apos;ora rapida per impostarla come <strong>Dalle</strong>, poi affina il <strong>Alle</strong>.</div>
-                  </div>
                 </>
               )}
               {form.dal && form.al && (
