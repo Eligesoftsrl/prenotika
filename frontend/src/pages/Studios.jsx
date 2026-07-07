@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api, formatApiError } from "@/lib/api";
-import { Building2, Plus, Trash2 } from "lucide-react";
+import { Building2, Plus, Trash2, Pencil } from "lucide-react";
 import { Modal, Field } from "./Docenti";
 import { TIPOLOGIE } from "@/lib/tipologia";
 
@@ -22,6 +22,7 @@ export default function Studios() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(emptyForm());
+  const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -32,20 +33,44 @@ export default function Studios() {
   };
   useEffect(() => { load(); }, []);
 
+  const openCreate = () => {
+    setEditingId(null); setForm(emptyForm()); setError(""); setShowModal(true);
+  };
+
+  const openEdit = (s) => {
+    setEditingId(s.id);
+    setForm({
+      nome: s.nome || "", sede: s.sede || "", telefono: s.telefono || "",
+      email: s.email || "", piva: s.piva || "", note: s.note || "",
+      tipologia: s.tipologia || "centro_studi", plan: s.plan || "free",
+      admin_nome: "", admin_cognome: "", admin_email: "", admin_password: "",
+    });
+    setError(""); setShowModal(true);
+  };
+
   const onSubmit = async (e) => {
     e.preventDefault(); setBusy(true); setError("");
     try {
-      const payload = { ...form };
-      if (!payload.email) delete payload.email;
-      await api.post("/studios", payload);
-      setShowModal(false); setForm(emptyForm()); await load();
+      if (editingId) {
+        const payload = {
+          nome: form.nome, sede: form.sede || null, telefono: form.telefono || null,
+          email: form.email || null, piva: form.piva || null, note: form.note || null,
+          tipologia: form.tipologia, plan: form.plan,
+        };
+        await api.patch(`/studios/${editingId}`, payload);
+      } else {
+        const payload = { ...form };
+        if (!payload.email) delete payload.email;
+        await api.post("/studios", payload);
+      }
+      setShowModal(false); setForm(emptyForm()); setEditingId(null); await load();
     } catch (err) {
       setError(formatApiError(err?.response?.data?.detail) || "Errore");
     } finally { setBusy(false); }
   };
 
   const remove = async (s) => {
-    if (!window.confirm(`Eliminare lo studio "${s.nome}" e tutti i suoi dati?`)) return;
+    if (!window.confirm(`Eliminare l'azienda "${s.nome}" e tutti i suoi dati?`)) return;
     await api.delete(`/studios/${s.id}`);
     await load();
   };
@@ -103,7 +128,10 @@ export default function Studios() {
                   <td className="text-[color:var(--text-2)]">{s.sede || "—"}</td>
                   <td className="text-[color:var(--text-2)]">{s.email || "—"}</td>
                   <td className="text-right">
-                    <button onClick={() => remove(s)} className="btn-danger" data-testid={`studio-delete-${s.id}`}><Trash2 size={13} /></button>
+                    <div className="inline-flex gap-1.5">
+                      <button onClick={() => openEdit(s)} className="btn-secondary" data-testid={`studio-edit-${s.id}`} title="Modifica"><Pencil size={13} /></button>
+                      <button onClick={() => remove(s)} className="btn-danger" data-testid={`studio-delete-${s.id}`} title="Elimina"><Trash2 size={13} /></button>
+                    </div>
                   </td>
                 </tr>
               );})}
@@ -113,7 +141,7 @@ export default function Studios() {
       </div>
 
       {showModal && (
-        <Modal title="Nuova Azienda" onClose={() => setShowModal(false)}>
+        <Modal title={editingId ? "Modifica Azienda" : "Nuova Azienda"} onClose={() => { setShowModal(false); setEditingId(null); }}>
           <form onSubmit={onSubmit} className="space-y-3.5" data-testid="studio-form">
             <div className="label-eyebrow">Dati azienda</div>
             <Field label="Nome azienda" required value={form.nome} onChange={(v) => setForm({ ...form, nome: v })} testid="studio-nome-input" />
@@ -136,21 +164,29 @@ export default function Studios() {
               <Field label="Telefono" value={form.telefono} onChange={(v) => setForm({ ...form, telefono: v })} testid="studio-telefono-input" />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Email centro" type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} testid="studio-email-input" />
+              <Field label="Email azienda" type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} testid="studio-email-input" />
               <Field label="P.IVA" value={form.piva} onChange={(v) => setForm({ ...form, piva: v })} testid="studio-piva-input" />
             </div>
-            <div className="pt-2 label-eyebrow">Amministratore</div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Nome admin" required value={form.admin_nome} onChange={(v) => setForm({ ...form, admin_nome: v })} testid="studio-admin-nome-input" />
-              <Field label="Cognome admin" required value={form.admin_cognome} onChange={(v) => setForm({ ...form, admin_cognome: v })} testid="studio-admin-cognome-input" />
-            </div>
-            <Field label="Email admin" type="email" required value={form.admin_email} onChange={(v) => setForm({ ...form, admin_email: v })} testid="studio-admin-email-input" />
-            <Field label="Password admin" type="password" required value={form.admin_password} onChange={(v) => setForm({ ...form, admin_password: v })} testid="studio-admin-password-input" />
+
+            {!editingId && (
+              <>
+                <div className="pt-2 label-eyebrow">Amministratore</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label="Nome admin" required value={form.admin_nome} onChange={(v) => setForm({ ...form, admin_nome: v })} testid="studio-admin-nome-input" />
+                  <Field label="Cognome admin" required value={form.admin_cognome} onChange={(v) => setForm({ ...form, admin_cognome: v })} testid="studio-admin-cognome-input" />
+                </div>
+                <Field label="Email admin" type="email" required value={form.admin_email} onChange={(v) => setForm({ ...form, admin_email: v })} testid="studio-admin-email-input" />
+                <Field label="Password admin" type="password" required value={form.admin_password} onChange={(v) => setForm({ ...form, admin_password: v })} testid="studio-admin-password-input" />
+                <div className="text-xs text-[color:var(--text-2)] bg-[color:var(--surface-2)] px-3 py-2 rounded-lg">
+                  📧 Alla creazione l&apos;admin riceverà una email di benvenuto con le credenziali e un link per impostare la propria password.
+                </div>
+              </>
+            )}
 
             {error && <div className="text-sm text-[color:var(--error)] bg-[#FBEFEF] border border-[#E5C4C4] px-3 py-2 rounded-lg" data-testid="studio-form-error">{error}</div>}
             <div className="flex gap-2 pt-2">
-              <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1 justify-center">Annulla</button>
-              <button type="submit" disabled={busy} className="btn-primary flex-1 justify-center" data-testid="studio-submit-button">{busy ? "Salvataggio…" : "Crea centro"}</button>
+              <button type="button" onClick={() => { setShowModal(false); setEditingId(null); }} className="btn-secondary flex-1 justify-center">Annulla</button>
+              <button type="submit" disabled={busy} className="btn-primary flex-1 justify-center" data-testid="studio-submit-button">{busy ? "Salvataggio…" : (editingId ? "Salva modifiche" : "Crea azienda")}</button>
             </div>
           </form>
         </Modal>

@@ -1718,6 +1718,13 @@ async def disponibilita(
     booked = await db.appuntamenti.find({
         "studio_id": sid, "docente_id": docente_id, "data": data, "stato": {"$ne": "annullato"}
     }).to_list(500)
+    # Eccezioni (ferie/chiusure) attive per questo giorno
+    eccs_day = await db.eccezioni.find({
+        "studio_id": sid,
+        "docente_id": docente_id,
+        "data_inizio": {"$lte": data},
+        "data_fine": {"$gte": data},
+    }).to_list(50)
     slots = []
     for o in orari:
         start = _to_minutes(o["dal"])
@@ -1731,7 +1738,18 @@ async def disponibilita(
                 _to_minutes(b["dal"]) < cur + slot_minuti and _to_minutes(b["al"]) > cur
                 for b in booked
             )
-            if not conflict:
+            if conflict:
+                cur += slot_minuti
+                continue
+            # check ferie/eccezioni
+            blocked = False
+            for e in eccs_day:
+                if e.get("tipo") == "chiuso":
+                    blocked = True; break
+                oi, of_ = e.get("ora_inizio"), e.get("ora_fine")
+                if oi and of_ and (slot_dal < of_) and (slot_al > oi):
+                    blocked = True; break
+            if not blocked:
                 slots.append({"dal": slot_dal, "al": slot_al})
             cur += slot_minuti
     return {"slots": slots}
