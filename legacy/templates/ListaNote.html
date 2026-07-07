@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section id="multiple-column-form">
+                 <div class="row match-height">
+                     <div class="col-12">
+                         <div class="card">
+                             <div class="card-header">
+                                 <h4 class="card-title">Visualizza Note su {{cliente.nome}} {{cliente.cognome}}</h4>
+                             </div>
+                             <div class="card-content">
+                                 <div class="card-body">
+                                 <div align="center">{{risposta}}</div>
+
+                                 <div class="table-responsive">
+                                                  <table class="table table-striped dataex-html5-selectors">
+                                             <thead>
+                                                 <tr>
+                                                     <th>Data</th>
+                                                     <th>Testo</th>
+                                                     <th>Tag</th>
+                                                     <th>Azioni</th>
+
+
+                                                 </tr>
+                                             </thead>
+                                             <tbody>
+                                                {% for nota in note: %}
+                                                    <tr><td>{{nota.data}}</td><td>{{nota.testo}}</td><td>{{nota.tag}}</td><td><a href="/{{nota.id}}/elimina_nota"><i class="bx bx-trash-alt"></i></td></tr>
+                                                {% endfor %}
+                                             </tfoot>
+                                         </table>
+                                     </div>
+
+
+                                 </div>
+
+
+
+
+                             </div>
+
+
+                         </div>
+                     </div>
+                 </div>
+             </section>
+{% endblock %}

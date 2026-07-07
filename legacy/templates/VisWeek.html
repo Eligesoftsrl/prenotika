@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+                     {% block content %}
+
+                     <!-- centered-slides swiper option-1 start -->
+           <section id="component-swiper-centered-slides">
+               <div class="card bg-transparent shadow-none">
+                   {%  set ultimo_indice = (listagio | length)-1 %}
+                   {%  set ultimo_slot = listagio[ultimo_indice] %}
+                   {%  set primo_slot = listagio[0] %}
+                   <div class="card-header" style="width:100%;float:left;padding: 0.4rem 0.7rem !important;">
+
+
+
+                              <div style="width:100%;float:left;border: 1px solid #5A8DEE !important;border-radius: 0.267rem;padding: 1.1rem 1.267rem;">
+                               <div style="width:50%;float:left;color:#5A8DEE;">
+                                   <i class="bx bx-star"></i>
+                                   <span style="color:#5A8DEE;">
+                                  Appuntamenti per <b>{{docente.nome}} {{docente.cognome}}</b> &#10687; {{primo_slot.data}} / {{ultimo_slot.data}}
+                                  </span>
+                               </div>
+                               <div style="width:50%;float:left;text-align:right;">
+                                    <button type="button" class="btn btn-icon btn-outline-primary mr-1 "><a href="/{{docente.id}}/{{primo_slot.data}}/prev_week"><i class="bx bx-chevrons-left"></i></a></button>
+
+                                   <button type="button" class="btn btn-icon btn-outline-primary mr-1 "><a href="/{{docente.id}}/settimana_docente"><i class="bx bx-calendar"></i></a></button>
+
+                                   <button type="button" class="btn btn-icon btn-outline-primary mr-1 "><a href="/{{docente.id}}/{{ultimo_slot.data}}/next_week"><i class="bx bx-chevrons-right"></i></a></button>
+
+                               </div>
+
+                               </div>
+
+
+
+
+
+
+                   <div class="card-content">
+
+                       <div class="card-body">
+                           <div class="swiper-centered-slides swiper-container p-1">
+                               <div class="swiper-wrapper">
+
+                                   {%  for x in range(listagio | length):  %}
+                                   {%  set gio = listagio[x] %}
+
+                                   <div class="swiper-slide rounded swiper-shadow">
+                                        <h1 class="text-primary font-large-2 text-bold-500" style="border:1px solid silver;border-radius: 10px;min-width:100px;min-height:56px;">{{gio.data[0:2]}}<small style="font-size:0.7rem;">/{{gio.data[3:5]}}</small></h1> <b class="text-uppercase">{{gio.giorno}}</b>
+                                       <div class="swiper-text pt-md-1 pt-sm-50">
+                                           <section id="accordionWrapa">
+                                            <div class="accordion" id="accordionWrapa{{x}}" >
+                                       {% for y in range(orario_libero[x] | length): %}
+                                       {% set indice = y|string() %}
+                                       <div class="card collapse-header" >
+                                                                   <div id="heading1_{{gio.data+indice}}" class="card-header" data-toggle="collapse" role="button" data-target="#accordion1_{{gio.data+indice}}" aria-expanded="false" aria-controls="accordion1_{{gio.data+indice}}" onClick="ControlloData('inlineForm_{{gio.data+indice}}');">
+                                                                       <span class="collapse-title" style="font-size:1rem !important;color: #fff;">
+                                                                          {{orario_libero[x][y]}}
+                                                                       </span>
+                                                                   </div>
+                                                                   <div id="accordion1_{{gio.data+indice}}" role="tabpanel" data-parent="#accordionWrapa{{x}}" aria-labelledby="heading1_{{gio.data+indice}}" class="collapse">
+                                                                       <div class="card-content" style="width:300px;">
+                                                                           <div class="card-body" style="width:300px;background-color:#f6f9f9;">
+
+                                                                               <form action="/{{docente.id}}/nuovo_appuntamento" method="post" name="inlineForm_{{gio.data+indice}}" onsubmit="return validateForm('inlineForm_{{gio.data+indice}}')">
+                                               <div class="form-body">
+                                                   <div class="row">
+                                                       <div class="col-md-6 col-12">
+                                                       <label>Dalle ore: </label>
+
+                                                       <select class="form-control" name="Dal" id="Dal" >
+
+                                                           <option>{{orario_libero[x][y]}}</option>
+
+                                                       </select>
+                                                   </div>
+                                                     <div class="col-md-6 col-12  mb-1">
+                                                   <label>Alle ore:</label>
+
+                                                       <select class="form-control" name="Al" id="Al" >
+                                                            <option>--scegli--</option>
+
+                                                       </select>
+                                                   </div>
+                                                     <div class="col-md-12 col-12  mb-1">
+                                                   <label>Studente in archivio?</label>
+
+                                                       <select class="select2 form-control" multiple="multiple" name="Cliente" >
+
+                                                           {% for cli in clienti: %}
+                                                           <option value="{{cli.id}}">{{cli.cognome}} {{cli.nome}}</option>
+                                                           {% endfor %}
+                                                       </select>
+                                                   </div>
+                                                     <div class="col-md-12 col-12">
+                                                   <div align="center"  style="font-size:12px;">-- Oppure Crea Nuovo Studente --</div>
+                                                   </div>
+
+
+                                          <div class="col-md-12 col-12">
+                                             <div class="form-label-group position-relative has-icon-left" style="margin-bottom: 0.8rem;">
+                                                 <input type="text" name="NomeS" id="first-name-floating-icon" class="form-control"  placeholder="Nome">
+                                                 <div class="form-control-position">
+                                                     <i class="bx bx-user"></i>
+                                                 </div>
+
+                                             </div>
+                                         </div>
+                                          <div class="col-md-12 col-12">
+                                             <div class="form-label-group position-relative has-icon-left" style="margin-bottom: 0.8rem;">
+                                                 <input type="text" name="CognomeS" id="second-name-floating-icon" class="form-control"  placeholder="Cognome">
+                                                 <div class="form-control-position">
+                                                     <i class="bx bx-user"></i>
+                                                 </div>
+
+                                             </div>
+                                         </div>
+                                           <div class="col-md-12 col-12">
+                                             <div class="form-label-group position-relative has-icon-left" style="margin-bottom: 0.8rem;">
+                                                 <input type="email" id="email-id-floating-icon" class="form-control" name="EmailS" placeholder="Email">
+                                                 <div class="form-control-position">
+                                                     <i class="bx bx-mail-send"></i>
+                                                 </div>
+
+                                             </div>
+                                         </div>
+                                          <div class="col-md-12 col-12">
+                                             <div class="form-label-group position-relative has-icon-left" style="margin-bottom: 0.8rem;">
+                                                 <input type="number" id="contact-floating-icon" class="form-control" name="TelefonoS" placeholder="Telefono">
+                                                 <div class="form-control-position">
+                                                     <i class="bx bx-mobile"></i>
+                                                 </div>
+
+                                             </div>
+                                         </div>
+
+
+
+                                         <div class="col-md-12 col-12">
+
+                                             <div align="center"  style="font-size:12px;margin-bottom:0.8rem;"> -- Vuoi prenotare per i prossimi {{gio.giorno}}? --</div>
+                                         </div>
+
+
+                                       <div class="col-md-12 col-12">
+                                                       <ul class="list-unstyled mb-0">
+                                                           {% for k in range(proposte[x] | length): %}
+
+                                                           <li class="d-inline-block mr-2 mb-1" style="margin-right: 0.8rem !important;">
+
+                                                               <fieldset>
+                                                                   <div class="checkbox">
+                                                                       <input type="checkbox" name="Reiter" value="{{proposte[x][k]}}" class="checkbox-input" id="checkbox_{{proposte[x][k]}}{{gio.data+indice}}" >
+                                                                       <label for="checkbox_{{proposte[x][k]}}{{gio.data+indice}}" style="font-size: 0.8rem;">{{proposte[x][k]}}</label>
+                                                                   </div>
+                                                               </fieldset>
+
+                                                           </li>
+
+                                                       {% endfor %}
+                                                       </ul>
+                                                   </div>
+
+
+
+                                                   <div class="col-12 d-flex" style="width:100%;">
+                                                   <input type="hidden" id="DataG" name="DataG" value="{{gio.data}}">
+                                                   <input type="hidden" id="Note" name="Note" value="">
+
+                                                   <input type="submit" id="myBtn" class="btn btn-info  btn-block block-element text-nowrap ml-1" value="Registra"  style="width:100%;">
+  </div>
+                                                   </div>
+                                               </div>
+                                           </form>
+                                                                           </div>
+                                                                       </div>
+                                                                   </div>
+                                                               </div>
+
+
+                                       {% endfor %}
+
+                                       </div>
+                                       </section>
+                                   </div>
+</div>
+                                   {% endfor %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                               </div>
+                               <!-- Add Arrows -->
+                               <div class="swiper-button-next"></div>
+                               <div class="swiper-button-prev"></div>
+                           </div>
+                       </div>
+                   </div>
+               </div>
+           </section>
+           <!-- centered-slides swiper option-1 ends -->
+
+
+
+           <script>
+               function ControlloData(nomeform) {
+
+                  var dal = document.forms[nomeform]['Dal'].value;
+                  var day = document.forms[nomeform]['DataG'].value;
+                  var docente = {{docente.id}};
+
+                  var url = "/verdisp";
+
+                  var xhttp = new XMLHttpRequest();
+                  xhttp.onreadystatechange = function() {
+
+                      if (this.readyState == 4 && this.status == 200) {
+
+                          var esito__ = this.responseText;
+                          esito__ = esito__.replace(/^\s+|\s+$/gm,'');
+                          if(esito__==''){
+                              document.forms[nomeform]['myBtn'].disabled = true;
+                              document.forms[nomeform]['Al'].innerHTML = "<option>----</option>";
+
+                          }else{
+                              document.forms[nomeform]['Al'].innerHTML = this.responseText;
+                          }
+
+
+                      }else{
+
+                          document.forms[nomeform]['Al'].innerHTML = " <option><div class=\"spinner-border\" role=\"status\"><span class=\"sr-only\">Caricando...</span></div></option>";
+
+                      }
+                  };
+                  xhttp.open("POST", url, true);
+                  xhttp.setRequestHeader('content-type', 'application/x-www-form-urlencoded;charset=UTF-8');
+                  xhttp.send("Dal="+dal+"&Giorno="+day+"&Docente="+docente);
+
+
+
+          }
+
+           </script>
+
+
+                     {% endblock %}

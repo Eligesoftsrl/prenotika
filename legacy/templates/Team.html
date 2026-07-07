@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section id="multiple-column-form">
+                    <div class="row match-height">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title">Nuovo Personale Segreteria</h4>
+                                </div>
+                                <div class="card-content">
+                                    <div class="card-body">
+                                    <div align="center">{{risposta}}</div>
+
+
+                                    <form method="post"  action="/crea_team" name="Cliente"  class="form">
+
+                                        <div class="form-body">
+                                                    <div class="row">
+
+                                                                                        <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="last-name-column" class="form-control" placeholder="Nome" name="Nome" required>
+                                                                                                <label for="last-name-column">Nome</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                         <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="prerequisiti" class="form-control" placeholder="Cognome" name="Cognome"  required>
+                                                                                                <label for="prerequisiti">Cognome</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                         <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="sblocchi" class="form-control" placeholder="Username" name="Username" required>
+                                                                                                <label for="sblocchi">Username</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                          <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="password" id="modalita" class="form-control" placeholder="Password" name="Password" required>
+                                                                                                <label for="modalita">Password</label>
+                                                                                            </div>
+                                                                                        </div>
+
+
+
+
+
+                                                                                          <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="sconto" class="form-control" placeholder="Email" name="Email"  required>
+                                                                                                <label for="sconto">Email</label>
+                                                                                            </div>
+                                                                                        </div>
+
+
+
+                                                                                          <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="ore" class="form-control" placeholder="Cellulare" name="Cellulare"  required>
+                                                                                                <label for="ore">Callulare</label>
+                                                                                            </div>
+                                                                                        </div>
+
+
+                                                                                        <div class="col-md-6 col-12">
+                                                                                          <div class="form-label-group">
+                                                                                              <select class="form-control" name="Ruolo">
+                                                                                                  <option>Admin</option>
+                                                                                                  <option>Staff</option>
+                                                                                              </select>
+                                                                                              <label for="ore">Ruolo</label>
+                                                                                          </div>
+                                                                                      </div>
+
+
+                                                                                      <div class="col-md-6 col-12"></div>
+                                                                                       <div class="col-md-6 col-12"></div>
+                                                                                      <div class="col-md-6 col-12 d-flex justify-content-end">
+                                                                                          <button type="submit" class="btn btn-primary btn-block block-page  text-nowrap mr-1 mb-1"  style="width:30%;">Inserisci Ora</button>
+                                                                                      </div>
+
+                                                                                    </div>
+                                                                                </div>
+                                                                            </form>
+
+
+
+
+
+
+
+
+
+
+
+
+                                   </div>
+                               </div>
+                        </div>
+                    </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section id="multiple-column-form">
+                 <div class="row match-height">
+                     <div class="col-12">
+                         <div class="card">
+                             <div class="card-header">
+                                 <h4 class="card-title">Elenco news</h4>
+                             </div>
+                             <div class="card-content">
+                                 <div class="card-body">
+                                 <div align="center">{{risposta}}</div>
+
+                                 <div class="table-responsive">
+                                                 <table class="table table-striped dataex-html5-selectors">
+                                             <thead>
+                                                 <tr>
+                                                     <th>Data</th>
+                                                     <th>Titolo</th>
+                                                     <th>Testo</th>
+                                                     <th>Allegato</th>
+                                                     <th>Azioni</th>
+
+                                                 </tr>
+                                             </thead>
+                                             <tbody>
+                                                {% for cli in news: %}
+
+                                                <tr><td>{{cli.data}}</td><td>{{cli.titolo}}</td><td>{{cli.testo}}</td><td><a href="{{ url_for('static',filename='upload/'+cli.allegato)}}" target="_blank"><img src="{{ url_for('static',filename='app-assets/images/icon/pdf.png') }}" width="36"></a></td><td><a href="#"  data-toggle="modal" data-target="#default_{{cli.id}}"><i class="bx bx-trash-alt"></i></a>&nbsp;<a href="/{{cli.id}}/modifica_news"><i class="bx bx-edit-alt"></i></td></tr>
+                                                    <div class="modal fade text-left" id="default_{{cli.id}}" tabindex="-1" role="dialog" aria-labelledby="labelcanc{{cli.id}}" aria-hidden="true">
+                                                                                                              <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" role="document">
+                                                                                                                  <div class="modal-content">
+                                                                                                                      <div class="modal-header bg-danger">
+                                                                                                                          <h5 class="modal-title white" id="labelcanc{{cli.id}}"><i class="bx bx-error-alt"></i> ATTENZIONE</h5>
+                                                                                                                          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                                                                                              <i class="bx bx-x"></i>
+                                                                                                                          </button>
+                                                                                                                      </div>
+                                                                                                                      <div class="modal-body">
+                                                                                                                          <b>Sei sicuro di voler eliminare l'elemento selezionato? Ti ricordiamo che tutti i dati saranno cancellati per sempre.</b>
+                                                                                                                      </div>
+                                                                                                                      <div class="modal-footer">
+                                                                                                                          <button type="button" class="btn btn-light-secondary" data-dismiss="modal">
+                                                                                                                              <i class="bx bx-x d-block d-sm-none"></i>
+                                                                                                                              <span class="d-none d-sm-block">Chiudi</span>
+                                                                                                                          </button>
+                                                                                                                          <button type="button" class="btn btn-danger ml-1">
+                                                                                                                              <i class="bx bx-check d-block d-sm-none"></i>
+                                                                                                                              <span class="d-none d-sm-block"><a href="/{{cli.id}}/elimina_news" style="color:white;">Procedi</a></span>
+                                                                                                                          </button>
+                                                                                                                      </div>
+                                                                                                                  </div>
+                                                                                                              </div>
+                                                                                                          </div>
+
+                                                {% endfor %}
+                                             </tfoot>
+                                         </table>
+                                     </div>
+
+
+                                 </div>
+
+
+
+
+                             </div>
+
+
+                         </div>
+                     </div>
+                 </div>
+             </section>
+{% endblock %}

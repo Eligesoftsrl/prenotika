@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+                     {% block content %}
+
+                     <!-- // Basic multiple Column Form section start -->
+                                    <section id="multiple-column-form">
+                                        <div class="row match-height">
+                                            <div class="col-12">
+                                                <div class="card">
+                                                    <div class="card-header">
+                                                        <h4 class="card-title">Gestisci Orari</h4>
+                                                    </div>
+                                                    <div class="card-content">
+                                                        <div class="card-body">
+                                                            <div align="center"><strong>{{risposta}}</strong><br></div>
+
+                                                                <form method="post"  action="/{{id_doc}}/nuovo_orario" name="Prodotto"  class="form">
+
+                                                                <div class="form-body">
+                                                                    <div class="row">
+
+                                                                        <div class="col-md-12 col-12">
+
+
+                                                                            <ul class="list-unstyled mb-0">
+
+                                                                                <li class="d-inline-block mr-2 mb-1">
+                                                                                    <fieldset>
+                                                                                        <div class="checkbox">
+                                                                                            <input type="checkbox" class="checkbox-input" id="checkbox1" name="Giorni" value="Lun">
+                                                                                            <label for="checkbox1">Lunedi</label>
+                                                                                        </div>
+                                                                                    </fieldset>
+                                                                                </li>
+                                                                                <li class="d-inline-block mr-2 mb-1">
+                                                                                    <fieldset>
+                                                                                        <div class="checkbox">
+                                                                                            <input type="checkbox" class="checkbox-input" id="checkbox2" name="Giorni"  value="Mar">
+                                                                                            <label for="checkbox2">Martedi</label>
+                                                                                        </div>
+                                                                                    </fieldset>
+                                                                                </li>
+                                                                                <li class="d-inline-block mr-2 mb-1">
+                                                                                    <fieldset>
+                                                                                        <div class="checkbox">
+                                                                                            <input type="checkbox" class="checkbox-input"  id="checkbox3" name="Giorni"  value="Mer">
+                                                                                            <label for="checkbox3">Mercoledi</label>
+                                                                                        </div>
+                                                                                    </fieldset>
+                                                                                </li>
+                                                                                <li class="d-inline-block mr-2  mb-1">
+                                                                                    <fieldset>
+                                                                                        <div class="checkbox">
+                                                                                            <input type="checkbox" class="checkbox-input"  id="checkbox4" name="Giorni"  value="Gio">
+                                                                                            <label for="checkbox4">Giovedi</label>
+                                                                                        </div>
+                                                                                    </fieldset>
+                                                                                </li>
+
+                                                                                <li class="d-inline-block mr-2  mb-1">
+                                                                                    <fieldset>
+                                                                                        <div class="checkbox">
+                                                                                            <input type="checkbox" class="checkbox-input"  id="checkbox5" name="Giorni"  value="Ven">
+                                                                                            <label for="checkbox5">Venerdi</label>
+                                                                                        </div>
+                                                                                    </fieldset>
+                                                                                </li>
+
+                                                                                <li class="d-inline-block mr-2  mb-1">
+                                                                                    <fieldset>
+                                                                                        <div class="checkbox">
+                                                                                            <input type="checkbox" class="checkbox-input"  id="checkbox6"   name="Giorni"  value="Sab">
+                                                                                            <label for="checkbox6">Sabato</label>
+                                                                                        </div>
+                                                                                    </fieldset>
+                                                                                </li>
+                                                                            </ul>
+
+                                                                        </div>
+
+
+
+                                                                        <div class="col-md-6 col-12">
+                                                                                <div class="form-label-group" style="margin-bottom: 0.5rem;">
+                                                                                    <fieldset class="form-group position-relative has-icon-left" id="Dal">
+                                           <input type="text" class="form-control  pickatime-min-max" placeholder="Orario Dal" name="Dal">
+                                           <div class="form-control-position">
+                                               <i class='bx bx-history'></i>
+                                           </div>
+                                       </fieldset>
+                                                                                <label for="Dal">Orario dal</label>
+                                                                                </div>
+
+                                                                        </div>
+
+                                                                        <div class="col-md-6 col-12">
+                                                                                <div class="form-label-group" style="margin-bottom: 0.5rem;">
+                                                                                    <fieldset class="form-group position-relative has-icon-left" id="Al">
+                                                                    <input type="text" class="form-control  pickatime-min-max" placeholder="Orario AL" name="Al">
+                                                                    <div class="form-control-position">
+                                                                    <i class='bx bx-history'></i>
+                                                                    </div>
+                                                                    </fieldset>
+                                                                                <label for="Al">Orario AL</label>
+                                                                                </div>
+
+                                                                        </div>
+
+
+
+                                                                        <div class="col-12 d-flex justify-content-end">
+
+                                                                            <button type="submit" class="btn btn-primary mr-1 mb-1">Crea Ora</button>
+                                                                            <button type="reset" class="btn btn-light-secondary mr-1 mb-1">Resetta</button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </form>
+
+
+                                                             <hr>
+                                                  <div class="table-responsive">
+                                                             <table class="table table-striped dataex-html5-selectors" width="100%">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>Giorno</th>
+                                                                            <th>Dal</th>
+                                                                            <th>Al</th>
+                                                                            <th>Operazioni</th>
+
+                                                                        </tr>
+                                                                    </thead>
+                                                              <tbody>
+                                                                   {% for ora in orari: %}
+                                                                   <tr><td>{{ora.giorno}}</td><td>{{ora.dal}}</td><td>{{ora.al}}</td><td><a href="#" data-toggle="modal" data-target="#default_{{ora.id}}"><i class="bx bx-trash-alt"></i></a>&nbsp;<a href="/{{id_doc}}/{{ora.id}}/edit_orario"><i class="bx bx-edit-alt"></i> </td></tr>
+                                                                       <div class="modal fade text-left" id="default_{{ora.id}}" tabindex="-1" role="dialog" aria-labelledby="labelcanc{{ora.id}}" aria-hidden="true">
+                                                                                                                                 <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" role="document">
+                                                                                                                                     <div class="modal-content">
+                                                                                                                                         <div class="modal-header bg-danger">
+                                                                                                                                             <h5 class="modal-title white" id="labelcanc{{ora.id}}"><i class="bx bx-error-alt"></i> ATTENZIONE</h5>
+                                                                                                                                             <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                                                                                                                 <i class="bx bx-x"></i>
+                                                                                                                                             </button>
+                                                                                                                                         </div>
+                                                                                                                                         <div class="modal-body">
+                                                                                                                                             <b>Sei sicuro di voler eliminare l'elemento selezionato? Ti ricordiamo che tutti i dati saranno cancellati per sempre.</b>
+                                                                                                                                         </div>
+                                                                                                                                         <div class="modal-footer">
+                                                                                                                                             <button type="button" class="btn btn-light-secondary" data-dismiss="modal">
+                                                                                                                                                 <i class="bx bx-x d-block d-sm-none"></i>
+                                                                                                                                                 <span class="d-none d-sm-block">Chiudi</span>
+                                                                                                                                             </button>
+                                                                                                                                             <button type="button" class="btn btn-danger ml-1">
+                                                                                                                                                 <i class="bx bx-check d-block d-sm-none"></i>
+                                                                                                                                                 <span class="d-none d-sm-block"><a href="/{{id_doc}}/{{ora.id}}/elimina_orario" style="color:white;">Procedi</a></span>
+                                                                                                                                             </button>
+                                                                                                                                         </div>
+                                                                                                                                     </div>
+                                                                                                                                 </div>
+                                                                                                                             </div>
+                                                                   {% endfor %}
+                                                               </tbody>
+                                                                    </tfoot>
+                                                                </table>
+                                                            </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                                                        </div>
+
+
+
+
+                                                    </div>
+
+
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </section>
+                                    <!-- // Basic multiple Column Form section end -->
+
+
+
+                     {% endblock %}

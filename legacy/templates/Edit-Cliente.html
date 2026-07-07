@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section id="multiple-column-form">
+                    <div class="row match-height">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title">Modifica Studente</h4>
+                                </div>
+                                <div class="card-content">
+                                    <div class="card-body">
+                                    <div align="center"><strong>{{risposta}}</strong><br><br></div>
+
+
+                                    <form method="post"  action="/{{cliente.id}}/edit_cliente" name="Cliente"  class="form">
+
+                                        <div class="form-body">
+                                                    <div class="row">
+
+                                                                                        <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="last-name-column" value="{{cliente.nome}}" class="form-control" placeholder="Nome" name="Nome" required>
+                                                                                                <label for="last-name-column">Nome</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                         <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="prerequisiti"  value="{{cliente.cognome}}" class="form-control" placeholder="Cognome" name="Cognome"  required>
+                                                                                                <label for="prerequisiti">Cognome</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                         <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="sblocchi"  value="{{cliente.residenza}}"  class="form-control" placeholder="Residente a" name="Residenza">
+                                                                                                <label for="sblocchi">Residenza</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                          <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="modalita"  value="{{cliente.cap}}"  class="form-control" placeholder="Cap" name="Cap">
+                                                                                                <label for="modalita">CAP</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                        <div class="col-md-6 col-12">
+                                                                                          <div class="form-label-group">
+                                                                                              <input type="text" id="sblocchi"  value="{{cliente.indirizzo}}"  class="form-control" placeholder="Indirizzo" name="Indirizzo">
+                                                                                              <label for="sblocchi">Indirizzo</label>
+                                                                                          </div>
+                                                                                      </div>
+
+                                                                                          <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" name="DataN"  value="{{cliente.datan}}" id="datan"  class="form-control pickadate" placeholder="Seleziona Date" >
+                                                                                                <label for="datan">Data di nascita</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                          <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="sconto"  value="{{cliente.email}}" class="form-control" placeholder="Email" name="Email" >
+                                                                                                <label for="sconto">Email</label>
+                                                                                            </div>
+                                                                                        </div>
+
+
+
+                                                                                          <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="ore"  value="{{cliente.cellulare}}" class="form-control" placeholder="Cellulare" name="Cellulare"  required>
+                                                                                                <label for="ore">Cellulare</label>
+                                                                                            </div>
+                                                                                        </div>
+
+
+                                                                                         <div class="col-md-12 col-12">
+                                                                                            <div class="form-label-group" style="margin-bottom: 0.5rem;">
+                                                                                                <textarea  id="textarea-note" class="form-control char-textarea" placeholder="Eventuali Note" name="Note">{{cliente.note}}</textarea>
+                                                                                                <label for="textarea-note">Eventuali Note</label>
+                                                                                            </div>
+
+                                                                                        </div>
+                                                                                        <div class="col-md-6 col-12"></div>
+                                                                                        <div class="col-md-6 col-12 d-flex justify-content-end">
+                                                                                            <button type="submit" class="btn btn-primary btn-block block-page  text-nowrap mr-1 mb-1"  style="width:30%;">Modifica Studente</button>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </form>
+
+
+
+
+
+
+
+
+
+
+
+
+                                   </div>
+                               </div>
+                        </div>
+                    </div>
+</section>
+
+{% endblock %}

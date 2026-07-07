@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section id="multiple-column-form">
+                    <div class="row match-height">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title">Nuovo Docente</h4>
+                                </div>
+                                <div class="card-content">
+                                    <div class="card-body">
+                                    <div align="center">{{risposta | safe}}</div>
+
+
+                                    <form method="post"  action="/crea_docente" name="Cliente"  class="form">
+
+                                        <div class="form-body">
+                                                    <div class="row">
+
+                                                                                        <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="last-name-column" class="form-control" placeholder="Nome" name="Nome" required>
+                                                                                                <label for="last-name-column">Nome</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                         <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="prerequisiti" class="form-control" placeholder="Cognome" name="Cognome"  required>
+                                                                                                <label for="prerequisiti">Cognome</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                         <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="sblocchi" class="form-control" placeholder="Residente a" name="Residenza">
+                                                                                                <label for="sblocchi">Residenza</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                          <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="modalita" class="form-control" placeholder="Cap" name="Cap">
+                                                                                                <label for="modalita">CAP</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                        <div class="col-md-6 col-12">
+                                                                                          <div class="form-label-group">
+                                                                                              <input type="text" id="sblocchi" class="form-control" placeholder="Indirizzo" name="Indirizzo">
+                                                                                              <label for="sblocchi">Indirizzo</label>
+                                                                                          </div>
+                                                                                      </div>
+
+                                                                                          <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" name="DataN" id="datan"  class="form-control pickadate" placeholder="Seleziona Date">
+                                                                                                <label for="datan">Data di nascita</label>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                          <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="text" id="sconto" class="form-control" placeholder="Email" name="Email">
+                                                                                                <label for="sconto">Email</label>
+                                                                                            </div>
+                                                                                        </div>
+
+
+
+                                                                                          <div class="col-md-6 col-12">
+                                                                                            <div class="form-label-group">
+                                                                                                <input type="number" id="ore" class="form-control" placeholder="Cellulare" name="Cellulare"  required>
+                                                                                                <label for="ore">Callulare</label>
+                                                                                            </div>
+                                                                                        </div>
+
+
+                                                                                        <div class="col-md-6 col-12">
+                                                                                            <div class="form-group">
+                                                                                            <select class="select2 form-control" multiple="multiple" id="Maty" name="Materie">
+                                                                                                {% for mat in listamat %}
+                                                                                                <option value="{{mat.prezzo}}">{{mat.nome}}</option>
+                                                                                                {% endfor %}
+                                                                                            </select>
+                                                                                            <label for="Maty">Associa Materie</label>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <div class="col-md-6 col-12">
+                                                                                           <div class="form-label-group" style="margin-bottom: 0.5rem;">
+                                                                                               <select class="form-control" id="Frazione" name="Frazione">
+                                                                                                   <option value="30">-- Intervalli di Tempo --</option>
+                                                                                                    <option value="15">-- 15min --</option>
+                                                                                                    <option value="30">-- 30min --</option>
+                                                                                                    <option value="45">-- 45min --</option>
+                                                                                                    <option value="60">-- 60min --</option>
+                                                                                               </select>
+                                                                                               <label for="Frazione">Intervalli di Tempo</label>
+                                                                                           </div>
+
+                                                                                       </div>
+
+                                                                                         <div class="col-md-12 col-12">
+                                                                                            <div class="form-label-group" style="margin-bottom: 0.5rem;">
+                                                                                                <textarea  id="textarea-note" class="form-control char-textarea" placeholder="Eventuali Note" name="Note"></textarea>
+                                                                                                <label for="textarea-note">Eventuali Note</label>
+                                                                                            </div>
+
+                                                                                        </div>
+                                                                                        <div class="col-md-6 col-12"><input type="hidden" name="Fonte" value="Gestionale"></div>
+                                                                                        <div class="col-md-6 col-12 d-flex justify-content-end">
+                                                                                            <button type="submit" class="btn btn-primary btn-block block-page  text-nowrap mr-1 mb-1"  style="width:30%;">Nuovo Docente</button>
+                                                                                        </div>
+
+                                                                                    </div>
+                                                                                </div>
+                                                                            </form>
+
+
+
+
+
+
+
+
+
+
+
+
+                                   </div>
+                               </div>
+                        </div>
+                    </div>
+</section>
+
+
+
+
+{% endblock %}

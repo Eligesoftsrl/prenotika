@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+                     {% block content %}
+                     <!-- // Basic multiple Column Form section start -->
+                                    <section id="multiple-column-form">
+                                        <div class="row match-height">
+                                            <div class="col-12">
+                                                <div class="card">
+                                                    <div class="card-header">
+                                                        <h4 class="card-title">Gestisci Ore di {{ragsoc}}</h4>
+                                                    </div>
+                                                    <div class="card-content">
+                                                        <div class="card-body">
+                                                        <div align="center"><b>{{risposta}}</b><br><br></div>
+                                                                <form method="post"  action="/{{iddoc}}/nuovo_conteggio" name="Prodotto"  class="form">
+
+                                                                <div class="form-body">
+                                                                    <div class="row">
+
+                                                                        <div class="col-md-6 col-12">
+                                                                            <div class="form-label-group">
+                                                                                <input type="text" id="Price" class="form-control" placeholder="N°Ore" name="Ore" />
+                                                                                <label for="Price">N°Ore</label>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div class="col-md-6 col-12">
+                                                                            <div class="form-label-group">
+                                                                                <select class="form-control"  name="Status" >
+                                                                                <option value="">---SELEZIONA STATUS---</option>
+                                                                                <option>Pagamento avvenuto</option>
+                                                                                <option>Pagamento in corso</option>
+                                                                                <option>Pagamento NON avvenuto</option>
+                                                                                </select>
+                                                                                <label for="Desc">Status</label>
+                                                                            </div>
+                                                                        </div>
+
+
+
+
+
+
+
+                                                                        <div class="col-12 d-flex justify-content-end">
+
+                                                                            <button type="submit" class="btn btn-primary mr-1 mb-1">Crea Ora</button>
+                                                                            <button type="reset" class="btn btn-light-secondary mr-1 mb-1">Resetta</button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </form>
+
+
+                                                             <hr>
+                                                  <div class="table-responsive">
+                                                                <table class="table zero-configuration">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>Ore</th>
+                                                                            <th>Status</th>
+                                                                            <th>DataIns</th>
+                                                                            <th>Azioni</th>
+
+                                                                        </tr>
+                                                                    </thead>
+                                                              <tbody>
+                                                                   {{listapro | safe}}
+                                                               </tbody>
+                                                                    </tfoot>
+                                                                </table>
+                                                            </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                                                        </div>
+
+
+
+
+                                                    </div>
+
+
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </section>
+                                    <!-- // Basic multiple Column Form section end -->
+
+
+
+                     {% endblock %}

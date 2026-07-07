@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+                     {% block content %}
+
+                     <!-- // Basic multiple Column Form section start -->
+                                    <section id="multiple-column-form">
+                                        <div class="row match-height">
+                                            <div class="col-12">
+                                                <div class="card">
+                                                    <div class="card-header">
+                                                        <h4 class="card-title">Gestisci Messaggi SMS</h4>
+                                                    </div>
+                                                    <div class="card-content">
+                                                        <div class="card-body">
+                                                            <div align="center"><strong>{{risposta}}</strong><br></div>
+
+                                                                <form method="post"  action="/nuovo_messaggio" name="Prodotto"  class="form">
+
+                                                                <div class="form-body">
+                                                                    <div class="row">
+
+
+                                                                        <div class="col-md-6 col-12">
+                                                                            <div class="form-label-group">
+                                                                                <input type="text" id="Desc" class="form-control" placeholder="Testo messaggio" name="Descrizione" required />
+                                                                                <label for="Desc">Testo</label>
+                                                                            </div>
+                                                                        </div>
+
+
+                                                                        <div class="col-md-6 col-12">
+                                                                            <div class="form-label-group">
+                                                                                <input type="text" id="Price" class="form-control" placeholder="Codice" name="Prezzo" />
+                                                                                <label for="Price">Codice</label>
+                                                                            </div>
+                                                                        </div>
+
+
+
+
+                                                                        <div class="col-md-6 col-12"></div>
+                                                                        <div class="col-md-6 col-12 d-flex justify-content-end">
+                                                                            <button type="submit" class="btn btn-primary btn-block block-page  text-nowrap mr-1 mb-1"  style="width:30%;">Inserisci Ora</button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </form>
+
+
+                                                             <hr>
+                                                  <div class="table-responsive">
+                                                                <table class="table zero-configuration">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>Testo</th>
+                                                                            <th>Codice</th>
+                                                                            <th>Azioni</th>
+
+                                                                        </tr>
+                                                                    </thead>
+                                                              <tbody>
+                                                                   {% for pro in listapro: %}
+                                                                   <tr><td>{{pro.nome}}</td><td>{{pro.prezzo}}</td><td><a href="#"  data-toggle="modal" data-target="#default_{{pro.id}}"><i class="bx bx-trash-alt"></i></a>&nbsp;<a href="/{{pro.id}}/modifica_messaggio"><i class="bx bx-edit-alt"></i> </td></tr>
+                                                                       <div class="modal fade text-left" id="default_{{pro.id}}" tabindex="-1" role="dialog" aria-labelledby="labelcanc{{pro.id}}" aria-hidden="true">
+                                                                                                                                 <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" role="document">
+                                                                                                                                     <div class="modal-content">
+                                                                                                                                         <div class="modal-header bg-danger">
+                                                                                                                                             <h5 class="modal-title white" id="labelcanc{{pro.id}}"><i class="bx bx-error-alt"></i> ATTENZIONE</h5>
+                                                                                                                                             <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                                                                                                                 <i class="bx bx-x"></i>
+                                                                                                                                             </button>
+                                                                                                                                         </div>
+                                                                                                                                         <div class="modal-body">
+                                                                                                                                             <b>Sei sicuro di voler eliminare l'elemento selezionato? Ti ricordiamo che saranno eliminati e non visibili più nell'invio sms.</b>
+                                                                                                                                         </div>
+                                                                                                                                         <div class="modal-footer">
+                                                                                                                                             <button type="button" class="btn btn-light-secondary" data-dismiss="modal">
+                                                                                                                                                 <i class="bx bx-x d-block d-sm-none"></i>
+                                                                                                                                                 <span class="d-none d-sm-block">Chiudi</span>
+                                                                                                                                             </button>
+                                                                                                                                             <button type="button" class="btn btn-danger ml-1">
+                                                                                                                                                 <i class="bx bx-check d-block d-sm-none"></i>
+                                                                                                                                                 <span class="d-none d-sm-block"><a href="/{{pro.id}}/elimina_messaggio" style="color:white;">Procedi</a></span>
+                                                                                                                                             </button>
+                                                                                                                                         </div>
+                                                                                                                                     </div>
+                                                                                                                                 </div>
+                                                                                                                             </div>
+
+                                                                   {% endfor %}
+                                                               </tbody>
+                                                                    </tfoot>
+                                                                </table>
+                                                            </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                                                        </div>
+
+
+
+
+                                                    </div>
+
+
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </section>
+                                    <!-- // Basic multiple Column Form section end -->
+
+
+
+                     {% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section id="multiple-column-form">
+                 <div class="row match-height">
+                     <div class="col-12">
+                         <div class="card">
+                             <div class="card-header">
+                                 <h4 class="card-title">Elenco clienti che compiono gli anni oggi: {{today}}</h4>
+                             </div>
+                             <div class="card-content">
+                                 <div class="card-body">
+                                     <form method="post"  action="/invia_sms" name="Prodotto"  class="form">
+
+                                     <div class="form-body">
+                                         <div class="row">
+
+
+                                             <div class="col-md-6 col-12">
+                                                 <div class="form-label-group">
+                                                     Seleziona Testo:<br>
+                                                    <select class="form-control" id="Testo" name="Testo" required >
+                                                    {% for pro in listapro: %}
+                                                    <option value="{{pro.id}}">{{pro.nome}}</option>
+                                                    {% endfor %}
+
+                                                    </select>
+                                                     <label for="Testo">Testo</label>
+                                                 </div>
+                                             </div>
+
+                                        </div>
+                                        </div><br>
+                                        <hr>
+
+
+
+
+                                  <section id="table-chechbox">
+                                      <div class="card">
+                                          <div class="table-responsive">
+                                                  <table  id="table-extended-chechbox" class="table table-transparent">
+                                                     <thead>
+                                                     <tr>
+                                                     <th></th>
+                                                     <th>Nome</th>
+                                                     <th>Cognome</th>
+                                                     <th>Email</th>
+                                                     <th>Cellulare</th>
+                                                     <th>CAP</th>
+                                                     <th>DataN</th>
+
+
+                                                 </tr>
+                                             </thead>
+                                             <tbody>
+                                                {% for cli in clienti: %}
+                        <tr><td></td><td>{{cli.nome}}</td><td>{{cli.cognome}}</td><td>{{cli.email}}</td><td>{{cli.cellulare}}</td><td>{{cli.cap}}</td><td>{{cli.datan}}</td></tr>
+                                                {% endfor %}
+                                             </tfoot>
+                                         </table>
+                                     </div>
+                                     </div>
+                                     </section>
+                                     <div align="center">
+                                         <button type="submit" class="btn btn-primary btn-block block-page  text-nowrap mr-1 mb-1"  style="width:30%;">Invia Ora</button>
+
+                                    </div>
+                                 </div>
+
+
+
+
+                             </div>
+
+
+                         </div>
+                     </div>
+                 </div>
+             </section>
+{% endblock %}

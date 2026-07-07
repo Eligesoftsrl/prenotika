@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section id="multiple-column-form">
+                 <div class="row match-height">
+                     <div class="col-12">
+                         <div class="card">
+                             <div class="card-header">
+                                 <h4 class="card-title">Elenco docenti in archivio</h4>
+                             </div>
+                             <div class="card-content">
+                                 <div class="card-body">
+                                 <div align="center">{{risposta}}</div>
+
+                                 <div class="table-responsive">
+                                    <table class="table table-striped dataex-html5-selectors">
+                                             <thead>
+                                                 <tr>
+                                                     <th>Nome</th>
+                                                     <th>Cognome</th>
+                                                     <th>Email</th>
+                                                     <th>Cellulare</th>
+                                                     <th>CAP</th>
+                                                     <th>Azioni</th>
+
+                                                 </tr>
+                                             </thead>
+                                             <tbody>
+                                                {% for cli in clienti: %}
+                        <tr><td>{{cli.nome}}</td><td>{{cli.cognome}}</td><td>{{cli.email}}</td><td>{{cli.cellulare}}</td><td>{{cli.cap}}</td><td><a href="/{{cli.id}}/app_doc" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="Visualizza Appuntamenti"><i class="bx bx-calendar-event"></i></a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="#" data-toggle="modal" data-target="#default_{{cli.id}}"><i class="bx bx-trash-alt"></i></a>&nbsp;<a href="/{{cli.id}}/modifica_docente" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="Modifica Anagrafica"><i class="bx bx-edit-alt"></i></a>&nbsp;<a href="/{{cli.id}}/gest_orario" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="Gestisci Orario di lavoro"><i class="bx bx-time"></i></a>&nbsp;<a href="/{{cli.id}}/gest_ferie" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="Gestisci Assenze"><i class="bx bx-calendar-x"></i></a></td></tr>
+                        <div class="modal fade text-left" id="default_{{cli.id}}" tabindex="-1" role="dialog" aria-labelledby="labelcanc{{cli.id}}" aria-hidden="true">
+                                                                                  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" role="document">
+                                                                                      <div class="modal-content">
+                                                                                          <div class="modal-header bg-danger">
+                                                                                              <h5 class="modal-title white" id="labelcanc{{cli.id}}"><i class="bx bx-error-alt"></i> ATTENZIONE</h5>
+                                                                                              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                                                                  <i class="bx bx-x"></i>
+                                                                                              </button>
+                                                                                          </div>
+                                                                                          <div class="modal-body">
+                                                                                              <b>Sei sicuro di voler eliminare l'elemento selezionato? Ti ricordiamo che tutti i dati saranno cancellati per sempre.</b>
+                                                                                          </div>
+                                                                                          <div class="modal-footer">
+                                                                                              <button type="button" class="btn btn-light-secondary" data-dismiss="modal">
+                                                                                                  <i class="bx bx-x d-block d-sm-none"></i>
+                                                                                                  <span class="d-none d-sm-block">Chiudi</span>
+                                                                                              </button>
+                                                                                              <button type="button" class="btn btn-danger ml-1">
+                                                                                                  <i class="bx bx-check d-block d-sm-none"></i>
+                                                                                                  <span class="d-none d-sm-block"><a href="/{{cli.id}}/elimina_docente" style="color:white;">Procedi</a></span>
+                                                                                              </button>
+                                                                                          </div>
+                                                                                      </div>
+                                                                                  </div>
+                                                                              </div>
+
+
+
+
+                                                {% endfor %}
+
+                                                </tbody>
+                                             </tfoot>
+                                         </table>
+                                     </div>
+
+
+                                 </div>
+
+
+
+
+                             </div>
+
+
+                         </div>
+                     </div>
+                 </div>
+             </section>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+                     {% block content %}
+
+                     <!-- // Basic multiple Column Form section start -->
+                                    <section id="multiple-column-form">
+                                        <div class="row match-height">
+                                            <div class="col-12">
+                                                <div class="card">
+                                                    <div class="card-header">
+                                                        <h4 class="card-title">Ricerca Docente per materia</h4>
+                                                    </div>
+                                                    <div class="card-content">
+                                                        <div class="card-body">
+                                                            <div align="center"><strong>{{risposta}}</strong><br></div>
+
+                                                                <form method="post"  action="/materia_docente" name="Prodotto"  class="form">
+
+                                                                <div class="form-body">
+                                                                    <div class="row">
+
+                                                                        <div class="col-md-6 col-12">
+                                                                            <div class="form-label-group">
+                                                                                 <select id="Desc" class="form-control" name="Materia">
+                                                                                {% for pro in listapro: %}
+                                                                                <option value="{{pro.prezzo}}">{{pro.nome}}</option>
+                                                                                {% endfor %}
+                                                                                </select>
+                                                                                <label for="Desc">Seleziona Materia</label>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div class="col-md-6 col-12">
+
+                                                                        </div>
+
+
+
+
+
+
+
+
+
+                                                                        <div class="col-12 d-flex justify-content-end">
+
+                                                                            <button type="submit" class="btn btn-primary mr-1 mb-1">Cerca Ora</button>
+                                                                            <button type="reset" class="btn btn-light-secondary mr-1 mb-1">Resetta</button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </form>
+
+                                                            <div class="table-responsive">
+                                                               <table class="table table-striped dataex-html5-selectors">
+                                                                        <thead>
+                                                                            <tr>
+                                                                                <th>Nome</th>
+                                                                                <th>Cognome</th>
+                                                                                <th>Email</th>
+                                                                                <th>Cellulare</th>
+                                                                                <th>CAP</th>
+                                                                                <th>Azioni</th>
+
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                           {% for cli in clienti: %}
+                                                   <tr><td>{{cli.nome}}</td><td>{{cli.cognome}}</td><td>{{cli.email}}</td><td>{{cli.cellulare}}</td><td>{{cli.cap}}</td><td><a href="/{{cli.id}}/settimana_docente"><i class="bx bxs-calendar-plus"></i></a>&nbsp;<a href="{{cli.id}}/app_doc"><i class="bx bx-calendar-event"></i></a></td></tr>
+                    
+
+
+
+
+                                                                           {% endfor %}
+
+                                                                           </tbody>
+                                                                        </tfoot>
+                                                                    </table>
+                                                                </div>
+
+
+
+
+
+
+
+
+
+
+
+                                                        </div>
+
+
+
+
+                                                    </div>
+
+
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </section>
+                                    <!-- // Basic multiple Column Form section end -->
+
+
+
+                     {% endblock %}
