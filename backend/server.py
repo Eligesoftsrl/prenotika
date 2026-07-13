@@ -328,6 +328,33 @@ def _from_mongo(doc: Optional[dict]) -> Optional[dict]:
         doc.pop("_id", None)
     return doc
 
+
+async def _enforce_trial_expiry(studio: dict) -> dict:
+    """Se il trial è scaduto e non c'è ancora un pagamento (Stripe), fa downgrade a Free.
+    Ritorna il documento aggiornato (o quello di input se nulla è cambiato)."""
+    if not studio:
+        return studio
+    trial_active = studio.get("trial_active")
+    trial_ends_at = studio.get("trial_ends_at")
+    if not trial_active or not trial_ends_at:
+        return studio
+    try:
+        exp = datetime.fromisoformat(trial_ends_at)
+    except Exception:
+        return studio
+    if exp > now_utc():
+        return studio  # trial ancora attivo
+    # Trial scaduto → verifica se ha un pagamento Stripe attivo prima di declassare
+    sid = studio.get("_id") or studio.get("id")
+    paid = await db.payment_transactions.find_one({"studio_id": sid, "payment_status": "paid"})
+    if paid:
+        # Ha già pagato → chiudi solo il flag trial (piano già impostato dal webhook)
+        await db.studios.update_one({"_id": sid}, {"$set": {"trial_active": False}})
+    else:
+        # Nessun pagamento → declassa a Free
+        await db.studios.update_one({"_id": sid}, {"$set": {"plan": "free", "trial_active": False, "trial_expired_at": now_utc().isoformat()}})
+    return studio
+
 # -----------------------------------------------------------------------------
 # Auth dependency
 # -----------------------------------------------------------------------------
@@ -376,6 +403,8 @@ async def login(body: LoginRequest):
     if user_clean.get("studio_id"):
         st = await db.studios.find_one({"_id": user_clean["studio_id"]})
         if st:
+            await _enforce_trial_expiry(st)
+            st = await db.studios.find_one({"_id": user_clean["studio_id"]})
             studio = _from_mongo(st)
 
     return {"access_token": token, "token_type": "bearer", "user": user_clean, "studio": studio}
@@ -386,6 +415,8 @@ async def get_me(user: dict = Depends(get_current_user)):
     if user.get("studio_id"):
         st = await db.studios.find_one({"_id": user["studio_id"]})
         if st:
+            await _enforce_trial_expiry(st)
+            st = await db.studios.find_one({"_id": user["studio_id"]})
             studio = _from_mongo(st)
     return {"user": user, "studio": studio}
 
@@ -2040,6 +2071,10 @@ async def onboarding_start(body: OnboardingStartRequest):
     nome, cognome = _split_name(body.nome)
     studio_nome_final = (body.studio_nome or "").strip() or f"Studio di {nome}"
 
+    # Trial gratuito 30 giorni per ogni piano (anche Free ha una data trial_ends_at ma senza effetti)
+    is_paid_plan = plan in ("pro", "business")
+    trial_ends_at = (now_utc() + timedelta(days=TRIAL_DAYS)).isoformat()
+
     studio_doc = {
         "_id": studio_id,
         "nome": studio_nome_final,
@@ -2049,8 +2084,12 @@ async def onboarding_start(body: OnboardingStartRequest):
         "piva": None,
         "note": None,
         "tipologia": body.tipologia or "centro_studi",
-        "plan": "free",  # sempre Free all'inizio; upgrade tramite Stripe
-        "requested_plan": plan,  # traccia interesse commerciale
+        # Se ha scelto Pro/Business → parte con quel piano in modalità trial (accesso completo)
+        # Se ha scelto Free → resta Free (nessun downgrade a fine trial)
+        "plan": plan,
+        "trial_plan": plan if is_paid_plan else None,
+        "trial_ends_at": trial_ends_at if is_paid_plan else None,
+        "trial_active": is_paid_plan,
         "onboarding_completed": False,
         "active": True,
         "created_at": now_utc().isoformat(),
@@ -2227,9 +2266,10 @@ async def onboarding_complete(body: OnboardingCompleteRequest):
 # -----------------------------------------------------------------------------
 STRIPE_PLAN_PRICES = {
     # Prezzi mensili in EUR (server-side, mai passati dal frontend)
-    "pro": {"amount": 29.0, "currency": "eur", "label": "Pro"},
-    "business": {"amount": 89.0, "currency": "eur", "label": "Business"},
+    "pro": {"amount": 14.0, "currency": "eur", "label": "Pro"},
+    "business": {"amount": 24.0, "currency": "eur", "label": "Business"},
 }
+TRIAL_DAYS = 30  # 30 giorni di prova gratuita su ogni piano a pagamento
 
 
 class CreateCheckoutRequest(BaseModel):
@@ -2333,7 +2373,7 @@ async def get_checkout_status(session_id: str, request: Request, user: dict = De
         target_plan = tx.get("plan")
         studio_id = tx.get("studio_id")
         if target_plan in ("pro", "business") and studio_id:
-            await db.studios.update_one({"_id": studio_id}, {"$set": {"plan": target_plan}})
+            await db.studios.update_one({"_id": studio_id}, {"$set": {"plan": target_plan, "trial_active": False, "paid_since": now_utc().isoformat()}})
             logger.info("Studio %s upgraded to plan %s via Stripe session %s", studio_id, target_plan, session_id)
 
     return {
@@ -2374,7 +2414,7 @@ async def stripe_webhook(request: Request):
         target_plan = tx.get("plan")
         studio_id = tx.get("studio_id")
         if target_plan in ("pro", "business") and studio_id:
-            await db.studios.update_one({"_id": studio_id}, {"$set": {"plan": target_plan}})
+            await db.studios.update_one({"_id": studio_id}, {"$set": {"plan": target_plan, "trial_active": False, "paid_since": now_utc().isoformat()}})
             logger.info("[Webhook] Studio %s upgraded to plan %s", studio_id, target_plan)
     return {"received": True}
 
@@ -2384,9 +2424,22 @@ async def list_plans():
     """Espone i piani ai clients (usato dalla pagina Account per Upgrade)."""
     return [
         {"id": "pro", "label": "Pro", "amount": STRIPE_PLAN_PRICES["pro"]["amount"], "currency": "eur",
-         "features": ["Fino a 5 professionisti", "Report PDF illimitati", "Email automatiche"]},
+         "features": [
+             "Fino a 5 professionisti",
+             "Tutto del piano Free",
+             "Reminder 24h pre-appuntamento",
+             "Report planning aggregato di studio",
+             "Supporto prioritario via email",
+         ]},
         {"id": "business", "label": "Business", "amount": STRIPE_PLAN_PRICES["business"]["amount"], "currency": "eur",
-         "features": ["Professionisti illimitati", "Priority support", "Personalizzazione avanzata"]},
+         "features": [
+             "Professionisti illimitati",
+             "Tutto del piano Pro",
+             "Branding personalizzato (colori, dominio)",
+             "Onboarding e migrazione dati",
+             "Accesso API",
+             "SLA garantito 99.9%",
+         ]},
     ]
 
 

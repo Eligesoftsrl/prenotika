@@ -159,7 +159,33 @@ export default function Account() {
                 Piano attuale: {studio?.plan || "free"}
               </div>
             </div>
-            <p className="text-xs text-[color:var(--text-2)] mb-5">Passa a un piano superiore per sbloccare più professionisti e funzionalità. Pagamento sicuro con Stripe.</p>
+
+            {/* Trial banner */}
+            {studio?.trial_active && studio?.trial_ends_at && (() => {
+              const endDate = new Date(studio.trial_ends_at);
+              const daysLeft = Math.max(0, Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+              return (
+                <div className="mb-4 p-4 rounded-xl border border-[color:var(--secondary)]/30 bg-gradient-to-r from-[color:var(--primary)]/5 to-[color:var(--secondary)]/5" data-testid="trial-banner">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm">
+                      <Sparkles size={18} className="text-[color:var(--primary)]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-display font-bold text-base mb-0.5">
+                        Prova gratuita <span className="text-[color:var(--primary)]">{(studio.plan || "").toUpperCase()}</span> attiva
+                      </div>
+                      <div className="text-sm text-[color:var(--text-2)]">
+                        Hai accesso completo a tutte le funzionalità del piano <strong>{studio.plan}</strong> per altri <strong className="text-[color:var(--text)]">{daysLeft} giorni</strong>.
+                        Scade il {endDate.toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" })}.
+                        Al termine, senza attivazione, verrai declassato al piano Free.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <p className="text-xs text-[color:var(--text-2)] mb-5">Passa a un piano superiore per sbloccare più professionisti e funzionalità. Ogni piano include <strong>30 giorni di prova gratuita</strong>. Pagamento sicuro con Stripe.</p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {plans.map((p) => {
