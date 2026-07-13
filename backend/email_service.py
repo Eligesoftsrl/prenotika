@@ -581,6 +581,95 @@ async def send_password_reset_email(
 
 
 
+async def send_otp_email(
+    *,
+    to_email: str,
+    to_name: str,
+    otp_code: str,
+    expires_minutes: int = 10,
+) -> Optional[str]:
+    """Invia un codice OTP a 6 cifre via email per accesso passwordless."""
+    subject = f"{otp_code} · Il tuo codice di accesso Prenotika"
+    safe_name = _html.escape(to_name or "")
+    # Rendering del codice a 6 cifre con celle separate
+    digits = "".join(
+        f'<span style="display:inline-block;width:44px;height:56px;line-height:56px;margin:0 4px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:10px;font-family:\'JetBrains Mono\',Menlo,Consolas,monospace;font-size:26px;font-weight:800;color:#0F172A;letter-spacing:0">{d}</span>'
+        for d in otp_code
+    )
+    html_body = f"""\
+<!doctype html><html><body style="font-family:'Inter',Arial,sans-serif;color:#0F172A;background:#F8FAFC;padding:24px">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #E2E8F0;border-radius:14px;overflow:hidden;box-shadow:0 6px 22px -6px rgba(15,23,42,0.06)">
+    <div style="background:linear-gradient(135deg,#7C3AED 0%,#60A5FA 50%,#2DD4BF 100%);padding:22px 28px;color:#fff;font-family:'Sora',Arial,sans-serif;font-weight:800;font-size:22px;letter-spacing:-0.02em">Prenotika</div>
+    <div style="padding:28px;font-size:14px;line-height:1.65">
+      <h1 style="font-family:'Sora',Arial,sans-serif;font-size:22px;font-weight:800;color:#0F172A;margin:0 0 12px">Il tuo codice di accesso</h1>
+      <p style="margin:0 0 8px;color:#334155">Ciao {safe_name},</p>
+      <p style="margin:0 0 18px;color:#334155">usa questo codice per accedere al tuo account Prenotika. Il codice è valido per <strong>{expires_minutes} minuti</strong>.</p>
+      <div style="text-align:center;margin:22px 0;padding:20px;background:#F8FAFC;border:1px dashed #CBD5E1;border-radius:12px">
+        {digits}
+      </div>
+      <p style="margin:8px 0 4px;color:#64748B;font-size:12px;text-align:center">Non condividere questo codice con nessuno. Il nostro team non te lo chiederà mai.</p>
+      <hr style="border:none;border-top:1px solid #E2E8F0;margin:22px 0" />
+      <p style="margin:0;color:#64748B;font-size:12px;line-height:1.6">Se non hai richiesto tu il codice, ignora questa email. Per qualsiasi problema scrivi a <a href="mailto:booking@prenotika.com" style="color:#7C3AED">booking@prenotika.com</a>.</p>
+    </div>
+    <div style="padding:14px 28px;background:#F8FAFC;font-size:11px;color:#94A3B8;text-align:center;border-top:1px solid #E2E8F0">Prenotika · La gestione intelligente degli appuntamenti</div>
+  </div>
+</body></html>"""
+    return await _send_brevo(
+        to_email=to_email, to_name=to_name or to_email,
+        subject=subject, html_content=html_body,
+    )
+
+
+async def send_onboarding_start_email(
+    *,
+    to_email: str,
+    to_name: str,
+    studio_nome: str,
+    setup_url: str,
+    otp_code: str,
+) -> Optional[str]:
+    """Email inviata subito dopo la creazione automatica dello studio (onboarding).
+    Include: link diretto di setup + codice OTP a 6 cifre come fallback."""
+    subject = f"Benvenuto in Prenotika · {studio_nome} è attivo 🎉"
+    safe_name = _html.escape(to_name or "")
+    safe_studio = _html.escape(studio_nome or "")
+    digits = "".join(
+        f'<span style="display:inline-block;width:36px;height:46px;line-height:46px;margin:0 3px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:8px;font-family:\'JetBrains Mono\',Menlo,Consolas,monospace;font-size:22px;font-weight:800;color:#0F172A">{d}</span>'
+        for d in otp_code
+    )
+    html_body = f"""\
+<!doctype html><html><body style="font-family:'Inter',Arial,sans-serif;color:#0F172A;background:#F8FAFC;padding:24px">
+  <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #E2E8F0;border-radius:14px;overflow:hidden;box-shadow:0 8px 26px -8px rgba(15,23,42,0.08)">
+    <div style="background:linear-gradient(135deg,#7C3AED 0%,#60A5FA 50%,#2DD4BF 100%);padding:26px 30px;color:#fff">
+      <div style="font-family:'Sora',Arial,sans-serif;font-weight:800;font-size:22px;letter-spacing:-0.02em">Prenotika</div>
+      <div style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;margin-top:4px;opacity:0.9">Smart Booking</div>
+    </div>
+    <div style="padding:30px;font-size:14px;line-height:1.65">
+      <h1 style="font-family:'Sora',Arial,sans-serif;font-size:24px;font-weight:800;color:#0F172A;margin:0 0 12px">Ciao {safe_name}, il tuo spazio è pronto! 🚀</h1>
+      <p style="margin:0 0 14px;color:#334155">Abbiamo attivato <strong>{safe_studio}</strong>. Completa la configurazione iniziale (tipologia, orari, logo) in meno di 2 minuti.</p>
+      <p style="text-align:center;margin:22px 0">
+        <a href="{setup_url}" style="display:inline-block;padding:14px 30px;background:linear-gradient(135deg,#7C3AED 0%,#2DD4BF 100%);color:#fff;text-decoration:none;font-weight:700;border-radius:14px;font-size:14px;letter-spacing:0.01em;box-shadow:0 10px 22px -6px rgba(124,58,237,0.45)">Configura il tuo studio</a>
+      </p>
+      <p style="margin:18px 0 6px;color:#64748B;font-size:12px">Se il pulsante non funziona, copia questo link:</p>
+      <p style="margin:0 0 22px;font-size:12px;word-break:break-all;color:#7C3AED">{setup_url}</p>
+
+      <hr style="border:none;border-top:1px solid #E2E8F0;margin:22px 0" />
+      <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:16px 18px;margin:6px 0">
+        <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#7C3AED;font-weight:700;margin-bottom:10px">Accesso rapido con codice</div>
+        <p style="margin:0 0 10px;color:#334155;font-size:13px">In alternativa, accedi in qualsiasi momento inserendo la tua email e questo codice OTP (valido 10 min):</p>
+        <div style="text-align:center;margin:12px 0">{digits}</div>
+      </div>
+      <p style="margin:18px 0 0;color:#64748B;font-size:12px;line-height:1.6">Nessuna password iniziale richiesta. Potrai impostarla in seguito dalla sezione Account.</p>
+    </div>
+    <div style="padding:16px 30px;background:#F8FAFC;font-size:11px;color:#94A3B8;text-align:center;border-top:1px solid #E2E8F0">Prenotika · Eligesoft Srl · P.IVA 04532690650</div>
+  </div>
+</body></html>"""
+    return await _send_brevo(
+        to_email=to_email, to_name=to_name or to_email,
+        subject=subject, html_content=html_body,
+    )
+
+
 async def send_lead_notification(
     *,
     lead: dict,

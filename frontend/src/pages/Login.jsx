@@ -129,8 +129,12 @@ export default function Login() {
             {busy ? "Accesso…" : (<>Accedi <ArrowRight size={16} /></>)}
           </button>
 
-          <div className="mt-5 text-center">
-            <a href="/forgot-password" className="text-sm text-[color:var(--text-2)] hover:text-[color:var(--primary)] transition-colors" data-testid="login-forgot-link">
+          <div className="mt-5 text-center flex flex-col sm:flex-row items-center justify-center gap-3 text-sm">
+            <a href="/login/otp" className="text-[color:var(--primary)] hover:underline font-medium inline-flex items-center gap-1.5" data-testid="login-otp-link">
+              Accedi con codice OTP
+            </a>
+            <span className="text-[color:var(--text-3)] hidden sm:inline">·</span>
+            <a href="/forgot-password" className="text-[color:var(--text-2)] hover:text-[color:var(--primary)] transition-colors" data-testid="login-forgot-link">
               Password dimenticata?
             </a>
           </div>

@@ -154,7 +154,7 @@ export default function Landing() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectPlan = (planName) => {
-    setForm((f) => ({ ...f, piano_interesse: planName, messaggio: f.messaggio || `Sono interessato al piano ${planName}. Vorrei attivare la prova gratuita di 14 giorni.` }));
+    setForm((f) => ({ ...f, piano_interesse: planName, messaggio: f.messaggio || `Sono interessato al piano ${planName === "free" ? "Free" : planName === "pro" ? "Pro" : "Business"}. Vorrei attivare la prova gratuita di 14 giorni.` }));
     const el = document.getElementById("contatti");
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -167,9 +167,34 @@ export default function Landing() {
     }
     setBusy(true); setError("");
     try {
-      const payload = { ...form };
-      delete payload.privacy;
-      await api.post("/leads", payload);
+      // Mapping tipologia landing → tipologia backend (backend accetta solo 3 valori enum)
+      const tipologiaMap = {
+        centro_studi: "centro_studi",
+        studio_legale: "studio_legale",
+        studio_medico: "studio_medico",
+        altro: "centro_studi", // fallback
+      };
+      const payload = {
+        nome: form.nome,
+        email: form.email,
+        telefono: form.telefono,
+        tipologia: tipologiaMap[form.tipologia] || "centro_studi",
+        studio_nome: form.studio,
+        piano_interesse: (form.piano_interesse || "free").toLowerCase(),
+        messaggio: form.messaggio,
+        privacy_accepted: true,
+      };
+      const { data } = await api.post("/onboarding/start", payload);
+      if (data.existing_account) {
+        // Utente già registrato → manda al login OTP con email precompilata
+        navigate(`/login/otp?email=${encodeURIComponent(data.email)}`);
+        return;
+      }
+      // Nuovo tenant → redirect immediato al setup wizard
+      if (data.setup_token) {
+        navigate(`/onboarding/setup?token=${encodeURIComponent(data.setup_token)}`);
+        return;
+      }
       setSent(true);
       setForm({ nome: "", email: "", telefono: "", tipologia: "centro_studi", studio: "", messaggio: "", piano_interesse: "", privacy: false });
     } catch (err) {
@@ -269,7 +294,7 @@ export default function Landing() {
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.95, duration: 0.7 }}
               className="flex flex-wrap gap-3"
             >
-              <MagneticButton onClick={() => selectPlan("Pro")} className="btn-primary" data-testid="landing-cta-contatti">
+              <MagneticButton onClick={() => selectPlan("pro")} className="btn-primary" data-testid="landing-cta-contatti">
                 <Mail size={15} /> Richiedi una demo
               </MagneticButton>
               {user ? (
@@ -602,7 +627,7 @@ export default function Landing() {
                     </ul>
                     <button
                       type="button"
-                      onClick={() => selectPlan(p.name)}
+                      onClick={() => selectPlan((p.name || "").toLowerCase())}
                       data-testid={`plan-cta-${p.name.toLowerCase()}`}
                       className={p.accent ? "btn-primary w-full justify-center" : "btn-secondary w-full justify-center"}
                     >
@@ -700,9 +725,9 @@ export default function Landing() {
                     <label className="label-eyebrow block mb-1.5">Piano di interesse *</label>
                     <select required className="input-base" value={form.piano_interesse} onChange={(e) => setForm({ ...form, piano_interesse: e.target.value })} data-testid="lead-piano-select">
                       <option value="">Seleziona un piano…</option>
-                      <option value="Free">Free · 1 professionista</option>
-                      <option value="Pro">Pro · fino a 5 professionisti</option>
-                      <option value="Business">Business · illimitato</option>
+                      <option value="free">Free · 1 professionista</option>
+                      <option value="pro">Pro · fino a 5 professionisti</option>
+                      <option value="business">Business · illimitato</option>
                     </select>
                   </div>
                   <div><label className="label-eyebrow block mb-1.5">Messaggio *</label><textarea required rows={3} className="input-base resize-none" value={form.messaggio} onChange={(e) => setForm({ ...form, messaggio: e.target.value })} placeholder="Raccontaci brevemente come gestisci oggi gli appuntamenti..." data-testid="lead-messaggio" /></div>
@@ -744,7 +769,7 @@ export default function Landing() {
           </motion.h2>
           <p className="text-white/70 max-w-xl mx-auto mb-9">Configura il tuo studio in meno di 10 minuti. Iniziamo insieme.</p>
           <div className="flex flex-wrap justify-center gap-3">
-            <MagneticButton onClick={() => selectPlan("Pro")} className="btn-primary"><Mail size={15} /> Inizia gratis 14 giorni</MagneticButton>
+            <MagneticButton onClick={() => selectPlan("pro")} className="btn-primary"><Mail size={15} /> Inizia gratis 14 giorni</MagneticButton>
             {!user && (
               <Link to="/login" className="btn-secondary" style={{ background: "rgba(255,255,255,0.08)", color: "#fff", borderColor: "rgba(255,255,255,0.15)" }}><ArrowRight size={14} /> Accedi</Link>
             )}

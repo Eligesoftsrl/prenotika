@@ -5,6 +5,8 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Layout from "@/components/Layout";
 import Login from "@/pages/Login";
+import LoginOtp from "@/pages/LoginOtp";
+import OnboardingSetup from "@/pages/OnboardingSetup";
 import Dashboard from "@/pages/Dashboard";
 import Docenti from "@/pages/Docenti";
 import DocenteAlunni from "@/pages/DocenteAlunni";
@@ -43,6 +45,8 @@ function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/login/otp" element={<LoginOtp />} />
+            <Route path="/onboarding/setup" element={<OnboardingSetup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/app" element={<AppRedirect />} />

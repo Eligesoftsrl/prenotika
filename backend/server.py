@@ -1839,6 +1839,545 @@ async def disponibilita(
     return {"slots": slots}
 
 # -----------------------------------------------------------------------------
+# OTP passwordless authentication
+# -----------------------------------------------------------------------------
+class OtpRequest(BaseModel):
+    email: EmailStr
+
+class OtpVerify(BaseModel):
+    email: EmailStr
+    code: str
+
+OTP_EXPIRE_MINUTES = 10
+OTP_MAX_ATTEMPTS = 5
+OTP_RATE_LIMIT_SECONDS = 60  # min secondi tra due richieste OTP per la stessa email
+
+
+def _generate_otp_code() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+@api.post("/auth/otp/request")
+async def otp_request(body: OtpRequest):
+    """Genera un codice OTP a 6 cifre e lo invia via email.
+    Risponde sempre 200 (non rivela esistenza account)."""
+    email = body.email.lower().strip()
+    user = await db.users.find_one({"email": email, "active": {"$ne": False}})
+    if user:
+        # Rate limit: se esiste un OTP recente non usato, non generarne un altro subito
+        last = await db.otp_codes.find_one({"email": email}, sort=[("created_at", -1)])
+        if last:
+            try:
+                created_at = datetime.fromisoformat(last["created_at"])
+            except Exception:
+                created_at = now_utc() - timedelta(hours=1)
+            if (now_utc() - created_at).total_seconds() < OTP_RATE_LIMIT_SECONDS and not last.get("used"):
+                return {"ok": True}
+        code = _generate_otp_code()
+        await db.otp_codes.insert_one({
+            "_id": new_id(),
+            "email": email,
+            "code_hash": hash_password(code),
+            "expires_at": (now_utc() + timedelta(minutes=OTP_EXPIRE_MINUTES)).isoformat(),
+            "attempts": 0,
+            "used": False,
+            "created_at": now_utc().isoformat(),
+        })
+        try:
+            from email_service import send_otp_email
+            await send_otp_email(
+                to_email=email,
+                to_name=f"{user.get('nome','')} {user.get('cognome','')}".strip() or email,
+                otp_code=code,
+                expires_minutes=OTP_EXPIRE_MINUTES,
+            )
+        except Exception as e:
+            logger.warning("send_otp_email failed: %s", e)
+    return {"ok": True}
+
+
+@api.post("/auth/otp/verify", response_model=LoginResponse)
+async def otp_verify(body: OtpVerify):
+    email = body.email.lower().strip()
+    code = (body.code or "").strip()
+    if len(code) != 6 or not code.isdigit():
+        raise HTTPException(status_code=400, detail="Codice non valido")
+    rec = await db.otp_codes.find_one({"email": email, "used": False}, sort=[("created_at", -1)])
+    if not rec:
+        raise HTTPException(status_code=400, detail="Codice non valido o scaduto")
+    try:
+        expires_at = datetime.fromisoformat(rec["expires_at"])
+    except Exception:
+        expires_at = now_utc() - timedelta(seconds=1)
+    if expires_at < now_utc():
+        raise HTTPException(status_code=400, detail="Codice scaduto. Richiedine uno nuovo.")
+    if rec.get("attempts", 0) >= OTP_MAX_ATTEMPTS:
+        raise HTTPException(status_code=429, detail="Troppi tentativi. Richiedi un nuovo codice.")
+    if not verify_password(code, rec["code_hash"]):
+        await db.otp_codes.update_one({"_id": rec["_id"]}, {"$inc": {"attempts": 1}})
+        raise HTTPException(status_code=401, detail="Codice non corretto")
+    # Codice valido → segna come usato e restituisci JWT
+    await db.otp_codes.update_one(
+        {"_id": rec["_id"]},
+        {"$set": {"used": True, "used_at": now_utc().isoformat()}},
+    )
+    user = await db.users.find_one({"email": email})
+    if not user or not user.get("active", True):
+        raise HTTPException(status_code=401, detail="Account non trovato")
+    user_clean = _from_mongo(user)
+    user_clean.pop("password_hash", None)
+    token = create_access_token(user_clean["id"], user_clean["role"], user_clean.get("studio_id"))
+    studio = None
+    if user_clean.get("studio_id"):
+        st = await db.studios.find_one({"_id": user_clean["studio_id"]})
+        if st:
+            studio = _from_mongo(st)
+    return {"access_token": token, "token_type": "bearer", "user": user_clean, "studio": studio}
+
+
+# -----------------------------------------------------------------------------
+# Automated onboarding (public → studio creation instant)
+# -----------------------------------------------------------------------------
+class OnboardingStartRequest(BaseModel):
+    nome: str
+    email: EmailStr
+    telefono: Optional[str] = None
+    studio_nome: Optional[str] = None
+    tipologia: Optional[Tipologia] = "centro_studi"
+    piano_interesse: Optional[Plan] = "free"
+    messaggio: Optional[str] = None
+    privacy_accepted: bool = True
+
+
+class OnboardingCompleteRequest(BaseModel):
+    token: str
+    studio_nome: Optional[str] = None
+    tipologia: Optional[Tipologia] = None
+    sede: Optional[str] = None
+    telefono: Optional[str] = None
+    piva: Optional[str] = None
+    comunicazioni: Optional[str] = None
+    logo_base64: Optional[str] = None
+    new_password: Optional[str] = None  # se l'utente vuole impostare subito una password
+
+
+def _split_name(full: str) -> tuple[str, str]:
+    parts = (full or "").strip().split()
+    if len(parts) == 0:
+        return ("Utente", "")
+    if len(parts) == 1:
+        return (parts[0], "")
+    return (parts[0], " ".join(parts[1:]))
+
+
+@api.post("/onboarding/start", status_code=201)
+async def onboarding_start(body: OnboardingStartRequest):
+    """Crea automaticamente uno Studio e l'utente admin partendo dai dati landing.
+    - Se l'email esiste già → non ricrea, invia solo OTP per il login (privacy).
+    - Altrimenti: crea Studio (Free plan) + Admin + Onboarding token (7d) + OTP.
+    Ritorna il token setup per redirect immediato a /onboarding/setup.
+    """
+    email = body.email.lower().strip()
+    plan = (body.piano_interesse or "free").lower()
+    if plan not in ("free", "pro", "business"):
+        plan = "free"
+
+    # Log come lead comunque (analytics)
+    await db.leads.insert_one({
+        "_id": new_id(),
+        "nome": body.nome.strip(),
+        "email": email,
+        "telefono": (body.telefono or "").strip() or None,
+        "tipologia": body.tipologia,
+        "studio": (body.studio_nome or "").strip() or None,
+        "messaggio": (body.messaggio or "").strip() or None,
+        "piano_interesse": plan,
+        "created_at": datetime.now(timezone.utc),
+        "status": "onboarding_started",
+    })
+
+    frontend_url = (os.environ.get("FRONTEND_URL") or "https://www.prenotika.com").rstrip("/")
+
+    existing_user = await db.users.find_one({"email": email})
+    if existing_user:
+        # Utente già registrato → non doppiare. Invia OTP e restituisci flag "existing".
+        code = _generate_otp_code()
+        await db.otp_codes.insert_one({
+            "_id": new_id(),
+            "email": email,
+            "code_hash": hash_password(code),
+            "expires_at": (now_utc() + timedelta(minutes=OTP_EXPIRE_MINUTES)).isoformat(),
+            "attempts": 0,
+            "used": False,
+            "created_at": now_utc().isoformat(),
+        })
+        try:
+            from email_service import send_otp_email
+            await send_otp_email(
+                to_email=email,
+                to_name=f"{existing_user.get('nome','')} {existing_user.get('cognome','')}".strip() or email,
+                otp_code=code,
+                expires_minutes=OTP_EXPIRE_MINUTES,
+            )
+        except Exception as e:
+            logger.warning("OTP email failed: %s", e)
+        return {"ok": True, "existing_account": True, "email": email}
+
+    # Nuovo tenant
+    studio_id = new_id()
+    admin_id = new_id()
+    nome, cognome = _split_name(body.nome)
+    studio_nome_final = (body.studio_nome or "").strip() or f"Studio di {nome}"
+
+    studio_doc = {
+        "_id": studio_id,
+        "nome": studio_nome_final,
+        "sede": None,
+        "telefono": (body.telefono or "").strip() or None,
+        "email": email,
+        "piva": None,
+        "note": None,
+        "tipologia": body.tipologia or "centro_studi",
+        "plan": "free",  # sempre Free all'inizio; upgrade tramite Stripe
+        "requested_plan": plan,  # traccia interesse commerciale
+        "onboarding_completed": False,
+        "active": True,
+        "created_at": now_utc().isoformat(),
+    }
+    await db.studios.insert_one(studio_doc)
+
+    # Utente admin senza password iniziale (accesso via OTP o setup link)
+    random_pwd = secrets.token_urlsafe(16)
+    admin_doc = {
+        "_id": admin_id,
+        "nome": nome,
+        "cognome": cognome,
+        "email": email,
+        "password_hash": hash_password(random_pwd),  # placeholder, user imposterà la sua
+        "role": "admin",
+        "studio_id": studio_id,
+        "active": True,
+        "created_at": now_utc().isoformat(),
+        "password_set_by_user": False,
+    }
+    await db.users.insert_one(admin_doc)
+
+    # Onboarding token (7 giorni) - fornisce accesso alla pagina /onboarding/setup senza password
+    setup_token = secrets.token_urlsafe(32)
+    await db.onboarding_tokens.insert_one({
+        "_id": new_id(),
+        "token": setup_token,
+        "user_id": admin_id,
+        "studio_id": studio_id,
+        "expires_at": (now_utc() + timedelta(days=7)).isoformat(),
+        "used": False,
+        "created_at": now_utc().isoformat(),
+    })
+
+    # OTP fallback (10 min) — così se l'utente non usa il link magico può inserire codice
+    otp_code = _generate_otp_code()
+    await db.otp_codes.insert_one({
+        "_id": new_id(),
+        "email": email,
+        "code_hash": hash_password(otp_code),
+        "expires_at": (now_utc() + timedelta(minutes=OTP_EXPIRE_MINUTES)).isoformat(),
+        "attempts": 0,
+        "used": False,
+        "created_at": now_utc().isoformat(),
+    })
+
+    setup_url = f"{frontend_url}/onboarding/setup?token={setup_token}"
+
+    try:
+        from email_service import send_onboarding_start_email
+        await send_onboarding_start_email(
+            to_email=email,
+            to_name=body.nome,
+            studio_nome=studio_nome_final,
+            setup_url=setup_url,
+            otp_code=otp_code,
+        )
+    except Exception as e:
+        logger.warning("send_onboarding_start_email failed: %s", e)
+
+    # Notifica interna al team
+    try:
+        from email_service import send_lead_notification
+        await send_lead_notification(lead={
+            "nome": body.nome, "email": email,
+            "telefono": body.telefono, "tipologia": body.tipologia,
+            "studio": studio_nome_final, "piano_interesse": plan,
+            "messaggio": (body.messaggio or "Signup automatico dalla landing"),
+        })
+    except Exception as e:
+        logger.warning("lead notification failed: %s", e)
+
+    return {
+        "ok": True,
+        "existing_account": False,
+        "setup_token": setup_token,
+        "setup_url": setup_url,
+        "email": email,
+        "studio_id": studio_id,
+    }
+
+
+@api.get("/onboarding/verify-token")
+async def onboarding_verify_token(token: str):
+    """Verifica validità di un token di onboarding (usato dal frontend prima di mostrare wizard)."""
+    rec = await db.onboarding_tokens.find_one({"token": token})
+    if not rec:
+        raise HTTPException(status_code=400, detail="Token non valido")
+    try:
+        expires_at = datetime.fromisoformat(rec["expires_at"])
+    except Exception:
+        expires_at = now_utc() - timedelta(seconds=1)
+    if expires_at < now_utc():
+        raise HTTPException(status_code=400, detail="Token scaduto")
+    user = await db.users.find_one({"_id": rec["user_id"]})
+    studio = await db.studios.find_one({"_id": rec["studio_id"]})
+    if not user or not studio:
+        raise HTTPException(status_code=400, detail="Utente o studio non trovato")
+    # Crea un JWT temporaneo per l'utente così può usare le API autenticate durante il wizard
+    jwt_token = create_access_token(user["_id"], user["role"], user.get("studio_id"))
+    user_clean = _from_mongo(user)
+    user_clean.pop("password_hash", None)
+    return {
+        "ok": True,
+        "access_token": jwt_token,
+        "user": user_clean,
+        "studio": _from_mongo(studio),
+    }
+
+
+@api.post("/onboarding/complete")
+async def onboarding_complete(body: OnboardingCompleteRequest):
+    rec = await db.onboarding_tokens.find_one({"token": body.token})
+    if not rec:
+        raise HTTPException(status_code=400, detail="Token non valido")
+    try:
+        expires_at = datetime.fromisoformat(rec["expires_at"])
+    except Exception:
+        expires_at = now_utc() - timedelta(seconds=1)
+    if expires_at < now_utc():
+        raise HTTPException(status_code=400, detail="Token scaduto")
+
+    studio_updates = {}
+    if body.studio_nome:
+        studio_updates["nome"] = body.studio_nome.strip()
+    if body.tipologia:
+        studio_updates["tipologia"] = body.tipologia
+    if body.sede is not None:
+        studio_updates["sede"] = body.sede.strip() or None
+    if body.telefono is not None:
+        studio_updates["telefono"] = body.telefono.strip() or None
+    if body.piva is not None:
+        studio_updates["piva"] = body.piva.strip() or None
+    if body.comunicazioni is not None:
+        studio_updates["comunicazioni"] = body.comunicazioni
+    if body.logo_base64 is not None:
+        studio_updates["logo_base64"] = body.logo_base64
+    studio_updates["onboarding_completed"] = True
+    await db.studios.update_one({"_id": rec["studio_id"]}, {"$set": studio_updates})
+
+    user_updates = {}
+    if body.new_password:
+        if len(body.new_password) < 8:
+            raise HTTPException(status_code=400, detail="La password deve avere almeno 8 caratteri")
+        user_updates["password_hash"] = hash_password(body.new_password)
+        user_updates["password_set_by_user"] = True
+    if user_updates:
+        await db.users.update_one({"_id": rec["user_id"]}, {"$set": user_updates})
+
+    # Segna token come usato
+    await db.onboarding_tokens.update_one(
+        {"_id": rec["_id"]},
+        {"$set": {"used": True, "used_at": now_utc().isoformat()}},
+    )
+
+    # Genera JWT per login immediato in dashboard
+    user = await db.users.find_one({"_id": rec["user_id"]})
+    jwt_token = create_access_token(user["_id"], user["role"], user.get("studio_id"))
+    user_clean = _from_mongo(user)
+    user_clean.pop("password_hash", None)
+    studio = await db.studios.find_one({"_id": rec["studio_id"]})
+    return {
+        "ok": True,
+        "access_token": jwt_token,
+        "user": user_clean,
+        "studio": _from_mongo(studio),
+    }
+
+
+# -----------------------------------------------------------------------------
+# Stripe payments (checkout for plan upgrade)
+# -----------------------------------------------------------------------------
+STRIPE_PLAN_PRICES = {
+    # Prezzi mensili in EUR (server-side, mai passati dal frontend)
+    "pro": {"amount": 29.0, "currency": "eur", "label": "Pro"},
+    "business": {"amount": 89.0, "currency": "eur", "label": "Business"},
+}
+
+
+class CreateCheckoutRequest(BaseModel):
+    plan: Literal["pro", "business"]
+    origin_url: str
+
+
+@api.post("/payments/checkout/session")
+async def create_checkout_session(body: CreateCheckoutRequest, request: Request, user: dict = Depends(require_role("admin"))):
+    stripe_key = os.environ.get("STRIPE_API_KEY")
+    if not stripe_key:
+        raise HTTPException(status_code=503, detail="Stripe non configurato")
+
+    pkg = STRIPE_PLAN_PRICES.get(body.plan)
+    if not pkg:
+        raise HTTPException(status_code=400, detail="Piano non valido")
+
+    sid = _scope_studio_id(user)
+    origin = body.origin_url.rstrip("/")
+    success_url = f"{origin}/account?stripe_session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{origin}/account?stripe_cancelled=1"
+
+    host_url = str(request.base_url)
+    webhook_url = f"{host_url.rstrip('/')}/api/webhook/stripe"
+
+    try:
+        from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest
+    except Exception as e:
+        logger.error("emergentintegrations import failed: %s", e)
+        raise HTTPException(status_code=503, detail="Modulo pagamenti non disponibile")
+
+    stripe_checkout = StripeCheckout(api_key=stripe_key, webhook_url=webhook_url)
+    metadata = {
+        "user_id": user["id"],
+        "studio_id": sid,
+        "plan": body.plan,
+        "source": "prenotika_upgrade",
+    }
+    req = CheckoutSessionRequest(
+        amount=float(pkg["amount"]),
+        currency=pkg["currency"],
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata=metadata,
+    )
+    session = await stripe_checkout.create_checkout_session(req)
+
+    await db.payment_transactions.insert_one({
+        "_id": new_id(),
+        "session_id": session.session_id,
+        "user_id": user["id"],
+        "user_email": user["email"],
+        "studio_id": sid,
+        "plan": body.plan,
+        "amount": pkg["amount"],
+        "currency": pkg["currency"],
+        "payment_status": "initiated",
+        "status": "open",
+        "metadata": metadata,
+        "created_at": now_utc().isoformat(),
+        "updated_at": now_utc().isoformat(),
+    })
+    return {"url": session.url, "session_id": session.session_id}
+
+
+@api.get("/payments/checkout/status/{session_id}")
+async def get_checkout_status(session_id: str, request: Request, user: dict = Depends(require_role("admin"))):
+    stripe_key = os.environ.get("STRIPE_API_KEY")
+    if not stripe_key:
+        raise HTTPException(status_code=503, detail="Stripe non configurato")
+
+    tx = await db.payment_transactions.find_one({"session_id": session_id})
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transazione non trovata")
+    if tx.get("user_id") != user["id"] and user.get("role") != "super_admin":
+        raise HTTPException(status_code=403, detail="Non autorizzato")
+
+    host_url = str(request.base_url)
+    webhook_url = f"{host_url.rstrip('/')}/api/webhook/stripe"
+
+    try:
+        from emergentintegrations.payments.stripe.checkout import StripeCheckout
+    except Exception:
+        raise HTTPException(status_code=503, detail="Modulo pagamenti non disponibile")
+
+    stripe_checkout = StripeCheckout(api_key=stripe_key, webhook_url=webhook_url)
+    st = await stripe_checkout.get_checkout_status(session_id)
+
+    # Solo aggiorna se non abbiamo già processato
+    already_paid = tx.get("payment_status") == "paid"
+    updates = {
+        "payment_status": st.payment_status,
+        "status": st.status,
+        "amount_total": st.amount_total,
+        "updated_at": now_utc().isoformat(),
+    }
+    await db.payment_transactions.update_one({"_id": tx["_id"]}, {"$set": updates})
+
+    # Su primo evento paid → upgrade piano studio
+    if st.payment_status == "paid" and not already_paid:
+        target_plan = tx.get("plan")
+        studio_id = tx.get("studio_id")
+        if target_plan in ("pro", "business") and studio_id:
+            await db.studios.update_one({"_id": studio_id}, {"$set": {"plan": target_plan}})
+            logger.info("Studio %s upgraded to plan %s via Stripe session %s", studio_id, target_plan, session_id)
+
+    return {
+        "payment_status": st.payment_status,
+        "status": st.status,
+        "amount_total": st.amount_total,
+        "currency": st.currency,
+        "plan": tx.get("plan"),
+    }
+
+
+@api.post("/webhook/stripe")
+async def stripe_webhook(request: Request):
+    stripe_key = os.environ.get("STRIPE_API_KEY")
+    if not stripe_key:
+        raise HTTPException(status_code=503, detail="Stripe non configurato")
+    body_bytes = await request.body()
+    sig = request.headers.get("Stripe-Signature", "")
+    host_url = str(request.base_url)
+    webhook_url = f"{host_url.rstrip('/')}/api/webhook/stripe"
+    try:
+        from emergentintegrations.payments.stripe.checkout import StripeCheckout
+    except Exception:
+        raise HTTPException(status_code=503, detail="Modulo pagamenti non disponibile")
+    stripe_checkout = StripeCheckout(api_key=stripe_key, webhook_url=webhook_url)
+    try:
+        ev = await stripe_checkout.handle_webhook(body_bytes, sig)
+    except Exception as e:
+        logger.warning("Stripe webhook parse failed: %s", e)
+        raise HTTPException(status_code=400, detail="Webhook non valido")
+
+    tx = await db.payment_transactions.find_one({"session_id": ev.session_id})
+    if tx and ev.payment_status == "paid" and tx.get("payment_status") != "paid":
+        await db.payment_transactions.update_one(
+            {"_id": tx["_id"]},
+            {"$set": {"payment_status": "paid", "status": "complete", "updated_at": now_utc().isoformat()}},
+        )
+        target_plan = tx.get("plan")
+        studio_id = tx.get("studio_id")
+        if target_plan in ("pro", "business") and studio_id:
+            await db.studios.update_one({"_id": studio_id}, {"$set": {"plan": target_plan}})
+            logger.info("[Webhook] Studio %s upgraded to plan %s", studio_id, target_plan)
+    return {"received": True}
+
+
+@api.get("/payments/plans")
+async def list_plans():
+    """Espone i piani ai clients (usato dalla pagina Account per Upgrade)."""
+    return [
+        {"id": "pro", "label": "Pro", "amount": STRIPE_PLAN_PRICES["pro"]["amount"], "currency": "eur",
+         "features": ["Fino a 5 professionisti", "Report PDF illimitati", "Email automatiche"]},
+        {"id": "business", "label": "Business", "amount": STRIPE_PLAN_PRICES["business"]["amount"], "currency": "eur",
+         "features": ["Professionisti illimitati", "Priority support", "Personalizzazione avanzata"]},
+    ]
+
+
+# -----------------------------------------------------------------------------
 # Health
 # -----------------------------------------------------------------------------
 @api.get("/")
@@ -1873,6 +2412,12 @@ async def ensure_indexes():
     await db.leads.create_index("status")
     await db.password_resets.create_index("token", unique=True)
     await db.password_resets.create_index("expires_at")
+    await db.otp_codes.create_index("email")
+    await db.otp_codes.create_index("created_at")
+    await db.onboarding_tokens.create_index("token", unique=True)
+    await db.onboarding_tokens.create_index("expires_at")
+    await db.payment_transactions.create_index("session_id", unique=True)
+    await db.payment_transactions.create_index([("user_id", 1), ("created_at", -1)])
 
 async def seed_super_admin():
     """Seed idempotente del super_admin (opzionale).
