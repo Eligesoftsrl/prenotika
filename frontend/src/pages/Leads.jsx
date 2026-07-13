@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import { Inbox, Mail, Phone, Building2, Sparkles, Trash2, Search, CheckCircle2, Clock, X, Pencil, Save, Ban } from "lucide-react";
+import { Inbox, Mail, Phone, Building2, Sparkles, Trash2, Search, CheckCircle2, Clock, X, Pencil, Save, Ban, Rocket } from "lucide-react";
 
 const STATUS = {
   new: { label: "Nuovo", color: "bg-indigo-100 text-indigo-700", icon: Inbox },
+  onboarding_started: { label: "Onboarding avviato", color: "bg-violet-100 text-violet-700", icon: Rocket },
   contacted: { label: "Contattato", color: "bg-amber-100 text-amber-700", icon: Clock },
   converted: { label: "Convertito", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
   closed: { label: "Chiuso", color: "bg-slate-100 text-slate-600", icon: X },
@@ -109,7 +110,7 @@ export default function Leads() {
       {/* Filters */}
       <div className="surface-card p-3 mb-5 flex items-center gap-3 flex-wrap">
         <div className="flex p-0.5 rounded-md bg-[color:var(--surface-2)]">
-          {["all", "new", "contacted", "converted", "closed"].map((k) => (
+          {["all", "new", "onboarding_started", "contacted", "converted", "closed"].map((k) => (
             <button
               key={k}
               onClick={() => setFilter(k)}
@@ -141,7 +142,7 @@ export default function Leads() {
           ) : filtered.length === 0 ? (
             <div className="p-10 text-center text-[color:var(--text-2)]">
               <Inbox size={40} strokeWidth={1.3} className="mx-auto mb-3 text-[color:var(--text-3)]" />
-              <div className="font-semibold">Nessuna richiesta {filter !== "all" ? `con stato "${STATUS[filter].label}"` : "ancora"}.</div>
+              <div className="font-semibold">Nessuna richiesta {filter !== "all" ? `con stato "${STATUS[filter]?.label || filter}"` : "ancora"}.</div>
               <div className="text-xs mt-1">I contatti dal form della landing appariranno qui in tempo reale.</div>
             </div>
           ) : (
@@ -151,7 +152,7 @@ export default function Leads() {
               </thead>
               <tbody>
                 {filtered.map((l) => {
-                  const s = STATUS[l.status || "new"];
+                  const s = STATUS[l.status] || STATUS.new;
                   const StatusIcon = s.icon;
                   return (
                     <tr key={l.id} onClick={() => setSelected(l)} className="cursor-pointer" data-testid={`lead-row-${l.id}`}>

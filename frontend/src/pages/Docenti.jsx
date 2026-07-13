@@ -312,13 +312,16 @@ export default function Docenti() {
 
       {showModal && (
         <Modal title={editing ? `Modifica ${L.docente.toLowerCase()}` : `Nuovo ${L.docente.toLowerCase()}`} onClose={() => setShowModal(false)}>
-          <form onSubmit={onSubmit} className="space-y-3.5" data-testid="docente-form">
+          <form onSubmit={onSubmit} className="space-y-3.5" autoComplete="off" data-testid="docente-form">
+            {/* Fake fields per confondere l'autofill del browser (Chrome ignora autoComplete="off" per email/password) */}
+            <input type="text" name="fake-username" autoComplete="username" style={{ display: "none" }} tabIndex={-1} aria-hidden="true" readOnly />
+            <input type="password" name="fake-password" autoComplete="new-password" style={{ display: "none" }} tabIndex={-1} aria-hidden="true" readOnly />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Nome" required value={form.nome} onChange={(v) => setForm({ ...form, nome: v })} testid="docente-nome-input" />
-              <Field label="Cognome" required value={form.cognome} onChange={(v) => setForm({ ...form, cognome: v })} testid="docente-cognome-input" />
+              <Field label="Nome" required value={form.nome} onChange={(v) => setForm({ ...form, nome: v })} autoComplete="off" testid="docente-nome-input" />
+              <Field label="Cognome" required value={form.cognome} onChange={(v) => setForm({ ...form, cognome: v })} autoComplete="off" testid="docente-cognome-input" />
             </div>
-            <Field label="Email" type="email" disabled={!!editing} required value={form.email} onChange={(v) => setForm({ ...form, email: v })} testid="docente-email-input" />
-            <Field label={editing ? "Nuova password (opzionale)" : "Password"} type="password" required={!editing} value={form.password} onChange={(v) => setForm({ ...form, password: v })} testid="docente-password-input" />
+            <Field label="Email" type="email" disabled={!!editing} required value={form.email} onChange={(v) => setForm({ ...form, email: v })} autoComplete="off" testid="docente-email-input" />
+            <Field label={editing ? "Nuova password (opzionale)" : "Password"} type="password" required={!editing} value={form.password} onChange={(v) => setForm({ ...form, password: v })} autoComplete="new-password" testid="docente-password-input" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Telefono" value={form.telefono} onChange={(v) => setForm({ ...form, telefono: v })} testid="docente-telefono-input" />
               <div>
@@ -411,11 +414,11 @@ export function Modal({ title, onClose, children, size = "md" }) {
   );
 }
 
-export function Field({ label, value, onChange, type = "text", required, testid, disabled }) {
+export function Field({ label, value, onChange, type = "text", required, testid, disabled, autoComplete }) {
   return (
     <div>
       <label className="block text-sm font-medium mb-1.5">{label}{required && <span className="text-[color:var(--secondary)]"> *</span>}</label>
-      <input type={type} className="input-base" value={value} onChange={(e) => onChange(e.target.value)} required={required} disabled={disabled} data-testid={testid} />
+      <input type={type} className="input-base" value={value} onChange={(e) => onChange(e.target.value)} required={required} disabled={disabled} autoComplete={autoComplete} data-testid={testid} />
     </div>
   );
 }
