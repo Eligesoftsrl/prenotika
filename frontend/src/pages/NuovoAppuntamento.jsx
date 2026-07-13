@@ -345,7 +345,7 @@ export default function NuovoAppuntamento() {
                     <option value="">Seleziona {L.cliente.toLowerCase()}…</option>
                     {alunni.map((c) => (<option key={c.id} value={c.id}>{c.cognome} {c.nome}</option>))}
                   </select>
-                  {noAlunni && <div className="text-xs text-[color:var(--warning)] mt-1.5">Nessun {L.cliente.toLowerCase()}. Passa a "Nuovo".</div>}
+                  {noAlunni && <div className="text-xs text-[color:var(--warning)] mt-1.5">Nessun {L.cliente.toLowerCase()}. Passa a &quot;Nuovo&quot;.</div>}
                 </>
               ) : (
                 <div className="space-y-2.5">

@@ -236,10 +236,10 @@ export default function Appuntamenti() {
       {/* Docente selector (admin only) */}
       {isAdmin && (
         <div className="surface-card p-4 mb-4">
-          <label className="label-eyebrow block mb-2">Docente</label>
+          <label className="label-eyebrow block mb-2">{L.docente}</label>
           <div className="flex items-center gap-3 flex-wrap">
             <select className="input-base max-w-md" value={selectedDocenteId} onChange={(e) => setSelectedDocenteId(e.target.value)} data-testid="cal-docente-select">
-              <option value="">— Seleziona un docente —</option>
+              <option value="">— Seleziona un {L.docente.toLowerCase()} —</option>
               {docenti.map((d) => (<option key={d.id} value={d.id}>{d.nome} {d.cognome} ({d.slot_minuti || 60} min)</option>))}
             </select>
             {docenteSel && (
@@ -261,14 +261,14 @@ export default function Appuntamenti() {
       {!selectedDocenteId ? (
         <div className="surface-card p-12 text-center">
           <CalIcon className="mx-auto mb-3 text-[color:var(--border)]" size={42} />
-          <h3 className="font-display text-lg font-bold mb-1">Seleziona un docente</h3>
-          <p className="text-sm text-[color:var(--text-2)]">Ogni docente ha la sua durata standard e i suoi orari. Scegli sopra il docente di cui vuoi vedere il calendario.</p>
+          <h3 className="font-display text-lg font-bold mb-1">Seleziona un {L.docente.toLowerCase()}</h3>
+          <p className="text-sm text-[color:var(--text-2)]">Ogni {L.docente.toLowerCase()} ha la sua durata standard e i suoi orari. Scegli sopra il {L.docente.toLowerCase()} di cui vuoi vedere il calendario.</p>
         </div>
       ) : orari.length === 0 ? (
         <div className="surface-card p-12 text-center">
           <CalIcon className="mx-auto mb-3 text-[color:var(--border)]" size={42} />
           <h3 className="font-display text-lg font-bold mb-1">Nessuna disponibilità configurata</h3>
-          <p className="text-sm text-[color:var(--text-2)] mb-4">Imposta prima gli orari del docente per vedere il suo calendario.</p>
+          <p className="text-sm text-[color:var(--text-2)] mb-4">Imposta prima gli orari del {L.docente.toLowerCase()} per vedere il suo calendario.</p>
           <a href={`/orari?docente=${selectedDocenteId}`} className="btn-primary inline-flex">Imposta orari</a>
         </div>
       ) : (
@@ -643,7 +643,7 @@ function AppuntamentoModal({ onClose, onSaved, defaults, docenti, clienti, isAdm
           cellulare: nuovoCliente.cellulare || null,
         };
       } else {
-        if (!form.cliente_id) { setError("Seleziona uno studente"); setBusy(false); return; }
+        if (!form.cliente_id) { setError(`Seleziona un ${L.cliente.toLowerCase()}`); setBusy(false); return; }
         payload.cliente_id = form.cliente_id;
       }
       const { data } = await api.post("/appuntamenti/bulk", payload);

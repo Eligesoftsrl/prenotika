@@ -9,7 +9,6 @@ import Logo from "@/components/Logo";
 const ROLE_LABEL = {
   super_admin: "Super Admin",
   admin: "Amministratore",
-  docente: "Docente",
 };
 
 export default function Layout() {
@@ -102,7 +101,7 @@ export default function Layout() {
       </div>
       <div className="mt-auto px-4 pb-6">
         <div className="surface-card p-3.5">
-          <div className="text-xs text-[color:var(--text-2)] mb-0.5">{ROLE_LABEL[user?.role]}</div>
+          <div className="text-xs text-[color:var(--text-2)] mb-0.5">{ROLE_LABEL[user?.role] || L.docente}</div>
           <div className="text-sm font-semibold truncate" data-testid="user-fullname">
             {user?.nome} {user?.cognome}
           </div>

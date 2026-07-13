@@ -42,7 +42,7 @@ export default function Materie() {
   };
 
   const remove = async (m) => {
-    if (!window.confirm(`Eliminare la materia "${m.descrizione}"? Sarà rimossa anche da tutti i docenti associati.`)) return;
+    if (!window.confirm(`Eliminare "${m.descrizione}"? Sarà rimossa anche da tutti i ${L.docenti.toLowerCase()} associati.`)) return;
     await api.delete(`/materie/${m.id}`);
     await load();
   };
@@ -66,9 +66,9 @@ export default function Materie() {
         {loading ? <div className="p-10 text-center text-[color:var(--text-2)]">Caricamento…</div> : items.length === 0 ? (
           <div className="p-12 text-center">
             <BookOpen className="mx-auto mb-3 text-[color:var(--border)]" size={36} />
-            <h3 className="font-display text-lg font-bold mb-1">Nessuna materia</h3>
-            <p className="text-sm text-[color:var(--text-2)] mb-4">Crea le materie del catalogo (Italiano, Matematica, Geografia…)</p>
-            {isAdmin && <button onClick={openCreate} className="btn-primary"><Plus size={16} /> Nuova materia</button>}
+            <h3 className="font-display text-lg font-bold mb-1">Nessuna {L.materia.toLowerCase()}</h3>
+            <p className="text-sm text-[color:var(--text-2)] mb-4">Crea {L.materie.toLowerCase()} del catalogo.</p>
+            {isAdmin && <button onClick={openCreate} className="btn-primary"><Plus size={16} /> Nuova {L.materia.toLowerCase()}</button>}
           </div>
         ) : (
           <table className="table-clean w-full">
@@ -94,7 +94,7 @@ export default function Materie() {
       </div>
 
       {showModal && (
-        <Modal title={editing ? "Modifica materia" : "Nuova materia"} onClose={() => setShowModal(false)}>
+        <Modal title={editing ? `Modifica ${L.materia.toLowerCase()}` : `Nuova ${L.materia.toLowerCase()}`} onClose={() => setShowModal(false)}>
           <form onSubmit={onSubmit} className="space-y-3.5" data-testid="materia-form">
             <Field label="Descrizione" required value={form.descrizione} onChange={(v) => setForm({ ...form, descrizione: v })} testid="materia-descrizione-input" />
             <div>

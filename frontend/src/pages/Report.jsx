@@ -71,7 +71,7 @@ export default function Report() {
   const clienteSel = clienti.find((c) => c.id === clienteId);
 
   const download = async () => {
-    if (mode === "cliente" && !clienteId) { alert("Seleziona uno studente"); return; }
+    if (mode === "cliente" && !clienteId) { alert(`Seleziona un ${L.cliente.toLowerCase()}`); return; }
     setLoading(true);
     try {
       const params = new URLSearchParams({ period, data: fmtISO(refDate) });

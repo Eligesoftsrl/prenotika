@@ -131,7 +131,7 @@ export default function Docenti() {
   };
 
   const remove = async (d) => {
-    if (!window.confirm(`Eliminare il docente ${d.nome} ${d.cognome}? Verranno cancellati anche orari e appuntamenti collegati.`)) return;
+    if (!window.confirm(`Eliminare ${L.docente.toLowerCase()} ${d.nome} ${d.cognome}? Verranno cancellati anche orari e appuntamenti collegati.`)) return;
     await api.delete(`/docenti/${d.id}`);
     await load();
   };
@@ -185,10 +185,10 @@ export default function Docenti() {
         ) : items.length === 0 ? (
           <div className="p-12 text-center">
             <GraduationCap className="mx-auto mb-3 text-[color:var(--border)]" size={36} />
-            <h3 className="font-display text-lg font-bold mb-1">Nessun docente</h3>
-            <p className="text-sm text-[color:var(--text-2)] mb-4">Crea il primo docente per iniziare a gestire l&apos;agenda.</p>
+            <h3 className="font-display text-lg font-bold mb-1">Nessun {L.docente.toLowerCase()}</h3>
+            <p className="text-sm text-[color:var(--text-2)] mb-4">Crea il primo {L.docente.toLowerCase()} per iniziare a gestire l&apos;agenda.</p>
             <button onClick={openCreate} className="btn-primary" data-testid="docente-empty-create">
-              <Plus size={16} /> Nuovo docente
+              <Plus size={16} /> Nuovo {L.docente.toLowerCase()}
             </button>
           </div>
         ) : (
@@ -311,7 +311,7 @@ export default function Docenti() {
       )}
 
       {showModal && (
-        <Modal title={editing ? "Modifica docente" : "Nuovo docente"} onClose={() => setShowModal(false)}>
+        <Modal title={editing ? `Modifica ${L.docente.toLowerCase()}` : `Nuovo ${L.docente.toLowerCase()}`} onClose={() => setShowModal(false)}>
           <form onSubmit={onSubmit} className="space-y-3.5" data-testid="docente-form">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Nome" required value={form.nome} onChange={(v) => setForm({ ...form, nome: v })} testid="docente-nome-input" />

@@ -1,10 +1,14 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { api, formatApiError } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { ArrowLeft, Plus, Trash2, Users as UsersIcon } from "lucide-react";
 import { Modal } from "./Docenti";
+import { tipologiaLabels } from "@/lib/tipologia";
 
 export default function DocenteAlunni() {
+  const { studio } = useAuth();
+  const L = tipologiaLabels(studio?.tipologia);
   const { id: docenteId } = useParams();
   const [docente, setDocente] = useState(null);
   const [alunni, setAlunni] = useState([]);
@@ -44,7 +48,7 @@ export default function DocenteAlunni() {
   };
 
   const disassocia = async (c) => {
-    if (!window.confirm(`Rimuovere ${c.nome} ${c.cognome} dagli alunni del docente?`)) return;
+    if (!window.confirm(`Rimuovere ${c.nome} ${c.cognome} dai ${L.clienti.toLowerCase()} del ${L.docente.toLowerCase()}?`)) return;
     await api.delete(`/docenti/${docenteId}/alunni/${c.id}`);
     await load();
   };
@@ -55,18 +59,18 @@ export default function DocenteAlunni() {
   return (
     <div data-testid="docente-alunni-page">
       <Link to="/docenti" className="inline-flex items-center gap-1.5 text-sm text-[color:var(--text-2)] hover:text-[color:var(--text)] mb-4">
-        <ArrowLeft size={14} /> Tutti i docenti
+        <ArrowLeft size={14} /> Tutti i {L.docenti.toLowerCase()}
       </Link>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <div className="label-eyebrow mb-1.5">Alunni associati</div>
+          <div className="label-eyebrow mb-1.5">{L.clienti} associati</div>
           <h1 className="font-display text-3xl sm:text-4xl font-black tracking-tight">
-            {docente ? `${docente.nome} ${docente.cognome}` : "Docente"}
+            {docente ? `${docente.nome} ${docente.cognome}` : L.docente}
           </h1>
-          <p className="text-[color:var(--text-2)] mt-1">Gestisci gli alunni assegnati a questo docente.</p>
+          <p className="text-[color:var(--text-2)] mt-1">Gestisci i {L.clienti.toLowerCase()} assegnati a questo {L.docente.toLowerCase()}.</p>
         </div>
         <button onClick={() => { setSelected(""); setShowAdd(true); setError(""); }} className="btn-primary" data-testid="associa-alunno-button" disabled={disponibili.length === 0}>
-          <Plus size={16} /> Associa alunno
+          <Plus size={16} /> {L.associa_alunno}
         </button>
       </div>
 
@@ -76,15 +80,15 @@ export default function DocenteAlunni() {
         ) : alunni.length === 0 ? (
           <div className="p-12 text-center">
             <UsersIcon className="mx-auto mb-3 text-[color:var(--border)]" size={36} />
-            <h3 className="font-display text-lg font-bold mb-1">Nessun alunno associato</h3>
-            <p className="text-sm text-[color:var(--text-2)] mb-4">Associa un cliente come alunno di questo docente.</p>
-            <button onClick={() => setShowAdd(true)} className="btn-primary" disabled={disponibili.length === 0}><Plus size={16} /> Associa alunno</button>
-            {disponibili.length === 0 && <div className="text-xs text-[color:var(--text-2)] mt-3">Nessun cliente disponibile. Crea prima un cliente dalla sezione Clienti.</div>}
+            <h3 className="font-display text-lg font-bold mb-1">Nessun {L.cliente.toLowerCase()} associato</h3>
+            <p className="text-sm text-[color:var(--text-2)] mb-4">Associa un {L.cliente.toLowerCase()} a questo {L.docente.toLowerCase()}.</p>
+            <button onClick={() => setShowAdd(true)} className="btn-primary" disabled={disponibili.length === 0}><Plus size={16} /> {L.associa_alunno}</button>
+            {disponibili.length === 0 && <div className="text-xs text-[color:var(--text-2)] mt-3">Nessun {L.cliente.toLowerCase()} disponibile. Crea prima un {L.cliente.toLowerCase()} dalla sezione {L.clienti}.</div>}
           </div>
         ) : (
           <table className="table-clean w-full">
             <thead>
-              <tr><th>Alunno</th><th>Email</th><th>Cellulare</th><th></th></tr>
+              <tr><th>{L.cliente}</th><th>Email</th><th>Cellulare</th><th></th></tr>
             </thead>
             <tbody>
               {alunni.map((c) => (
@@ -103,15 +107,15 @@ export default function DocenteAlunni() {
       </div>
 
       {showAdd && (
-        <Modal title="Associa alunno al docente" onClose={() => setShowAdd(false)}>
+        <Modal title={`${L.associa_alunno} al ${L.docente.toLowerCase()}`} onClose={() => setShowAdd(false)}>
           <form onSubmit={associate} className="space-y-3.5">
             <div>
-              <label className="block text-sm font-medium mb-1.5">Cliente</label>
+              <label className="block text-sm font-medium mb-1.5">{L.cliente}</label>
               <select className="input-base" value={selected} onChange={(e) => setSelected(e.target.value)} required data-testid="associa-cliente-select">
-                <option value="">Seleziona un cliente…</option>
+                <option value="">Seleziona un {L.cliente.toLowerCase()}…</option>
                 {disponibili.map((c) => (<option key={c.id} value={c.id}>{c.cognome} {c.nome}</option>))}
               </select>
-              <div className="text-xs text-[color:var(--text-2)] mt-1">{disponibili.length} clienti disponibili.</div>
+              <div className="text-xs text-[color:var(--text-2)] mt-1">{disponibili.length} {L.clienti.toLowerCase()} disponibili.</div>
             </div>
             {error && <div className="text-sm text-[color:var(--error)] bg-[#FBEFEF] border border-[#E5C4C4] px-3 py-2 rounded-lg">{error}</div>}
             <div className="flex gap-2 pt-2">

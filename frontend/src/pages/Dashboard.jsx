@@ -3,6 +3,7 @@ import { api, API_BASE } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Users, GraduationCap, CalendarClock, CalendarDays, Sparkles, Download } from "lucide-react";
 import { Link } from "react-router-dom";
+import { tipologiaLabels } from "@/lib/tipologia";
 
 const GIORNI = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
@@ -14,6 +15,7 @@ function formatDate(iso) {
 
 export default function Dashboard() {
   const { user, studio } = useAuth();
+  const L = tipologiaLabels(studio?.tipologia);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -29,8 +31,8 @@ export default function Dashboard() {
   }, []);
 
   const cards = [
-    { label: "Clienti totali", value: stats?.totale_clienti ?? "—", icon: Users, hide: user?.role === "docente" },
-    { label: "Docenti", value: stats?.totale_docenti ?? "—", icon: GraduationCap, hide: user?.role === "docente" },
+    { label: `${L.clienti} totali`, value: stats?.totale_clienti ?? "—", icon: Users, hide: user?.role === "docente" },
+    { label: L.docenti, value: stats?.totale_docenti ?? "—", icon: GraduationCap, hide: user?.role === "docente" },
     { label: "Appuntamenti oggi", value: stats?.appuntamenti_oggi ?? "—", icon: CalendarClock },
     { label: "Appuntamenti 7 giorni", value: stats?.appuntamenti_settimana ?? "—", icon: CalendarDays },
   ].filter((c) => !c.hide);
@@ -98,7 +100,7 @@ export default function Dashboard() {
 
         <div className="surface-card p-5">
           <h3 className="font-display text-lg font-bold mb-1">Suggerimento</h3>
-          <p className="text-sm text-[color:var(--text-2)] mb-4">Imposta prima la disponibilità dei docenti, poi crea gli appuntamenti dal calendario.</p>
+          <p className="text-sm text-[color:var(--text-2)] mb-4">Imposta prima la disponibilità dei {L.docenti.toLowerCase()}, poi crea gli appuntamenti dal calendario.</p>
           <Link to="/orari" className="btn-secondary w-full justify-center mb-2" data-testid="suggestion-orari">Gestisci orari</Link>
           <div className="border-t border-[color:var(--border)] pt-3 mt-3">
             <div className="label-eyebrow mb-2">Report PDF rapidi</div>

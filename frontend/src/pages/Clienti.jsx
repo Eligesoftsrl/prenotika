@@ -163,8 +163,8 @@ export default function Clienti() {
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center">
             <Users className="mx-auto mb-3 text-[color:var(--border)]" size={36} />
-            <h3 className="font-display text-lg font-bold mb-1">Nessun cliente</h3>
-            <p className="text-sm text-[color:var(--text-2)] mb-4">{search ? "Nessun risultato per la ricerca." : "Inizia aggiungendo il primo cliente."}</p>
+            <h3 className="font-display text-lg font-bold mb-1">Nessun {L.cliente.toLowerCase()}</h3>
+            <p className="text-sm text-[color:var(--text-2)] mb-4">{search ? "Nessun risultato per la ricerca." : `Inizia aggiungendo il primo ${L.cliente.toLowerCase()}.`}</p>
             {isAdmin && !search && (
               <button onClick={openCreate} className="btn-primary" data-testid="cliente-empty-create"><Plus size={16} /> Nuovo cliente</button>
             )}

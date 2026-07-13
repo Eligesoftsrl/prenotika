@@ -4,6 +4,7 @@ import { api, formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Plus, Trash2, Clock } from "lucide-react";
 import { Modal } from "./Docenti";
+import { tipologiaLabels } from "@/lib/tipologia";
 
 const GIORNI = [
   { idx: 0, label: "Lun" },
@@ -20,7 +21,8 @@ const HOURS = Array.from({ length: 14 }, (_, i) => i + 7); // 7..20
 function toMin(hhmm) { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; }
 
 export default function Orari() {
-  const { user } = useAuth();
+  const { user, studio } = useAuth();
+  const L = tipologiaLabels(studio?.tipologia);
   const isAdmin = user?.role === "admin";
   const [searchParams] = useSearchParams();
   const queryDocente = searchParams.get("docente");
@@ -92,7 +94,7 @@ export default function Orari() {
 
       {isAdmin && (
         <div className="surface-card p-4 mb-5">
-          <label className="label-eyebrow block mb-2">Docente</label>
+          <label className="label-eyebrow block mb-2">{L.docente}</label>
           <select className="input-base max-w-md" value={docenteId} onChange={(e) => setDocenteId(e.target.value)} data-testid="orari-docente-select">
             {docenti.map((d) => (<option key={d.id} value={d.id}>{d.nome} {d.cognome}</option>))}
           </select>
