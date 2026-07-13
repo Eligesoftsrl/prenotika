@@ -16,7 +16,7 @@ function emptyForm() {
 export default function Docenti() {
   const navigate = useNavigate();
   const { studio } = useAuth();
-  const L = tipologiaLabels(studio?.tipologia);
+  const L = tipologiaLabels(studio?.tipologia, studio?.custom_labels);
   const [items, setItems] = useState([]);
   const [materie, setMaterie] = useState([]);
   const [docMaterie, setDocMaterie] = useState({});

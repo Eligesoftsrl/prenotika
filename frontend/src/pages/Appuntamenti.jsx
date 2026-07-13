@@ -28,7 +28,7 @@ function toHHMM(mins) {
 
 export default function Appuntamenti() {
   const { user, studio } = useAuth();
-  const L = tipologiaLabels(studio?.tipologia);
+  const L = tipologiaLabels(studio?.tipologia, studio?.custom_labels);
   const isAdmin = user?.role === "admin";
   const navigate = useNavigate();
   const location = useLocation();

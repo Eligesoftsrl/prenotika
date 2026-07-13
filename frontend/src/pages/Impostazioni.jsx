@@ -1,14 +1,25 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api, formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Settings as SettingsIcon, Save, MessageSquare, Image as ImageIcon, Upload, Trash2 } from "lucide-react";
-import { TIPOLOGIE } from "@/lib/tipologia";
+import { Settings as SettingsIcon, Save, MessageSquare, Image as ImageIcon, Upload, Trash2, Tag, RotateCcw } from "lucide-react";
+import { TIPOLOGIE, tipologiaLabels, CUSTOM_LABEL_KEYS } from "@/lib/tipologia";
 
 const MAX_LOGO_BYTES = 600 * 1024; // 600KB after base64
 
+const LABEL_META = [
+  { key: "docente",         desc: "Singolare del professionista",   ph: "es. Terapeuta, Coach…" },
+  { key: "docenti",         desc: "Plurale del professionista",     ph: "es. Terapeuti, Coach…" },
+  { key: "cliente",         desc: "Singolare del cliente finale",   ph: "es. Assistito, Atleta…" },
+  { key: "clienti",         desc: "Plurale del cliente finale",     ph: "es. Assistiti, Atleti…" },
+  { key: "materia",         desc: "Servizio / area di competenza (sing.)", ph: "es. Terapia, Corso…" },
+  { key: "materie",         desc: "Servizio / area di competenza (plur.)", ph: "es. Terapie, Corsi…" },
+  { key: "materie_label",   desc: "Titolo sezione servizi",         ph: "es. Servizi erogati" },
+  { key: "associa_alunno",  desc: "Testo pulsante 'associa cliente'", ph: "es. Associa assistito" },
+];
+
 export default function Impostazioni() {
   const { studio, refresh } = useAuth();
-  const [form, setForm] = useState({ nome: "", sede: "", telefono: "", email: "", piva: "", comunicazioni: "", logo_base64: "" });
+  const [form, setForm] = useState({ nome: "", sede: "", telefono: "", email: "", piva: "", comunicazioni: "", logo_base64: "", custom_labels: {} });
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -25,6 +36,7 @@ export default function Impostazioni() {
         piva: data.piva || "",
         comunicazioni: data.comunicazioni || "",
         logo_base64: data.logo_base64 || "",
+        custom_labels: data.custom_labels || {},
       });
       setLoaded(true);
     });
@@ -71,6 +83,15 @@ export default function Impostazioni() {
       for (const k of Object.keys(form)) {
         const v = form[k];
         if (k === "nome") payload[k] = v;                  // required
+        else if (k === "custom_labels") {
+          // Compatta: mantieni solo le chiavi con valore non-vuoto (usa default della tipologia altrimenti)
+          const cleaned = {};
+          for (const lk of CUSTOM_LABEL_KEYS) {
+            const val = (v?.[lk] || "").trim();
+            if (val) cleaned[lk] = val;
+          }
+          payload[k] = cleaned;
+        }
         else if (CLEARABLE.has(k)) payload[k] = v;         // "" = cancella esplicito
         else payload[k] = (v === "" ? null : v);           // optional: "" -> null
       }
@@ -82,6 +103,11 @@ export default function Impostazioni() {
       setError(formatApiError(err?.response?.data?.detail) || "Errore");
     } finally { setBusy(false); }
   };
+
+  // Etichette di default per la tipologia corrente (mostrate come placeholder)
+  const defaultLabels = tipologiaLabels(studio?.tipologia, null);
+  const setLabel = (key, val) => setForm((f) => ({ ...f, custom_labels: { ...(f.custom_labels || {}), [key]: val } }));
+  const resetLabels = () => setForm((f) => ({ ...f, custom_labels: {} }));
 
   const tipLabel = TIPOLOGIE.find((t) => t.value === studio?.tipologia)?.label || studio?.tipologia;
 
@@ -174,6 +200,39 @@ export default function Impostazioni() {
             placeholder="Esempi:&#10;- Le segreteria è aperta dal lunedì al venerdì, 9-18&#10;- Per disdire un appuntamento contattare entro 24h&#10;- Modalità di pagamento: bonifico o POS"
             data-testid="settings-comunicazioni-input"
           />
+        </div>
+
+        {/* ==================== Etichette personalizzate ==================== */}
+        <div className="lg:col-span-2 surface-card p-6" data-testid="settings-labels-section">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Tag size={16} className="text-[color:var(--primary)]" />
+              <h3 className="font-display font-bold text-lg">Etichette personalizzate</h3>
+            </div>
+            <button type="button" onClick={resetLabels} className="btn-secondary text-xs" data-testid="labels-reset-btn">
+              <RotateCcw size={12} /> Ripristina default della tipologia
+            </button>
+          </div>
+          <p className="text-xs text-[color:var(--text-2)] mb-5">
+            Sovrascrivi le etichette di default per adattare la piattaforma al tuo settore. Es. per uno studio di psicoterapia: <strong>Terapeuta / Assistito</strong>, per un centro fitness: <strong>Coach / Atleta</strong>. Lascia vuoto per mantenere il default della tipologia (<strong>{TIPOLOGIE.find((t) => t.value === studio?.tipologia)?.label || "—"}</strong>).
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {LABEL_META.map((lm) => (
+              <div key={lm.key} data-testid={`label-field-${lm.key}`}>
+                <label className="block text-sm font-medium mb-1">
+                  {lm.desc}
+                  <span className="ml-2 text-[10px] uppercase tracking-[0.14em] text-[color:var(--text-2)] font-normal">default: {defaultLabels[lm.key]}</span>
+                </label>
+                <input
+                  className="input-base"
+                  placeholder={defaultLabels[lm.key]}
+                  value={form.custom_labels?.[lm.key] || ""}
+                  onChange={(e) => setLabel(lm.key, e.target.value)}
+                  data-testid={`label-input-${lm.key}`}
+                />
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="lg:col-span-2 surface-card p-4 flex items-center justify-between flex-wrap gap-3">

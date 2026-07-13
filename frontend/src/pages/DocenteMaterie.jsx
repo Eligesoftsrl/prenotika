@@ -8,7 +8,7 @@ import { tipologiaLabels } from "@/lib/tipologia";
 
 export default function DocenteMaterie() {
   const { studio } = useAuth();
-  const L = tipologiaLabels(studio?.tipologia);
+  const L = tipologiaLabels(studio?.tipologia, studio?.custom_labels);
   const { id: docenteId } = useParams();
   const [docente, setDocente] = useState(null);
   const [mie, setMie] = useState([]);

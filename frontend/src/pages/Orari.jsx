@@ -22,7 +22,7 @@ function toMin(hhmm) { const [h, m] = hhmm.split(":").map(Number); return h * 60
 
 export default function Orari() {
   const { user, studio } = useAuth();
-  const L = tipologiaLabels(studio?.tipologia);
+  const L = tipologiaLabels(studio?.tipologia, studio?.custom_labels);
   const isAdmin = user?.role === "admin";
   const [searchParams] = useSearchParams();
   const queryDocente = searchParams.get("docente");

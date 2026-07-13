@@ -73,7 +73,7 @@ function ReportModal({ cliente, L, onClose }) {
 
 export default function Clienti() {
   const { user, studio } = useAuth();
-  const L = tipologiaLabels(studio?.tipologia);
+  const L = tipologiaLabels(studio?.tipologia, studio?.custom_labels);
   const isAdmin = user?.role === "admin";
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);

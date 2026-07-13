@@ -24,7 +24,7 @@ function fmtIT(d) { return d.toLocaleDateString("it-IT", { day: "2-digit", month
 
 export default function Report() {
   const { user, studio } = useAuth();
-  const L = tipologiaLabels(studio?.tipologia);
+  const L = tipologiaLabels(studio?.tipologia, studio?.custom_labels);
   const isAdmin = user?.role === "admin";
 
   const [mode, setMode] = useState("docente"); // docente | cliente

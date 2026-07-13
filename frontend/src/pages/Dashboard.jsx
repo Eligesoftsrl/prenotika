@@ -15,7 +15,7 @@ function formatDate(iso) {
 
 export default function Dashboard() {
   const { user, studio } = useAuth();
-  const L = tipologiaLabels(studio?.tipologia);
+  const L = tipologiaLabels(studio?.tipologia, studio?.custom_labels);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 

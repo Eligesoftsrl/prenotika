@@ -35,8 +35,26 @@ const LABELS = {
   },
 };
 
-export function tipologiaLabels(tipologia) {
-  return LABELS[tipologia] || LABELS.centro_studi;
+// Chiavi delle etichette personalizzabili dall'admin (needs_association resta gestito da tipologia)
+export const CUSTOM_LABEL_KEYS = [
+  "cliente", "clienti", "docente", "docenti",
+  "materia", "materie", "materie_label", "associa_alunno",
+];
+
+/**
+ * Ritorna le etichette per la tipologia data, fondendo eventuali override custom impostati dall'admin.
+ * @param {string} tipologia - centro_studi | studio_legale | studio_medico
+ * @param {object|null|undefined} custom - eventuali override forniti dallo studio ({cliente:"…",…})
+ */
+export function tipologiaLabels(tipologia, custom) {
+  const base = LABELS[tipologia] || LABELS.centro_studi;
+  if (!custom || typeof custom !== "object") return base;
+  const overrides = {};
+  for (const k of CUSTOM_LABEL_KEYS) {
+    const v = custom[k];
+    if (typeof v === "string" && v.trim().length > 0) overrides[k] = v.trim();
+  }
+  return { ...base, ...overrides };
 }
 
 export const TIPOLOGIE = [

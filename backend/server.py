@@ -11,7 +11,7 @@ import uuid
 import bcrypt
 import jwt
 from datetime import datetime, timezone, timedelta, date, time
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict
 
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -92,6 +92,7 @@ class StudioBase(BaseModel):
     plan: Plan = "free"
     comunicazioni: Optional[str] = None  # testo libero mostrato in calce ai report PDF
     logo_base64: Optional[str] = None    # dataURL/base64 PNG-JPEG del logo stampato in cima ai PDF
+    custom_labels: Optional[Dict[str, str]] = None  # override etichette (cliente, docenti, materia, ecc.)
 
 class StudioUpdate(BaseModel):
     nome: Optional[str] = None
@@ -104,6 +105,7 @@ class StudioUpdate(BaseModel):
     plan: Optional[Plan] = None
     comunicazioni: Optional[str] = None
     logo_base64: Optional[str] = None
+    custom_labels: Optional[Dict[str, str]] = None
 
 class StudioCreate(StudioBase):
     admin_nome: str

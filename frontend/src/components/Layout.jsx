@@ -35,7 +35,7 @@ export default function Layout() {
     const t = setInterval(fetchCount, 45000); // refresh ogni 45s
     return () => { cancelled = true; clearInterval(t); };
   }, [isSuper, location.pathname]);
-  const L = tipologiaLabels(studio?.tipologia);
+  const L = tipologiaLabels(studio?.tipologia, studio?.custom_labels);
 
   const accountItem = { to: "/account", icon: UserCog, label: "Account", testid: "nav-link-account" };
 
