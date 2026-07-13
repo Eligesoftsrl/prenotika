@@ -2001,26 +2001,37 @@ async def onboarding_start(body: OnboardingStartRequest):
     existing_user = await db.users.find_one({"email": email})
     if existing_user:
         # Utente già registrato → non doppiare. Invia OTP e restituisci flag "existing".
-        code = _generate_otp_code()
-        await db.otp_codes.insert_one({
-            "_id": new_id(),
-            "email": email,
-            "code_hash": hash_password(code),
-            "expires_at": (now_utc() + timedelta(minutes=OTP_EXPIRE_MINUTES)).isoformat(),
-            "attempts": 0,
-            "used": False,
-            "created_at": now_utc().isoformat(),
-        })
-        try:
-            from email_service import send_otp_email
-            await send_otp_email(
-                to_email=email,
-                to_name=f"{existing_user.get('nome','')} {existing_user.get('cognome','')}".strip() or email,
-                otp_code=code,
-                expires_minutes=OTP_EXPIRE_MINUTES,
-            )
-        except Exception as e:
-            logger.warning("OTP email failed: %s", e)
+        # Rate-limit: se esiste un OTP recente non usato, non generarne un altro subito
+        last = await db.otp_codes.find_one({"email": email}, sort=[("created_at", -1)])
+        skip_otp = False
+        if last:
+            try:
+                last_created = datetime.fromisoformat(last["created_at"])
+            except Exception:
+                last_created = now_utc() - timedelta(hours=1)
+            if (now_utc() - last_created).total_seconds() < OTP_RATE_LIMIT_SECONDS and not last.get("used"):
+                skip_otp = True
+        if not skip_otp:
+            code = _generate_otp_code()
+            await db.otp_codes.insert_one({
+                "_id": new_id(),
+                "email": email,
+                "code_hash": hash_password(code),
+                "expires_at": (now_utc() + timedelta(minutes=OTP_EXPIRE_MINUTES)).isoformat(),
+                "attempts": 0,
+                "used": False,
+                "created_at": now_utc().isoformat(),
+            })
+            try:
+                from email_service import send_otp_email
+                await send_otp_email(
+                    to_email=email,
+                    to_name=f"{existing_user.get('nome','')} {existing_user.get('cognome','')}".strip() or email,
+                    otp_code=code,
+                    expires_minutes=OTP_EXPIRE_MINUTES,
+                )
+            except Exception as e:
+                logger.warning("OTP email failed: %s", e)
         return {"ok": True, "existing_account": True, "email": email}
 
     # Nuovo tenant
@@ -2155,6 +2166,8 @@ async def onboarding_complete(body: OnboardingCompleteRequest):
     rec = await db.onboarding_tokens.find_one({"token": body.token})
     if not rec:
         raise HTTPException(status_code=400, detail="Token non valido")
+    if rec.get("used"):
+        raise HTTPException(status_code=400, detail="Token già utilizzato")
     try:
         expires_at = datetime.fromisoformat(rec["expires_at"])
     except Exception:
