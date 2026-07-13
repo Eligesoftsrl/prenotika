@@ -568,7 +568,7 @@ export default function Landing() {
                 excluded: [],
               },
               {
-                name: "Business", tagline: "Per centri e cliniche", price: "24", period: "€ / mese", cta: "Parla col team", accent: false, badge: null,
+                name: "Business", tagline: "Per centri e cliniche", price: "24", period: "€ / mese", cta: "Inizia gratis 30 giorni", accent: false, badge: null,
                 features: [
                   "Professionisti illimitati",
                   "Tutto del piano Pro",
