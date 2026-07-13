@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { LayoutDashboard, Calendar, Users, GraduationCap, Clock, Building2, LogOut, Menu, X, BookOpen, Settings, FileText, Plane, Inbox, UserCog } from "lucide-react";
 import { tipologiaLabels } from "@/lib/tipologia";
 import Logo from "@/components/Logo";
+import TrialBanner from "@/components/TrialBanner";
 
 const ROLE_LABEL = {
   super_admin: "Super Admin",
@@ -152,6 +153,7 @@ export default function Layout() {
           <div className="w-9" />
         </header>
         <div className="p-5 md:p-8 max-w-[1400px] mx-auto anim-fade-up">
+          <TrialBanner />
           <Outlet />
         </div>
       </main>

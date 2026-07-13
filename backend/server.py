@@ -117,6 +117,9 @@ class Studio(StudioBase):
     id: str
     created_at: datetime
     active: bool = True
+    trial_active: Optional[bool] = None
+    trial_plan: Optional[Plan] = None
+    trial_ends_at: Optional[str] = None
 
 class UserBase(BaseModel):
     nome: str
