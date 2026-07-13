@@ -1970,8 +1970,8 @@ async def otp_verify(body: OtpVerify):
 # Automated onboarding (public → studio creation instant)
 # -----------------------------------------------------------------------------
 class OnboardingStartRequest(BaseModel):
-    nome: str
     email: EmailStr
+    nome: Optional[str] = None
     telefono: Optional[str] = None
     studio_nome: Optional[str] = None
     tipologia: Optional[Tipologia] = "centro_studi"
@@ -2016,7 +2016,7 @@ async def onboarding_start(body: OnboardingStartRequest):
     # Log come lead comunque (analytics)
     await db.leads.insert_one({
         "_id": new_id(),
-        "nome": body.nome.strip(),
+        "nome": (body.nome or email.split("@")[0]).strip(),
         "email": email,
         "telefono": (body.telefono or "").strip() or None,
         "tipologia": body.tipologia,
@@ -2068,7 +2068,9 @@ async def onboarding_start(body: OnboardingStartRequest):
     # Nuovo tenant
     studio_id = new_id()
     admin_id = new_id()
-    nome, cognome = _split_name(body.nome)
+    # Nome opzionale in signup rapido → fallback su parte locale email
+    display_name = (body.nome or "").strip() or email.split("@")[0].replace(".", " ").replace("_", " ").title()
+    nome, cognome = _split_name(display_name)
     studio_nome_final = (body.studio_nome or "").strip() or f"Studio di {nome}"
 
     # Trial gratuito 30 giorni per ogni piano (anche Free ha una data trial_ends_at ma senza effetti)
@@ -2142,7 +2144,7 @@ async def onboarding_start(body: OnboardingStartRequest):
         from email_service import send_onboarding_start_email
         await send_onboarding_start_email(
             to_email=email,
-            to_name=body.nome,
+            to_name=display_name,
             studio_nome=studio_nome_final,
             setup_url=setup_url,
             otp_code=otp_code,
@@ -2154,7 +2156,7 @@ async def onboarding_start(body: OnboardingStartRequest):
     try:
         from email_service import send_lead_notification
         await send_lead_notification(lead={
-            "nome": body.nome, "email": email,
+            "nome": display_name, "email": email,
             "telefono": body.telefono, "tipologia": body.tipologia,
             "studio": studio_nome_final, "piano_interesse": plan,
             "messaggio": (body.messaggio or "Signup automatico dalla landing"),

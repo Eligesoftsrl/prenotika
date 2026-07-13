@@ -4,7 +4,7 @@ import { motion, useMotionValue, useSpring, useTransform, useScroll, AnimatePres
 import { useAuth } from "@/context/AuthContext";
 import { api, formatApiError } from "@/lib/api";
 import Logo from "@/components/Logo";
-import { ArrowRight, CalendarCheck2, Users2, FileText, BellRing, Sparkles, Mail, ShieldCheck, CheckCircle2, Check, Zap, Plane, Clock, ChevronDown, Star } from "lucide-react";
+import { ArrowRight, CalendarCheck2, Users2, FileText, BellRing, Sparkles, Mail, ShieldCheck, CheckCircle2, Check, Zap, Plane, Clock, ChevronDown, Star, Rocket } from "lucide-react";
 
 const TIPOLOGIE = [
   { v: "centro_studi", label: "Centro studi / formazione" },
@@ -114,7 +114,7 @@ const TiltCard = ({ children, className = "", testid }) => {
 export default function Landing() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ nome: "", email: "", telefono: "", tipologia: "centro_studi", studio: "", messaggio: "", piano_interesse: "", privacy: false });
+  const [form, setForm] = useState({ email: "", tipologia: "centro_studi", piano_interesse: "", privacy: false });
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
@@ -154,7 +154,7 @@ export default function Landing() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectPlan = (planName) => {
-    setForm((f) => ({ ...f, piano_interesse: planName, messaggio: f.messaggio || `Sono interessato al piano ${planName === "free" ? "Free" : planName === "pro" ? "Pro" : "Business"}. Vorrei attivare la prova gratuita di 14 giorni.` }));
+    setForm((f) => ({ ...f, piano_interesse: planName }));
     const el = document.getElementById("contatti");
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -175,13 +175,9 @@ export default function Landing() {
         altro: "centro_studi", // fallback
       };
       const payload = {
-        nome: form.nome,
         email: form.email,
-        telefono: form.telefono,
         tipologia: tipologiaMap[form.tipologia] || "centro_studi",
-        studio_nome: form.studio,
         piano_interesse: (form.piano_interesse || "free").toLowerCase(),
-        messaggio: form.messaggio,
         privacy_accepted: true,
       };
       const { data } = await api.post("/onboarding/start", payload);
@@ -196,7 +192,7 @@ export default function Landing() {
         return;
       }
       setSent(true);
-      setForm({ nome: "", email: "", telefono: "", tipologia: "centro_studi", studio: "", messaggio: "", piano_interesse: "", privacy: false });
+      setForm({ email: "", tipologia: "centro_studi", piano_interesse: "", privacy: false });
     } catch (err) {
       setError(formatApiError(err?.response?.data?.detail) || "Errore nell'invio. Riprova.");
     } finally { setBusy(false); }
@@ -542,7 +538,7 @@ export default function Landing() {
               initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.4 }}
               className="font-display text-3xl sm:text-5xl font-bold tracking-tight mb-3"
             >Scegli il piano giusto.</motion.h2>
-            <p className="text-[color:var(--text-2)] max-w-xl mx-auto">Inizia gratis 14 giorni, senza carta di credito. Cambia o annulla quando vuoi.</p>
+            <p className="text-[color:var(--text-2)] max-w-xl mx-auto">Inizia gratis 30 giorni, senza carta di credito. Cambia o annulla quando vuoi.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto" style={{ perspective: 1200 }}>
@@ -561,7 +557,7 @@ export default function Landing() {
                 excluded: [],
               },
               {
-                name: "Pro", tagline: "Per studi attivi", price: "14", period: "€ / mese", cta: "Inizia gratis 14 giorni", accent: true, badge: "Più scelto",
+                name: "Pro", tagline: "Per studi attivi", price: "14", period: "€ / mese", cta: "Inizia gratis 30 giorni", accent: true, badge: "Più scelto",
                 features: [
                   "Fino a 5 professionisti",
                   "Tutto del piano Free",
@@ -677,11 +673,11 @@ export default function Landing() {
           <div>
             <div className="label-eyebrow mb-2">Contattaci</div>
             <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-tight mb-4">Vuoi vedere Prenotika in azione?</h2>
-            <p className="text-[color:var(--text-2)] mb-7 leading-relaxed">Raccontaci del tuo studio: ti contatteremo entro 24h per una demo personalizzata e un accesso di prova.</p>
+            <p className="text-[color:var(--text-2)] mb-7 leading-relaxed">Bastano 3 dati per iniziare: la tua email, il tipo di studio e il piano. Ti mandiamo subito un codice di accesso.</p>
             <div className="space-y-3">
-              <div className="flex items-start gap-3"><CheckCircle2 size={18} className="text-[color:var(--secondary)] mt-0.5 shrink-0" /><div><div className="font-semibold text-sm">Demo personalizzata</div><div className="text-xs text-[color:var(--text-2)]">30 minuti, sulla tua realtà.</div></div></div>
-              <div className="flex items-start gap-3"><CheckCircle2 size={18} className="text-[color:var(--secondary)] mt-0.5 shrink-0" /><div><div className="font-semibold text-sm">Setup guidato</div><div className="text-xs text-[color:var(--text-2)]">Migrazione gratuita dei tuoi dati.</div></div></div>
-              <div className="flex items-start gap-3"><CheckCircle2 size={18} className="text-[color:var(--secondary)] mt-0.5 shrink-0" /><div><div className="font-semibold text-sm">Supporto rapido</div><div className="text-xs text-[color:var(--text-2)]">Email diretta al nostro team.</div></div></div>
+              <div className="flex items-start gap-3"><CheckCircle2 size={18} className="text-[color:var(--secondary)] mt-0.5 shrink-0" /><div><div className="font-semibold text-sm">30 giorni gratis</div><div className="text-xs text-[color:var(--text-2)]">Accesso completo al piano scelto.</div></div></div>
+              <div className="flex items-start gap-3"><CheckCircle2 size={18} className="text-[color:var(--secondary)] mt-0.5 shrink-0" /><div><div className="font-semibold text-sm">Nessuna carta richiesta</div><div className="text-xs text-[color:var(--text-2)]">Paghi solo se decidi di continuare.</div></div></div>
+              <div className="flex items-start gap-3"><CheckCircle2 size={18} className="text-[color:var(--secondary)] mt-0.5 shrink-0" /><div><div className="font-semibold text-sm">Setup in 2 minuti</div><div className="text-xs text-[color:var(--text-2)]">Ti guidiamo passo passo dopo l&apos;accesso.</div></div></div>
             </div>
           </div>
 
@@ -699,38 +695,48 @@ export default function Landing() {
                   <CheckCircle2 size={28} className="text-[color:var(--success)]" />
                 </motion.div>
                 <h3 className="font-display text-xl font-bold mb-2">Richiesta inviata!</h3>
-                <p className="text-sm text-[color:var(--text-2)] mb-5">Ti contatteremo entro 24h al recapito che ci hai indicato.</p>
+                <p className="text-sm text-[color:var(--text-2)] mb-5">Ti abbiamo inviato un codice di accesso via email.</p>
                 <button type="button" onClick={() => setSent(false)} className="btn-secondary" data-testid="lead-form-reset">Invia un&apos;altra richiesta</button>
               </div>
             ) : (
               <>
-                <h3 className="font-display text-xl font-bold mb-1">Richiedi informazioni</h3>
-                <p className="text-xs text-[color:var(--text-2)] mb-5">Tutti i campi sono obbligatori.</p>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[color:var(--secondary)]/10 text-[color:var(--secondary-hover)] text-[10px] tracking-[0.18em] uppercase font-bold mb-3">
+                  <Zap size={11} /> 30 giorni gratis · nessuna carta
+                </div>
+                <h3 className="font-display text-xl font-bold mb-1">Inizia in 30 secondi</h3>
+                <p className="text-xs text-[color:var(--text-2)] mb-5">Ti mandiamo un codice via email per accedere subito.</p>
                 <div className="space-y-3.5">
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    <div><label className="label-eyebrow block mb-1.5">Nome e cognome *</label><input required className="input-base" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} data-testid="lead-nome" /></div>
-                    <div><label className="label-eyebrow block mb-1.5">Email *</label><input required type="email" className="input-base" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} data-testid="lead-email" /></div>
-                  </div>
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    <div><label className="label-eyebrow block mb-1.5">Telefono *</label><input required className="input-base" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} data-testid="lead-telefono" /></div>
-                    <div>
-                      <label className="label-eyebrow block mb-1.5">Tipo di studio *</label>
-                      <select required className="input-base" value={form.tipologia} onChange={(e) => setForm({ ...form, tipologia: e.target.value })} data-testid="lead-tipologia">
-                        {TIPOLOGIE.map((t) => <option key={t.v} value={t.v}>{t.label}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                  <div><label className="label-eyebrow block mb-1.5">Azienda *</label><input required className="input-base" value={form.studio} onChange={(e) => setForm({ ...form, studio: e.target.value })} data-testid="lead-studio" /></div>
                   <div>
-                    <label className="label-eyebrow block mb-1.5">Piano di interesse *</label>
-                    <select required className="input-base" value={form.piano_interesse} onChange={(e) => setForm({ ...form, piano_interesse: e.target.value })} data-testid="lead-piano-select">
-                      <option value="">Seleziona un piano…</option>
-                      <option value="free">Free · 1 professionista</option>
-                      <option value="pro">Pro · fino a 5 professionisti</option>
-                      <option value="business">Business · illimitato</option>
+                    <label className="label-eyebrow block mb-1.5">Email *</label>
+                    <input required type="email" className="input-base" placeholder="tua@email.it" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} data-testid="lead-email" autoComplete="email" />
+                  </div>
+                  <div>
+                    <label className="label-eyebrow block mb-1.5">Tipo di studio *</label>
+                    <select required className="input-base" value={form.tipologia} onChange={(e) => setForm({ ...form, tipologia: e.target.value })} data-testid="lead-tipologia">
+                      {TIPOLOGIE.map((t) => <option key={t.v} value={t.v}>{t.label}</option>)}
                     </select>
                   </div>
-                  <div><label className="label-eyebrow block mb-1.5">Messaggio *</label><textarea required rows={3} className="input-base resize-none" value={form.messaggio} onChange={(e) => setForm({ ...form, messaggio: e.target.value })} placeholder="Raccontaci brevemente come gestisci oggi gli appuntamenti..." data-testid="lead-messaggio" /></div>
+                  <div>
+                    <label className="label-eyebrow block mb-1.5">Piano *</label>
+                    <div className="grid grid-cols-3 gap-2" data-testid="lead-piano-choices">
+                      {[
+                        { v: "free", l: "Free", price: "€0" },
+                        { v: "pro", l: "Pro", price: "€14" },
+                        { v: "business", l: "Business", price: "€24" },
+                      ].map((p) => (
+                        <button
+                          key={p.v}
+                          type="button"
+                          onClick={() => setForm({ ...form, piano_interesse: p.v })}
+                          className={`p-2.5 rounded-xl border text-center transition-all ${form.piano_interesse === p.v ? "border-[color:var(--primary)] bg-[color:var(--primary)]/5 shadow-sm" : "border-[color:var(--border)] hover:border-[color:var(--text-2)]"}`}
+                          data-testid={`lead-piano-${p.v}`}
+                        >
+                          <div className="font-display font-bold text-sm text-[color:var(--text)]">{p.l}</div>
+                          <div className="text-[10px] text-[color:var(--text-2)] mt-0.5">{p.price}{p.v !== "free" ? "/mese" : ""}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <label className="flex items-start gap-2.5 text-xs text-[color:var(--text-2)] leading-relaxed cursor-pointer select-none pt-1" data-testid="lead-privacy-label">
                     <input
                       type="checkbox"
@@ -741,15 +747,15 @@ export default function Landing() {
                       required
                     />
                     <span>
-                      Ho letto e accetto l&apos;<a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-[color:var(--primary)]">informativa sulla privacy</a> e acconsento al trattamento dei miei dati personali ai sensi del Reg. UE 2016/679 (GDPR) per essere ricontattato/a in merito alla mia richiesta. *
+                      Ho letto e accetto l&apos;<a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-[color:var(--primary)]">informativa sulla privacy</a> e acconsento al trattamento dei miei dati personali ai sensi del Reg. UE 2016/679 (GDPR). *
                     </span>
                   </label>
                 </div>
                 {error && <div className="text-sm text-[color:var(--error)] mt-3" data-testid="lead-form-error">{error}</div>}
-                <MagneticButton type="submit" disabled={busy} className="btn-primary w-full justify-center mt-5" data-testid="lead-submit-button">
-                  {busy ? "Invio in corso…" : (<><Mail size={15} /> Invia richiesta</>)}
+                <MagneticButton type="submit" disabled={busy || !form.piano_interesse} className="btn-primary w-full justify-center mt-5" data-testid="lead-submit-button">
+                  {busy ? "Attivazione…" : (<><Rocket size={15} /> Attiva prova gratuita</>)}
                 </MagneticButton>
-                <p className="text-[10px] text-[color:var(--text-2)] text-center mt-3">Risposta entro 24h · Nessun impegno · Tuoi dati al sicuro</p>
+                <p className="text-[10px] text-[color:var(--text-2)] text-center mt-3">Accesso immediato · Nessuna carta richiesta · GDPR compliant</p>
               </>
             )}
           </motion.form>
@@ -769,7 +775,7 @@ export default function Landing() {
           </motion.h2>
           <p className="text-white/70 max-w-xl mx-auto mb-9">Configura il tuo studio in meno di 10 minuti. Iniziamo insieme.</p>
           <div className="flex flex-wrap justify-center gap-3">
-            <MagneticButton onClick={() => selectPlan("pro")} className="btn-primary"><Mail size={15} /> Inizia gratis 14 giorni</MagneticButton>
+            <MagneticButton onClick={() => selectPlan("pro")} className="btn-primary"><Mail size={15} /> Inizia gratis 30 giorni</MagneticButton>
             {!user && (
               <Link to="/login" className="btn-secondary" style={{ background: "rgba(255,255,255,0.08)", color: "#fff", borderColor: "rgba(255,255,255,0.15)" }}><ArrowRight size={14} /> Accedi</Link>
             )}
