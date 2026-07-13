@@ -680,29 +680,32 @@ export default function Landing() {
             ) : (
               <>
                 <h3 className="font-display text-xl font-bold mb-1">Richiedi informazioni</h3>
-                <p className="text-xs text-[color:var(--text-2)] mb-5">I campi con * sono obbligatori.</p>
-                {form.piano_interesse && (
-                  <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg mb-4" style={{ background: "var(--grad-soft)", border: "1px solid rgba(124,58,237,0.25)" }} data-testid="lead-piano-badge">
-                    <div className="text-xs"><span className="text-[color:var(--text-2)]">Piano selezionato: </span><strong className="text-[color:var(--primary)]">{form.piano_interesse}</strong></div>
-                    <button type="button" onClick={() => setForm((f) => ({ ...f, piano_interesse: "" }))} className="text-xs text-[color:var(--text-2)] hover:text-[color:var(--text)]">Rimuovi</button>
-                  </div>
-                )}
+                <p className="text-xs text-[color:var(--text-2)] mb-5">Tutti i campi sono obbligatori.</p>
                 <div className="space-y-3.5">
                   <div className="grid sm:grid-cols-2 gap-3">
                     <div><label className="label-eyebrow block mb-1.5">Nome e cognome *</label><input required className="input-base" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} data-testid="lead-nome" /></div>
                     <div><label className="label-eyebrow block mb-1.5">Email *</label><input required type="email" className="input-base" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} data-testid="lead-email" /></div>
                   </div>
                   <div className="grid sm:grid-cols-2 gap-3">
-                    <div><label className="label-eyebrow block mb-1.5">Telefono</label><input className="input-base" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} data-testid="lead-telefono" /></div>
+                    <div><label className="label-eyebrow block mb-1.5">Telefono *</label><input required className="input-base" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} data-testid="lead-telefono" /></div>
                     <div>
-                      <label className="label-eyebrow block mb-1.5">Tipo di studio</label>
-                      <select className="input-base" value={form.tipologia} onChange={(e) => setForm({ ...form, tipologia: e.target.value })} data-testid="lead-tipologia">
+                      <label className="label-eyebrow block mb-1.5">Tipo di studio *</label>
+                      <select required className="input-base" value={form.tipologia} onChange={(e) => setForm({ ...form, tipologia: e.target.value })} data-testid="lead-tipologia">
                         {TIPOLOGIE.map((t) => <option key={t.v} value={t.v}>{t.label}</option>)}
                       </select>
                     </div>
                   </div>
-                  <div><label className="label-eyebrow block mb-1.5">Azienda</label><input className="input-base" value={form.studio} onChange={(e) => setForm({ ...form, studio: e.target.value })} data-testid="lead-studio" /></div>
-                  <div><label className="label-eyebrow block mb-1.5">Messaggio</label><textarea rows={3} className="input-base resize-none" value={form.messaggio} onChange={(e) => setForm({ ...form, messaggio: e.target.value })} placeholder="Raccontaci brevemente come gestisci oggi gli appuntamenti..." data-testid="lead-messaggio" /></div>
+                  <div><label className="label-eyebrow block mb-1.5">Azienda *</label><input required className="input-base" value={form.studio} onChange={(e) => setForm({ ...form, studio: e.target.value })} data-testid="lead-studio" /></div>
+                  <div>
+                    <label className="label-eyebrow block mb-1.5">Piano di interesse *</label>
+                    <select required className="input-base" value={form.piano_interesse} onChange={(e) => setForm({ ...form, piano_interesse: e.target.value })} data-testid="lead-piano-select">
+                      <option value="">Seleziona un piano…</option>
+                      <option value="Free">Free · 1 professionista</option>
+                      <option value="Pro">Pro · fino a 5 professionisti</option>
+                      <option value="Business">Business · illimitato</option>
+                    </select>
+                  </div>
+                  <div><label className="label-eyebrow block mb-1.5">Messaggio *</label><textarea required rows={3} className="input-base resize-none" value={form.messaggio} onChange={(e) => setForm({ ...form, messaggio: e.target.value })} placeholder="Raccontaci brevemente come gestisci oggi gli appuntamenti..." data-testid="lead-messaggio" /></div>
                   <label className="flex items-start gap-2.5 text-xs text-[color:var(--text-2)] leading-relaxed cursor-pointer select-none pt-1" data-testid="lead-privacy-label">
                     <input
                       type="checkbox"

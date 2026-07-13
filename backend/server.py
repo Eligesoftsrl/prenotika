@@ -1105,8 +1105,15 @@ async def create_lead(body: LeadCreate):
     return {"ok": True, "id": doc["_id"]}
 
 class LeadUpdate(BaseModel):
-    status: Optional[Literal["new", "contacted", "converted", "closed"]] = None
+    status: Optional[Literal["new", "contacted", "converted", "closed", "cancellata"]] = None
     notes: Optional[str] = None
+    nome: Optional[str] = None
+    email: Optional[EmailStr] = None
+    telefono: Optional[str] = None
+    tipologia: Optional[str] = None
+    studio: Optional[str] = None
+    messaggio: Optional[str] = None
+    piano_interesse: Optional[str] = None
 
 @api.get("/leads")
 async def list_leads(_: dict = Depends(require_role("super_admin"))):
@@ -1124,7 +1131,7 @@ async def update_lead(lead_id: str, body: LeadUpdate, _: dict = Depends(require_
     target = await db.leads.find_one({"_id": lead_id})
     if not target:
         raise HTTPException(status_code=404, detail="Lead non trovato")
-    updates = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    updates = {k: v for k, v in body.model_dump(exclude_unset=True).items()}
     if updates:
         await db.leads.update_one({"_id": lead_id}, {"$set": updates})
     fresh = await db.leads.find_one({"_id": lead_id})

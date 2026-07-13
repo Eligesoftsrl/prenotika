@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import { Inbox, Mail, Phone, Building2, Sparkles, Trash2, Search, CheckCircle2, Clock, X } from "lucide-react";
+import { Inbox, Mail, Phone, Building2, Sparkles, Trash2, Search, CheckCircle2, Clock, X, Pencil, Save, Ban } from "lucide-react";
 
 const STATUS = {
   new: { label: "Nuovo", color: "bg-indigo-100 text-indigo-700", icon: Inbox },
   contacted: { label: "Contattato", color: "bg-amber-100 text-amber-700", icon: Clock },
   converted: { label: "Convertito", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
   closed: { label: "Chiuso", color: "bg-slate-100 text-slate-600", icon: X },
+  cancellata: { label: "Cancellata", color: "bg-rose-100 text-rose-700", icon: Ban },
 };
 
 const TIPO_LABELS = {
@@ -50,10 +51,39 @@ export default function Leads() {
   }, [items, filter, search]);
 
   const counts = useMemo(() => {
-    const c = { all: items.length, new: 0, contacted: 0, converted: 0, closed: 0 };
+    const c = { all: items.length, new: 0, contacted: 0, converted: 0, closed: 0, cancellata: 0 };
     items.forEach((l) => { c[l.status || "new"] = (c[l.status || "new"] || 0) + 1; });
     return c;
   }, [items]);
+
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = () => {
+    setEditForm({
+      nome: selected.nome || "",
+      email: selected.email || "",
+      telefono: selected.telefono || "",
+      studio: selected.studio || "",
+      tipologia: selected.tipologia || "centro_studi",
+      piano_interesse: selected.piano_interesse || "",
+      messaggio: selected.messaggio || "",
+      notes: selected.notes || "",
+    });
+    setEditing(true);
+  };
+  const saveEdit = async () => {
+    setSaving(true);
+    try {
+      const payload = { ...editForm };
+      Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
+      const { data } = await api.patch(`/leads/${selected.id}`, payload);
+      setSelected(data);
+      setEditing(false);
+      await load();
+    } finally { setSaving(false); }
+  };
 
   const updateStatus = async (lead, status) => {
     await api.patch(`/leads/${lead.id}`, { status });
@@ -153,28 +183,92 @@ export default function Leads() {
           {selected ? (
             <div data-testid="lead-detail">
               <div className="flex items-start justify-between gap-3 mb-4">
-                <div>
+                <div className="flex-1 min-w-0">
                   <div className="label-eyebrow mb-1">Dettaglio richiesta</div>
-                  <div className="font-display text-xl font-bold">{selected.nome}</div>
+                  {editing ? (
+                    <input className="input-base font-display text-lg font-bold" value={editForm.nome} onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })} data-testid="lead-edit-nome" />
+                  ) : (
+                    <div className="font-display text-xl font-bold truncate">{selected.nome}</div>
+                  )}
                 </div>
-                <button onClick={() => setSelected(null)} className="text-[color:var(--text-3)] hover:text-[color:var(--text)]"><X size={16} /></button>
+                <div className="flex gap-1.5 flex-shrink-0">
+                  {!editing && <button onClick={startEdit} className="text-[color:var(--text-2)] hover:text-[color:var(--primary)]" title="Modifica" data-testid="lead-edit-btn"><Pencil size={15} /></button>}
+                  <button onClick={() => { setSelected(null); setEditing(false); }} className="text-[color:var(--text-3)] hover:text-[color:var(--text)]"><X size={16} /></button>
+                </div>
               </div>
 
-              <div className="space-y-2 mb-4 text-sm">
-                <a href={`mailto:${selected.email}`} className="flex items-center gap-2 text-[color:var(--primary)] hover:underline"><Mail size={14} />{selected.email}</a>
-                {selected.telefono && <a href={`tel:${selected.telefono}`} className="flex items-center gap-2 text-[color:var(--text)] hover:underline"><Phone size={14} />{selected.telefono}</a>}
-                {selected.studio && <div className="flex items-center gap-2 text-[color:var(--text-2)]"><Building2 size={14} />{selected.studio} · {TIPO_LABELS[selected.tipologia] || "—"}</div>}
-                {selected.piano_interesse && (
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold" style={{ background: "var(--grad-soft)", color: "var(--primary)" }}>
-                    <Sparkles size={11} /> Piano interesse: {selected.piano_interesse}
+              {editing ? (
+                <div className="space-y-2.5 mb-4" data-testid="lead-edit-form">
+                  <div>
+                    <label className="label-eyebrow block mb-1">Email</label>
+                    <input type="email" className="input-base" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} data-testid="lead-edit-email" />
                   </div>
-                )}
-              </div>
-
-              {selected.messaggio && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="label-eyebrow block mb-1">Telefono</label>
+                      <input className="input-base" value={editForm.telefono} onChange={(e) => setEditForm({ ...editForm, telefono: e.target.value })} data-testid="lead-edit-telefono" />
+                    </div>
+                    <div>
+                      <label className="label-eyebrow block mb-1">Tipologia</label>
+                      <select className="input-base" value={editForm.tipologia} onChange={(e) => setEditForm({ ...editForm, tipologia: e.target.value })} data-testid="lead-edit-tipologia">
+                        <option value="centro_studi">Centro studi</option>
+                        <option value="studio_legale">Studio legale</option>
+                        <option value="studio_medico">Studio medico</option>
+                        <option value="altro">Altro</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label-eyebrow block mb-1">Azienda</label>
+                    <input className="input-base" value={editForm.studio} onChange={(e) => setEditForm({ ...editForm, studio: e.target.value })} data-testid="lead-edit-studio" />
+                  </div>
+                  <div>
+                    <label className="label-eyebrow block mb-1">Piano interesse</label>
+                    <select className="input-base" value={editForm.piano_interesse} onChange={(e) => setEditForm({ ...editForm, piano_interesse: e.target.value })} data-testid="lead-edit-piano">
+                      <option value="">— nessuno —</option>
+                      <option value="Free">Free</option>
+                      <option value="Pro">Pro</option>
+                      <option value="Business">Business</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label-eyebrow block mb-1">Messaggio</label>
+                    <textarea rows={3} className="input-base resize-none" value={editForm.messaggio} onChange={(e) => setEditForm({ ...editForm, messaggio: e.target.value })} data-testid="lead-edit-messaggio" />
+                  </div>
+                  <div>
+                    <label className="label-eyebrow block mb-1">Note interne (super admin)</label>
+                    <textarea rows={2} className="input-base resize-none" value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} placeholder="Solo per uso interno" data-testid="lead-edit-notes" />
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button onClick={() => setEditing(false)} className="btn-secondary flex-1 justify-center" data-testid="lead-edit-cancel">Annulla</button>
+                    <button onClick={saveEdit} disabled={saving} className="btn-primary flex-1 justify-center" data-testid="lead-edit-save"><Save size={13} /> {saving ? "Salvo…" : "Salva"}</button>
+                  </div>
+                </div>
+              ) : (
                 <>
-                  <div className="label-eyebrow mb-1.5">Messaggio</div>
-                  <div className="p-3 rounded-md bg-[color:var(--surface-2)] text-sm text-[color:var(--text)] whitespace-pre-wrap mb-4">{selected.messaggio}</div>
+                  <div className="space-y-2 mb-4 text-sm">
+                    <a href={`mailto:${selected.email}`} className="flex items-center gap-2 text-[color:var(--primary)] hover:underline"><Mail size={14} />{selected.email}</a>
+                    {selected.telefono && <a href={`tel:${selected.telefono}`} className="flex items-center gap-2 text-[color:var(--text)] hover:underline"><Phone size={14} />{selected.telefono}</a>}
+                    {selected.studio && <div className="flex items-center gap-2 text-[color:var(--text-2)]"><Building2 size={14} />{selected.studio} · {TIPO_LABELS[selected.tipologia] || "—"}</div>}
+                    {selected.piano_interesse && (
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold" style={{ background: "var(--grad-soft)", color: "var(--primary)" }}>
+                        <Sparkles size={11} /> Piano interesse: {selected.piano_interesse}
+                      </div>
+                    )}
+                  </div>
+
+                  {selected.messaggio && (
+                    <>
+                      <div className="label-eyebrow mb-1.5">Messaggio</div>
+                      <div className="p-3 rounded-md bg-[color:var(--surface-2)] text-sm text-[color:var(--text)] whitespace-pre-wrap mb-4">{selected.messaggio}</div>
+                    </>
+                  )}
+                  {selected.notes && (
+                    <>
+                      <div className="label-eyebrow mb-1.5">Note interne</div>
+                      <div className="p-3 rounded-md bg-amber-50 border border-amber-200 text-sm text-[color:var(--text)] whitespace-pre-wrap mb-4">{selected.notes}</div>
+                    </>
+                  )}
                 </>
               )}
 
