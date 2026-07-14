@@ -38,6 +38,7 @@ export default function Appuntamenti() {
   const [clienti, setClienti] = useState([]);
   const [items, setItems] = useState([]);
   const [orari, setOrari] = useState([]);
+  const [eccezioni, setEccezioni] = useState([]);
   // Quando admin: nessuna preselezione (forza la scelta). Quando docente: sempre se stesso
   const [selectedDocenteId, setSelectedDocenteId] = useState(user?.role === "docente" ? user.id : "");
   const [loading, setLoading] = useState(false);
@@ -71,15 +72,17 @@ export default function Appuntamenti() {
   const slotMinuti = docenteSel?.slot_minuti || 60;
 
   const load = useCallback(async () => {
-    if (!selectedDocenteId) { setItems([]); setOrari([]); return; }
+    if (!selectedDocenteId) { setItems([]); setOrari([]); setEccezioni([]); return; }
     setLoading(true);
     try {
-      const [appResp, orResp] = await Promise.all([
+      const [appResp, orResp, ecResp] = await Promise.all([
         api.get("/appuntamenti", { params: { data_da: da, data_a: a, docente_id: selectedDocenteId } }),
         api.get("/orari", { params: { docente_id: selectedDocenteId } }),
+        api.get("/eccezioni", { params: { docente_id: selectedDocenteId } }),
       ]);
       setItems(appResp.data);
       setOrari(orResp.data);
+      setEccezioni(ecResp.data || []);
     } finally { setLoading(false); }
   }, [selectedDocenteId, da, a]);
   useEffect(() => { load(); }, [load]);
@@ -147,16 +150,39 @@ export default function Appuntamenti() {
     return { startMin: s, endMin: e };
   }, [orari, items, slotMinuti]);
 
-  // Genera gli slot per ogni giorno: array di {dal, al, isAvailable, appointment|null}
+  // Ritorna l'eccezione che copre questa data+fascia oraria, se esiste
+  const findEccezione = useCallback((dateISO, slotMin) => {
+    for (const e of eccezioni) {
+      if (dateISO < e.data_inizio || dateISO > e.data_fine) continue;
+      if (e.tipo === "chiuso") return e;
+      // personalizzato: verifica sovrapposizione con lo slot
+      if (e.ora_inizio && e.ora_fine) {
+        const eStart = toMin(e.ora_inizio);
+        const eEnd = toMin(e.ora_fine);
+        if (slotMin < eEnd && slotMin + slotMinuti > eStart) return e;
+      }
+    }
+    return null;
+  }, [eccezioni, slotMinuti]);
+
+  // Ritorna tutte le eccezioni "chiuso" per una data (per badge intestazione giorno)
+  const eccezioniOfDay = useCallback((dateISO) => {
+    return eccezioni.filter((e) => dateISO >= e.data_inizio && dateISO <= e.data_fine);
+  }, [eccezioni]);
+
+  // Genera gli slot per ogni giorno: array di {dal, al, isAvailable, eccezione}
   const computeDaySlots = (date) => {
     const giorno = (date.getDay() + 6) % 7; // 0=Mon
+    const dateISO = fmtISO(date);
     const dayOrari = orari.filter((o) => o.giorno === giorno);
     const slots = [];
     for (let m = dayRange.startMin; m + slotMinuti <= dayRange.endMin; m += slotMinuti) {
       const dal = toHHMM(m);
       const al = toHHMM(m + slotMinuti);
-      const isAvailable = dayOrari.some((o) => toMin(o.dal) <= m && m + slotMinuti <= toMin(o.al));
-      slots.push({ dal, al, m, isAvailable });
+      const inFascia = dayOrari.some((o) => toMin(o.dal) <= m && m + slotMinuti <= toMin(o.al));
+      const eccezione = findEccezione(dateISO, m);
+      const isAvailable = inFascia && !eccezione;
+      slots.push({ dal, al, m, isAvailable, eccezione });
     }
     return slots;
   };
@@ -389,6 +415,21 @@ export default function Appuntamenti() {
                           </button>
                         );
                       }
+                      // Cella coperta da eccezione (ferie/blocco)
+                      if (slot?.eccezione) {
+                        const e = slot.eccezione;
+                        return (
+                          <div
+                            key={`${m}-${di}`}
+                            className="rounded-md min-h-[44px] border border-[#F59E0B]/40 flex items-center justify-center px-1 relative overflow-hidden"
+                            style={{ background: "repeating-linear-gradient(45deg, rgba(245,158,11,0.13) 0px, rgba(245,158,11,0.13) 6px, rgba(245,158,11,0.06) 6px, rgba(245,158,11,0.06) 12px)" }}
+                            data-testid={`cal-cell-${dayKey}-${toHHMM(m)}-eccezione`}
+                            title={`Non disponibile · ${e.motivo || (e.tipo === "chiuso" ? "Chiuso" : "Fascia bloccata")}${e.tipo === "personalizzato" && e.ora_inizio ? ` (${e.ora_inizio}-${e.ora_fine})` : ""}`}
+                          >
+                            <span className="text-[9px] font-bold text-[#B45309] uppercase tracking-wide truncate">{e.motivo || "Ferie"}</span>
+                          </div>
+                        );
+                      }
                       return (
                         <div
                           key={`${m}-${di}`}
@@ -442,6 +483,19 @@ export default function Appuntamenti() {
                         );
                       }
                       if (!slot.isAvailable) {
+                        if (slot.eccezione) {
+                          const e = slot.eccezione;
+                          return (
+                            <div
+                              key={slot.m}
+                              className="rounded-lg px-4 py-3 border border-[#F59E0B]/40 text-center text-xs"
+                              style={{ background: "repeating-linear-gradient(45deg, rgba(245,158,11,0.13) 0px, rgba(245,158,11,0.13) 8px, rgba(245,158,11,0.06) 8px, rgba(245,158,11,0.06) 16px)" }}
+                            >
+                              <div className="font-bold text-[#B45309] mb-0.5">{slot.dal}/{slot.al}</div>
+                              <div className="text-[#92400E]">🌴 {e.motivo || (e.tipo === "chiuso" ? "Chiuso" : "Bloccato")}</div>
+                            </div>
+                          );
+                        }
                         return (
                           <div key={slot.m} className="rounded-lg px-4 py-3 bg-[color:var(--surface-2)] border border-dashed border-[color:var(--border)] text-center text-[color:var(--text-2)] text-xs">
                             {slot.dal}/{slot.al} — non disponibile
@@ -482,19 +536,33 @@ export default function Appuntamenti() {
               const isCurrentMonth = d.getMonth() === monthRef.getMonth();
               const isToday = dayKey === fmtISO(new Date());
               const evs = monthItemsByDay[dayKey] || [];
+              const dayEccs = eccezioniOfDay(dayKey);
+              const dayClosed = dayEccs.find((e) => e.tipo === "chiuso");
               return (
                 <button
                   key={idx}
                   onClick={() => { setSelectedDay(d); setViewMode("day"); }}
                   className={`text-left min-h-[88px] sm:min-h-[110px] p-1.5 rounded-md border transition-colors ${
                     isCurrentMonth ? "bg-[color:var(--surface)]" : "bg-[color:var(--surface-2)] opacity-60"
-                  } ${isToday ? "border-[color:var(--primary)] ring-1 ring-[color:var(--primary)]" : "border-[color:var(--border)]"} hover:border-[color:var(--primary)]`}
+                  } ${isToday ? "border-[color:var(--primary)] ring-1 ring-[color:var(--primary)]" : dayClosed ? "border-[#F59E0B]/50" : "border-[color:var(--border)]"} hover:border-[color:var(--primary)]`}
+                  style={dayClosed ? { background: "repeating-linear-gradient(45deg, rgba(245,158,11,0.10) 0px, rgba(245,158,11,0.10) 8px, rgba(245,158,11,0.03) 8px, rgba(245,158,11,0.03) 16px)" } : undefined}
                   data-testid={`month-cell-${dayKey}`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className={`font-display font-bold text-sm ${isToday ? "text-[color:var(--primary)]" : ""}`}>{d.getDate()}</span>
+                    <span className={`font-display font-bold text-sm ${isToday ? "text-[color:var(--primary)]" : dayClosed ? "text-[#B45309]" : ""}`}>{d.getDate()}</span>
                     {evs.length > 0 && <span className="text-[9px] font-bold px-1.5 rounded-full bg-[color:var(--primary)] text-white">{evs.length}</span>}
                   </div>
+                  {dayClosed && (
+                    <div className="text-[9px] font-bold text-[#B45309] uppercase mb-1 flex items-center gap-1 truncate">
+                      🌴 {dayClosed.motivo || "Chiuso"}
+                    </div>
+                  )}
+                  {!dayClosed && dayEccs.length > 0 && (
+                    <div className="text-[9px] font-bold text-[#B45309] mb-1 truncate">
+                      🕒 {dayEccs[0].motivo || "Fascia bloccata"}
+                      {dayEccs[0].ora_inizio ? ` ${dayEccs[0].ora_inizio}-${dayEccs[0].ora_fine}` : ""}
+                    </div>
+                  )}
                   <div className="space-y-0.5">
                     {evs.slice(0, 3).map((e) => (
                       <div key={e.id} className="text-[10px] rounded px-1 py-0.5 truncate text-white" style={{ background: "linear-gradient(135deg,#7C3AED 0%,#4C1D95 100%)" }} title={`${e.dal}-${e.al} ${e.cliente_nome}${e.materia_descrizione ? ' · ' + e.materia_descrizione : ''}`}>
