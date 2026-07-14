@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api, formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Edit2, Trash2, X, GraduationCap, CalendarClock, Users as UsersIcon, BookOpen, Sparkles, Mail } from "lucide-react";
+import { Plus, Edit2, Trash2, X, GraduationCap, CalendarClock, Users as UsersIcon, BookOpen, Sparkles, Mail, Eye, EyeOff } from "lucide-react";
 import { tipologiaLabels } from "@/lib/tipologia";
 
 const COLORS = ["#7C3AED", "#2DD4BF", "#60A5FA", "#F59E0B", "#EC4899", "#14B8A6"];
@@ -321,7 +321,13 @@ export default function Docenti() {
               <Field label="Cognome" required value={form.cognome} onChange={(v) => setForm({ ...form, cognome: v })} autoComplete="off" testid="docente-cognome-input" />
             </div>
             <Field label="Email" type="email" disabled={!!editing} required value={form.email} onChange={(v) => setForm({ ...form, email: v })} autoComplete="off" testid="docente-email-input" />
-            <Field label={editing ? "Nuova password (opzionale)" : "Password"} type="password" required={!editing} value={form.password} onChange={(v) => setForm({ ...form, password: v })} autoComplete="new-password" testid="docente-password-input" />
+            <PasswordField
+              label={editing ? "Nuova password (opzionale)" : "Password"}
+              required={!editing}
+              value={form.password}
+              onChange={(v) => setForm({ ...form, password: v })}
+              testid="docente-password-input"
+            />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Telefono" value={form.telefono} onChange={(v) => setForm({ ...form, telefono: v })} testid="docente-telefono-input" />
               <div>
@@ -419,6 +425,36 @@ export function Field({ label, value, onChange, type = "text", required, testid,
     <div>
       <label className="block text-sm font-medium mb-1.5">{label}{required && <span className="text-[color:var(--secondary)]"> *</span>}</label>
       <input type={type} className="input-base" value={value} onChange={(e) => onChange(e.target.value)} required={required} disabled={disabled} autoComplete={autoComplete} data-testid={testid} />
+    </div>
+  );
+}
+
+export function PasswordField({ label, value, onChange, required, testid }) {
+  const [show, setShow] = React.useState(false);
+  return (
+    <div>
+      <label className="block text-sm font-medium mb-1.5">{label}{required && <span className="text-[color:var(--secondary)]"> *</span>}</label>
+      <div className="relative">
+        <input
+          type={show ? "text" : "password"}
+          className="input-base pr-11"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          required={required}
+          autoComplete="new-password"
+          data-testid={testid}
+        />
+        <button
+          type="button"
+          onClick={() => setShow((s) => !s)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-[color:var(--text-2)] hover:text-[color:var(--primary)] transition-colors"
+          aria-label={show ? "Nascondi password" : "Mostra password"}
+          data-testid={`${testid}-toggle`}
+          tabIndex={-1}
+        >
+          {show ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      </div>
     </div>
   );
 }

@@ -889,6 +889,89 @@ async def create_orario(body: OrarioCreate, user: dict = Depends(require_role("a
     await db.orari.insert_one(doc)
     return _from_mongo(doc)
 
+
+class OrariBulkFascia(BaseModel):
+    dal: str
+    al: str
+
+class OrariBulkCreate(BaseModel):
+    docente_id: Optional[str] = None
+    giorni: List[int]  # 0..6
+    fasce: List[OrariBulkFascia]
+
+
+@api.post("/orari/bulk", status_code=201)
+async def create_orari_bulk(body: OrariBulkCreate, user: dict = Depends(require_role("admin", "docente"))):
+    """Crea in un colpo solo N fasce orarie per M giorni (N*M orari totali).
+    Utile per "copia questi orari su tutti i giorni feriali"."""
+    sid = _scope_studio_id(user)
+    docente_id = _resolve_docente_id(user, body.docente_id)
+    docente = await db.users.find_one({"_id": docente_id, "studio_id": sid, "role": "docente"})
+    if not docente:
+        raise HTTPException(status_code=404, detail="Docente non trovato")
+    if not body.giorni:
+        raise HTTPException(status_code=400, detail="Seleziona almeno un giorno")
+    if not body.fasce:
+        raise HTTPException(status_code=400, detail="Aggiungi almeno una fascia oraria")
+    # valida ogni fascia
+    for f in body.fasce:
+        _validate_time_range(f.dal, f.al)
+    # valida giorni
+    for g in body.giorni:
+        if g < 0 or g > 6:
+            raise HTTPException(status_code=400, detail=f"Giorno non valido: {g}")
+
+    # Recupera orari esistenti del docente per verificare sovrapposizioni
+    existing = await db.orari.find({"studio_id": sid, "docente_id": docente_id}).to_list(500)
+    existing_by_day = {}
+    for o in existing:
+        existing_by_day.setdefault(o["giorno"], []).append(o)
+
+    def _to_min(hhmm: str) -> int:
+        h, m = hhmm.split(":")
+        return int(h) * 60 + int(m)
+
+    docs = []
+    skipped = []  # sovrapposizioni con fasce esistenti
+    for g in set(body.giorni):
+        day_existing = existing_by_day.get(g, [])
+        for f in body.fasce:
+            f_start = _to_min(f.dal)
+            f_end = _to_min(f.al)
+            # controllo sovrapposizione con orari esistenti dello stesso giorno
+            overlap = None
+            for eo in day_existing:
+                e_start = _to_min(eo["dal"])
+                e_end = _to_min(eo["al"])
+                if f_start < e_end and f_end > e_start:
+                    overlap = eo
+                    break
+            # controllo sovrapposizione con altre fasce del batch stesso già inserite
+            if not overlap:
+                for prev in docs:
+                    if prev["giorno"] == g:
+                        p_start = _to_min(prev["dal"])
+                        p_end = _to_min(prev["al"])
+                        if f_start < p_end and f_end > p_start:
+                            overlap = prev
+                            break
+            if overlap:
+                skipped.append({"giorno": g, "dal": f.dal, "al": f.al, "reason": f"sovrappone {overlap['dal']}-{overlap['al']}"})
+                continue
+            docs.append({
+                "_id": new_id(),
+                "studio_id": sid,
+                "docente_id": docente_id,
+                "giorno": g,
+                "dal": f.dal,
+                "al": f.al,
+            })
+
+    if docs:
+        await db.orari.insert_many(docs)
+    return {"created": len(docs), "skipped": skipped}
+
+
 @api.delete("/orari/{orario_id}", status_code=204)
 async def delete_orario(orario_id: str, user: dict = Depends(require_role("admin", "docente"))):
     sid = _scope_studio_id(user)
@@ -1206,8 +1289,79 @@ async def create_eccezione(body: EccezioneCreate, user: dict = Depends(require_r
     # Valida range
     if body.data_fine < body.data_inizio:
         raise HTTPException(status_code=422, detail="data_fine deve essere >= data_inizio")
-    if body.tipo == "personalizzato" and (not body.ora_inizio or not body.ora_fine):
-        raise HTTPException(status_code=422, detail="Per tipo 'personalizzato' specificare ora_inizio e ora_fine")
+    if body.tipo == "personalizzato":
+        if not body.ora_inizio or not body.ora_fine:
+            raise HTTPException(status_code=422, detail="Per tipo 'personalizzato' specificare ora_inizio e ora_fine")
+        if body.ora_fine <= body.ora_inizio:
+            raise HTTPException(status_code=422, detail="L'ora di fine deve essere successiva all'ora di inizio")
+
+        # Verifica che l'orario ricada in una fascia oraria configurata per almeno uno dei giorni del range
+        # Prendo il giorno-settimana di ogni data del range e controllo se esiste un orario che copre l'intera fascia dell'eccezione
+        from datetime import date as _date
+        d0 = _date.fromisoformat(body.data_inizio)
+        d1 = _date.fromisoformat(body.data_fine)
+        if (d1 - d0).days > 60:
+            raise HTTPException(status_code=422, detail="Range troppo ampio (max 60 giorni)")
+        # Recupera tutti gli orari del docente
+        orari_docente = await db.orari.find({"studio_id": sid, "docente_id": target}).to_list(500)
+        orari_by_day = {}
+        for o in orari_docente:
+            orari_by_day.setdefault(o["giorno"], []).append(o)
+
+        cur = d0
+        giorni_senza_orari = []
+        giorni_fuori_range = []
+        while cur <= d1:
+            weekday = cur.weekday()  # lunedì=0, domenica=6
+            day_orari = orari_by_day.get(weekday, [])
+            if not day_orari:
+                giorni_senza_orari.append(cur.isoformat())
+            else:
+                # controlla se l'ora eccezione ricade in almeno una fascia dello stesso giorno
+                inside = False
+                for o in day_orari:
+                    # eccezione [ora_inizio, ora_fine] deve avere sovrapposizione con [o.dal, o.al]
+                    if body.ora_inizio < o["al"] and body.ora_fine > o["dal"]:
+                        inside = True
+                        break
+                if not inside:
+                    giorni_fuori_range.append((cur.isoformat(), day_orari))
+            cur = cur.replace(day=cur.day) if False else cur  # noqa (per lint)
+            from datetime import timedelta as _td
+            cur = cur + _td(days=1)
+
+        if giorni_fuori_range:
+            first = giorni_fuori_range[0]
+            fasce_str = ", ".join(f"{o['dal']}-{o['al']}" for o in first[1])
+            raise HTTPException(
+                status_code=400,
+                detail=f"L'orario {body.ora_inizio}-{body.ora_fine} non ricade in nessuna fascia oraria configurata per {first[0]}. Fasce disponibili quel giorno: {fasce_str}."
+            )
+        # Nota: giorni senza orari sono ignorati (il docente comunque non lavora quel giorno)
+
+    # Controllo appuntamenti esistenti nel range: se ci sono appuntamenti che verrebbero coperti dall'eccezione, avvisa
+    appt_query = {
+        "studio_id": sid,
+        "docente_id": target,
+        "data": {"$gte": body.data_inizio, "$lte": body.data_fine},
+    }
+    conflicting_appts = await db.appuntamenti.find(appt_query).to_list(200)
+    if body.tipo == "personalizzato":
+        conflicting_appts = [
+            a for a in conflicting_appts
+            if a.get("dal") and a.get("al") and a["dal"] < body.ora_fine and a["al"] > body.ora_inizio
+        ]
+    if conflicting_appts:
+        details = [
+            f"{a['data']} {a.get('dal','?')}-{a.get('al','?')}"
+            for a in conflicting_appts[:5]
+        ]
+        more = f" e altri {len(conflicting_appts) - 5}" if len(conflicting_appts) > 5 else ""
+        raise HTTPException(
+            status_code=409,
+            detail=f"Ci sono già {len(conflicting_appts)} appuntamenti in questo periodo/fascia: {', '.join(details)}{more}. Cancellali o riprogrammali prima di creare l'eccezione."
+        )
+
     doc = {
         "_id": str(uuid.uuid4()),
         "studio_id": sid,

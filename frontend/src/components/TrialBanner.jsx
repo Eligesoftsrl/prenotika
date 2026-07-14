@@ -34,7 +34,10 @@ export default function TrialBanner() {
   const endDate = new Date(trialEndsAt);
   const now = Date.now();
   const msLeft = endDate.getTime() - now;
-  const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+  // Conta i GIORNI DI CALENDARIO tra oggi e la scadenza (a mezzanotte), così il contatore scende una volta al giorno anche se il trial è stato creato a metà giornata
+  const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+  const endMidnight = new Date(trialEndsAt); endMidnight.setHours(0, 0, 0, 0);
+  const daysLeft = Math.max(0, Math.round((endMidnight.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24)));
   const isExpired = msLeft <= 0;
 
   // Livelli di urgenza
