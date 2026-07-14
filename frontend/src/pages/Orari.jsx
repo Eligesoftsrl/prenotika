@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Trash2, Clock, Copy } from "lucide-react";
+import { Plus, Trash2, Clock, Copy, Pencil } from "lucide-react";
 import { Modal } from "./Docenti";
 import { tipologiaLabels } from "@/lib/tipologia";
 
@@ -37,6 +37,8 @@ export default function Orari() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [editForm, setEditForm] = useState({ giorno: 0, dal: "", al: "" });
 
   useEffect(() => {
     if (isAdmin) {
@@ -89,6 +91,28 @@ export default function Orari() {
     if (!window.confirm("Eliminare questa fascia oraria?")) return;
     await api.delete(`/orari/${id}`);
     await load();
+  };
+
+  const openEdit = (o) => {
+    setEditing(o);
+    setEditForm({ giorno: o.giorno, dal: o.dal, al: o.al });
+    setError("");
+  };
+
+  const saveEdit = async (e) => {
+    e.preventDefault(); setBusy(true); setError("");
+    try {
+      await api.patch(`/orari/${editing.id}`, {
+        giorno: Number(editForm.giorno),
+        dal: editForm.dal,
+        al: editForm.al,
+        docente_id: isAdmin ? docenteId : undefined,
+      });
+      setEditing(null);
+      await load();
+    } catch (err) {
+      setError(formatApiError(err?.response?.data?.detail) || "Errore");
+    } finally { setBusy(false); }
   };
 
   const orariByDay = useMemo(() => {
@@ -161,13 +185,18 @@ export default function Orari() {
                       return (
                         <div
                           key={o.id}
-                          className="absolute left-0 right-0 rounded-md text-white text-[11px] px-2 py-1 pointer-events-auto flex flex-col justify-between shadow-sm"
+                          className="absolute left-0 right-0 rounded-md text-white text-[11px] px-2 py-1 pointer-events-auto flex flex-col justify-between shadow-sm cursor-pointer hover:brightness-110 transition-all"
                           style={{ top: `${top}%`, height: `${height}%`, background: "var(--primary)", minHeight: 28 }}
                           data-testid={`orario-block-${o.id}`}
+                          onClick={() => openEdit(o)}
+                          title="Clicca per modificare"
                         >
-                          <div className="font-semibold leading-tight">{o.dal}–{o.al}</div>
+                          <div className="font-semibold leading-tight flex items-center gap-1">
+                            {o.dal}–{o.al}
+                            <Pencil size={9} className="opacity-70" />
+                          </div>
                           <button
-                            onClick={() => remove(o.id)}
+                            onClick={(e) => { e.stopPropagation(); remove(o.id); }}
                             className="self-end text-white/85 hover:text-white"
                             title="Elimina"
                             data-testid={`orario-delete-${o.id}`}
@@ -277,6 +306,46 @@ export default function Orari() {
               <button type="submit" disabled={busy || giorniSel.length === 0 || fasce.length === 0} className="btn-primary flex-1 justify-center" data-testid="orario-submit-button">
                 {busy ? "Salvataggio…" : `Salva ${giorniSel.length * fasce.length} fasce`}
               </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {editing && (
+        <Modal title="Modifica fascia oraria" onClose={() => setEditing(null)}>
+          <form onSubmit={saveEdit} className="space-y-3.5" data-testid="orario-edit-form">
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Giorno</label>
+              <select className="input-base" value={editForm.giorno} onChange={(e) => setEditForm({ ...editForm, giorno: e.target.value })} data-testid="orario-edit-giorno">
+                {GIORNI.map((g) => (<option key={g.idx} value={g.idx}>{g.label}</option>))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Dalle</label>
+                <input type="time" className="input-base" value={editForm.dal} onChange={(e) => setEditForm({ ...editForm, dal: e.target.value })} required data-testid="orario-edit-dal" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Alle</label>
+                <input type="time" className="input-base" value={editForm.al} onChange={(e) => setEditForm({ ...editForm, al: e.target.value })} required data-testid="orario-edit-al" />
+              </div>
+            </div>
+            {error && <div className="text-sm text-[color:var(--error)] bg-[#FBEFEF] border border-[#E5C4C4] px-3 py-2 rounded-lg" data-testid="orario-edit-error">{error}</div>}
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!window.confirm("Eliminare questa fascia oraria?")) return;
+                  await api.delete(`/orari/${editing.id}`);
+                  setEditing(null);
+                  await load();
+                }}
+                className="btn-danger"
+                data-testid="orario-edit-delete"
+              >
+                <Trash2 size={13} /> Elimina
+              </button>
+              <button type="button" onClick={() => setEditing(null)} className="btn-secondary flex-1 justify-center">Annulla</button>
+              <button type="submit" disabled={busy} className="btn-primary flex-1 justify-center" data-testid="orario-edit-submit">{busy ? "Salvataggio…" : "Salva modifiche"}</button>
             </div>
           </form>
         </Modal>

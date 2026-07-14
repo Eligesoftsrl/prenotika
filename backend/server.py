@@ -972,6 +972,34 @@ async def create_orari_bulk(body: OrariBulkCreate, user: dict = Depends(require_
     return {"created": len(docs), "skipped": skipped}
 
 
+@api.patch("/orari/{orario_id}", response_model=Orario)
+async def update_orario(orario_id: str, body: OrarioCreate, user: dict = Depends(require_role("admin", "docente"))):
+    sid = _scope_studio_id(user)
+    target = await db.orari.find_one({"_id": orario_id, "studio_id": sid})
+    if not target:
+        raise HTTPException(status_code=404, detail="Orario non trovato")
+    if user["role"] == "docente" and target["docente_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Non puoi modificare orari di altri docenti")
+    _validate_time_range(body.dal, body.al)
+    # verifica sovrapposizione con altri orari dello stesso giorno per lo stesso docente
+    others = await db.orari.find({
+        "studio_id": sid,
+        "docente_id": target["docente_id"],
+        "giorno": body.giorno,
+        "_id": {"$ne": orario_id},
+    }).to_list(50)
+    def _tm(s: str) -> int:
+        h, m = s.split(":"); return int(h) * 60 + int(m)
+    fs, fe = _tm(body.dal), _tm(body.al)
+    for o in others:
+        os_, oe = _tm(o["dal"]), _tm(o["al"])
+        if fs < oe and fe > os_:
+            raise HTTPException(status_code=400, detail=f"La fascia {body.dal}-{body.al} si sovrappone con {o['dal']}-{o['al']} già presente")
+    await db.orari.update_one({"_id": orario_id}, {"$set": {"giorno": body.giorno, "dal": body.dal, "al": body.al}})
+    fresh = await db.orari.find_one({"_id": orario_id})
+    return _from_mongo(fresh)
+
+
 @api.delete("/orari/{orario_id}", status_code=204)
 async def delete_orario(orario_id: str, user: dict = Depends(require_role("admin", "docente"))):
     sid = _scope_studio_id(user)

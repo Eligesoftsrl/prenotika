@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { api, formatApiError, API_BASE } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalIcon, Trash2, Download, LayoutGrid, List } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalIcon, Trash2, Download, LayoutGrid, List, Pencil, Save } from "lucide-react";
 import { Modal } from "./Docenti";
 import { tipologiaLabels } from "@/lib/tipologia";
 import { fmtISO, todayISO } from "@/lib/dates";
@@ -45,6 +45,7 @@ export default function Appuntamenti() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [createDefaults, setCreateDefaults] = useState(null);
+  const [editingAppt, setEditingAppt] = useState(null);
   const [viewMode, setViewMode] = useState("week"); // "week" | "day" | "month"
   const [selectedDay, setSelectedDay] = useState(new Date());
   const [monthRef, setMonthRef] = useState(new Date());
@@ -382,10 +383,11 @@ export default function Appuntamenti() {
                         return (
                           <div
                             key={`${m}-${di}`}
-                            className="rounded-md p-1 text-[10px] text-white shadow-sm relative group min-h-[44px] flex flex-col items-center justify-center text-center"
+                            className="rounded-md p-1 text-[10px] text-white shadow-sm relative group min-h-[44px] flex flex-col items-center justify-center text-center cursor-pointer hover:brightness-110 transition-all"
                             style={{ background: "linear-gradient(135deg,#7C3AED 0%,#4C1D95 100%)" }}
                             data-testid={`appuntamento-${ev.id}-${toHHMM(m)}`}
-                            title={`${ev.cliente_nome} • ${ev.dal}-${ev.al}${ev.note ? ` • ${ev.note}` : ""}`}
+                            title={`${ev.cliente_nome} • ${ev.dal}-${ev.al}${ev.note ? ` • ${ev.note}` : ""} · Clicca per modificare`}
+                            onClick={() => setEditingAppt(ev)}
                           >
                             <div className="font-bold leading-tight whitespace-nowrap">
                               <span className="text-[11px]">{toHHMM(m)}</span>
@@ -394,9 +396,6 @@ export default function Appuntamenti() {
                             <div className="font-semibold truncate w-full leading-tight mt-0.5">{ev.cliente_nome}</div>
                             {ev.materia_descrizione && (
                               <div className="text-[9px] opacity-80 truncate w-full leading-tight">{ev.materia_descrizione}</div>
-                            )}
-                            {isAdmin && toMin(ev.dal) === m && (
-                              <button onClick={() => remove(ev.id)} className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 text-white/85 hover:text-white" data-testid={`appuntamento-delete-${ev.id}`}><Trash2 size={11} /></button>
                             )}
                           </div>
                         );
@@ -467,12 +466,12 @@ export default function Appuntamenti() {
                       const ev = findAppointment(dayKey, slot.m);
                       if (ev) {
                         return (
-                          <div key={slot.m} className="rounded-lg overflow-hidden" data-testid={`day-row-${slot.dal}`}>
+                          <div key={slot.m} className="rounded-lg overflow-hidden cursor-pointer hover:brightness-110 transition-all" data-testid={`day-row-${slot.dal}`} onClick={() => setEditingAppt(ev)}>
                             <div className="px-4 py-2.5 text-white font-bold flex items-center justify-between" style={{ background: "linear-gradient(135deg,#7C3AED 0%,#4C1D95 100%)" }}>
                               <span className="text-lg">
                                 {slot.dal}<span className="text-sm opacity-80">/{slot.al}</span>
                               </span>
-                              {isAdmin && <button onClick={() => remove(ev.id)} className="opacity-80 hover:opacity-100" data-testid={`day-delete-${ev.id}-${slot.dal}`}><Trash2 size={14} /></button>}
+                              <Pencil size={14} className="opacity-80" />
                             </div>
                             <div className="px-4 py-3 bg-[color:var(--surface-2)] text-center border-x border-b border-[color:var(--border)] rounded-b-lg">
                               <div className="font-semibold">{ev.cliente_nome}</div>
@@ -592,7 +591,97 @@ export default function Appuntamenti() {
           tipologia={studio?.tipologia}
         />
       )}
+
+      {editingAppt && (
+        <EditAppuntamentoModal
+          appt={editingAppt}
+          onClose={() => setEditingAppt(null)}
+          onSaved={() => { setEditingAppt(null); load(); }}
+          isAdmin={isAdmin}
+          docenti={docenti}
+        />
+      )}
     </div>
+  );
+}
+
+function EditAppuntamentoModal({ appt, onClose, onSaved, isAdmin, docenti }) {
+  const [form, setForm] = React.useState({
+    data: appt.data,
+    dal: appt.dal,
+    al: appt.al,
+    note: appt.note || "",
+  });
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const docenteSel = docenti.find((d) => d.id === appt.docente_id);
+
+  const save = async (e) => {
+    e.preventDefault(); setBusy(true); setError("");
+    try {
+      await api.patch(`/appuntamenti/${appt.id}`, {
+        data: form.data,
+        dal: form.dal,
+        al: form.al,
+        note: form.note || null,
+      });
+      onSaved();
+    } catch (err) {
+      setError(formatApiError(err?.response?.data?.detail) || "Errore");
+    } finally { setBusy(false); }
+  };
+
+  const del = async () => {
+    if (!window.confirm(`Eliminare l'appuntamento di ${appt.cliente_nome} del ${appt.data} ${appt.dal}?`)) return;
+    setBusy(true);
+    try {
+      await api.delete(`/appuntamenti/${appt.id}`);
+      onSaved();
+    } catch (err) {
+      setError(formatApiError(err?.response?.data?.detail) || "Errore");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal title="Modifica appuntamento" onClose={onClose}>
+      <form onSubmit={save} className="space-y-3.5" data-testid="edit-appt-form">
+        <div className="p-3 rounded-lg bg-[color:var(--surface-2)] text-sm">
+          <div className="font-semibold text-[color:var(--text)]" data-testid="edit-appt-cliente">{appt.cliente_nome}</div>
+          {docenteSel && <div className="text-xs text-[color:var(--text-2)] mt-0.5">con {docenteSel.nome} {docenteSel.cognome}</div>}
+          {appt.materia_descrizione && <div className="text-xs text-[color:var(--primary)] mt-0.5">{appt.materia_descrizione}</div>}
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1.5">Data</label>
+          <input type="date" className="input-base" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} required data-testid="edit-appt-data" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Dalle</label>
+            <input type="time" className="input-base" value={form.dal} onChange={(e) => setForm({ ...form, dal: e.target.value })} required data-testid="edit-appt-dal" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Alle</label>
+            <input type="time" className="input-base" value={form.al} onChange={(e) => setForm({ ...form, al: e.target.value })} required data-testid="edit-appt-al" />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1.5">Note</label>
+          <textarea rows={3} className="input-base" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} data-testid="edit-appt-note" />
+        </div>
+        {error && <div className="text-sm text-[color:var(--error)] bg-[#FBEFEF] border border-[#E5C4C4] px-3 py-2 rounded-lg" data-testid="edit-appt-error">{error}</div>}
+        <div className="flex gap-2 pt-2">
+          {isAdmin && (
+            <button type="button" onClick={del} disabled={busy} className="btn-danger" data-testid="edit-appt-delete">
+              <Trash2 size={13} /> Elimina
+            </button>
+          )}
+          <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center">Annulla</button>
+          <button type="submit" disabled={busy} className="btn-primary flex-1 justify-center" data-testid="edit-appt-save">
+            <Save size={13} /> {busy ? "Salvo…" : "Salva"}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
