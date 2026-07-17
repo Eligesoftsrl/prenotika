@@ -181,11 +181,7 @@ export default function Landing() {
         privacy_accepted: true,
       };
       const { data } = await api.post("/onboarding/start", payload);
-      if (data.existing_account) {
-        // Utente già registrato → manda al login OTP con email precompilata
-        navigate(`/login/otp?email=${encodeURIComponent(data.email)}`);
-        return;
-      }
+      // (email duplicata → il backend risponde 409 e finisce nel catch)
       // Nuovo tenant → redirect immediato al setup wizard
       if (data.setup_token) {
         navigate(`/onboarding/setup?token=${encodeURIComponent(data.setup_token)}`);
@@ -194,7 +190,14 @@ export default function Landing() {
       setSent(true);
       setForm({ email: "", tipologia: "centro_studi", piano_interesse: "", privacy: false });
     } catch (err) {
-      setError(formatApiError(err?.response?.data?.detail) || "Errore nell'invio. Riprova.");
+      const status = err?.response?.status;
+      const detail = formatApiError(err?.response?.data?.detail);
+      if (status === 409) {
+        // Email già registrata: mostra CTA verso login/otp
+        setError(detail || "Questa email è già registrata.");
+      } else {
+        setError(detail || "Errore nell'invio. Riprova.");
+      }
     } finally { setBusy(false); }
   };
 
@@ -751,7 +754,17 @@ export default function Landing() {
                     </span>
                   </label>
                 </div>
-                {error && <div className="text-sm text-[color:var(--error)] mt-3" data-testid="lead-form-error">{error}</div>}
+                {error && (
+                  <div className="mt-3 rounded-lg border border-[color:var(--error)]/30 bg-[color:var(--error)]/5 px-3 py-2.5 text-sm" data-testid="lead-form-error">
+                    <div className="text-[color:var(--error)] leading-relaxed">{error}</div>
+                    {/già registrata|già in uso|già registrato/i.test(error) && (
+                      <div className="mt-2 flex flex-wrap gap-3 text-xs">
+                        <a href="/login" className="text-[color:var(--primary)] hover:underline font-semibold" data-testid="lead-error-login-link">Vai al login</a>
+                        <a href="/forgot-password" className="text-[color:var(--text-2)] hover:text-[color:var(--primary)]">Password dimenticata?</a>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <MagneticButton type="submit" disabled={busy || !form.piano_interesse} className="btn-primary w-full justify-center mt-5" data-testid="lead-submit-button">
                   {busy ? "Attivazione…" : (<><Rocket size={15} /> Attiva prova gratuita</>)}
                 </MagneticButton>

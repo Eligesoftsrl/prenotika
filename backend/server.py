@@ -1265,7 +1265,35 @@ class LeadUpdate(BaseModel):
 @api.get("/leads")
 async def list_leads(_: dict = Depends(require_role("super_admin"))):
     items = await db.leads.find({}).sort([("created_at", -1)]).to_list(500)
-    return [_from_mongo(x) for x in items]
+    # Arricchisci con info tenant/trial per i lead da onboarding automatico
+    result = []
+    emails = list({(x.get("email") or "").lower() for x in items if x.get("email")})
+    users_by_email = {}
+    if emails:
+        async for u in db.users.find({"email": {"$in": emails}, "role": "admin"}):
+            users_by_email[u["email"]] = u
+    studio_ids = list({u.get("studio_id") for u in users_by_email.values() if u.get("studio_id")})
+    studios_by_id = {}
+    if studio_ids:
+        async for s in db.studios.find({"_id": {"$in": studio_ids}}):
+            studios_by_id[s["_id"]] = s
+    for x in items:
+        d = _from_mongo(x)
+        u = users_by_email.get((d.get("email") or "").lower())
+        s = studios_by_id.get(u.get("studio_id")) if u else None
+        if s:
+            d["tenant"] = {
+                "studio_id": s["_id"],
+                "studio_nome": s.get("nome"),
+                "plan": s.get("plan"),
+                "trial_active": s.get("trial_active"),
+                "trial_ends_at": s.get("trial_ends_at"),
+                "trial_plan": s.get("trial_plan"),
+                "paid_since": s.get("paid_since"),
+                "onboarding_completed": s.get("onboarding_completed", False),
+            }
+        result.append(d)
+    return result
 
 @api.get("/leads/count")
 async def count_leads(status: Optional[str] = None, _: dict = Depends(require_role("super_admin"))):
@@ -2191,8 +2219,8 @@ def _split_name(full: str) -> tuple[str, str]:
 @api.post("/onboarding/start", status_code=201)
 async def onboarding_start(body: OnboardingStartRequest):
     """Crea automaticamente uno Studio e l'utente admin partendo dai dati landing.
-    - Se l'email esiste già → non ricrea, invia solo OTP per il login (privacy).
-    - Altrimenti: crea Studio (Free plan) + Admin + Onboarding token (7d) + OTP.
+    - Se l'email esiste già → RIFIUTA la richiesta con 409 (l'utente deve fare login o contattare l'admin).
+    - Altrimenti: crea Studio + Admin + Onboarding token (7d) + OTP.
     Ritorna il token setup per redirect immediato a /onboarding/setup.
     """
     email = body.email.lower().strip()
@@ -2200,7 +2228,24 @@ async def onboarding_start(body: OnboardingStartRequest):
     if plan not in ("free", "pro", "business"):
         plan = "free"
 
-    # Log come lead comunque (analytics)
+    # BLOCCO email duplicata: no lead, no email, no side effect
+    existing_user = await db.users.find_one({"email": email})
+    if existing_user:
+        role = existing_user.get("role", "unknown")
+        if role == "super_admin":
+            raise HTTPException(status_code=409, detail="Questa email è riservata all'amministrazione della piattaforma.")
+        if role == "admin":
+            raise HTTPException(
+                status_code=409,
+                detail="Questa email è già registrata come amministratore di uno studio. Accedi con la tua password o usa il recupero password.",
+            )
+        # docente o altro ruolo → è un professionista di un altro studio
+        raise HTTPException(
+            status_code=409,
+            detail=f"Questa email è già in uso come professionista di un altro studio. Per aprire un nuovo studio usa un'email diversa, oppure contatta l'amministratore del tuo studio per accedere.",
+        )
+
+    # Log come lead SOLO ORA (dopo aver verificato che non c'è duplicato)
     await db.leads.insert_one({
         "_id": new_id(),
         "nome": (body.nome or email.split("@")[0]).strip(),
@@ -2215,42 +2260,6 @@ async def onboarding_start(body: OnboardingStartRequest):
     })
 
     frontend_url = (os.environ.get("FRONTEND_URL") or "https://www.prenotika.com").rstrip("/")
-
-    existing_user = await db.users.find_one({"email": email})
-    if existing_user:
-        # Utente già registrato → non doppiare. Invia OTP e restituisci flag "existing".
-        # Rate-limit: se esiste un OTP recente non usato, non generarne un altro subito
-        last = await db.otp_codes.find_one({"email": email}, sort=[("created_at", -1)])
-        skip_otp = False
-        if last:
-            try:
-                last_created = datetime.fromisoformat(last["created_at"])
-            except Exception:
-                last_created = now_utc() - timedelta(hours=1)
-            if (now_utc() - last_created).total_seconds() < OTP_RATE_LIMIT_SECONDS and not last.get("used"):
-                skip_otp = True
-        if not skip_otp:
-            code = _generate_otp_code()
-            await db.otp_codes.insert_one({
-                "_id": new_id(),
-                "email": email,
-                "code_hash": hash_password(code),
-                "expires_at": (now_utc() + timedelta(minutes=OTP_EXPIRE_MINUTES)).isoformat(),
-                "attempts": 0,
-                "used": False,
-                "created_at": now_utc().isoformat(),
-            })
-            try:
-                from email_service import send_otp_email
-                await send_otp_email(
-                    to_email=email,
-                    to_name=f"{existing_user.get('nome','')} {existing_user.get('cognome','')}".strip() or email,
-                    otp_code=code,
-                    expires_minutes=OTP_EXPIRE_MINUTES,
-                )
-            except Exception as e:
-                logger.warning("OTP email failed: %s", e)
-        return {"ok": True, "existing_account": True, "email": email}
 
     # Nuovo tenant
     studio_id = new_id()

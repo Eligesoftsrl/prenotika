@@ -26,6 +26,18 @@ function fmtDateTime(iso) {
   } catch { return iso; }
 }
 
+function TenantPill({ tenant }) {
+  const isPaid = !!tenant.paid_since;
+  const trialEnds = tenant.trial_ends_at ? new Date(tenant.trial_ends_at) : null;
+  const daysLeft = trialEnds ? Math.max(0, Math.round((new Date(trialEnds.getFullYear(), trialEnds.getMonth(), trialEnds.getDate()).getTime() - new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime()) / 86400000)) : null;
+  if (isPaid) return <span className="pill bg-emerald-100 text-emerald-700 font-bold">💳 {(tenant.plan||"").toUpperCase()} · pagato</span>;
+  if (tenant.trial_active && daysLeft != null) {
+    const cls = daysLeft <= 3 ? "bg-red-100 text-red-700" : daysLeft <= 7 ? "bg-amber-100 text-amber-700" : "bg-violet-100 text-violet-700";
+    return <span className={`pill font-bold ${cls}`}>✨ Trial {(tenant.trial_plan||tenant.plan||"").toUpperCase()} · {daysLeft}gg</span>;
+  }
+  return <span className="pill bg-slate-100 text-slate-600 font-semibold">{(tenant.plan||"free").toUpperCase()}</span>;
+}
+
 export default function Leads() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -161,11 +173,15 @@ export default function Leads() {
                         <div className="text-xs text-[color:var(--text-2)]">{l.email}</div>
                       </td>
                       <td>
-                        <div>{l.studio || "—"}</div>
+                        <div>{l.tenant?.studio_nome || l.studio || "—"}</div>
                         <div className="text-xs text-[color:var(--text-2)]">{TIPO_LABELS[l.tipologia] || l.tipologia || "—"}</div>
                       </td>
                       <td>
-                        {l.piano_interesse ? <span className="pill" style={{ background: "var(--grad-soft)", color: "var(--primary)", fontWeight: 700 }}><Sparkles size={10} className="mr-1" /> {l.piano_interesse}</span> : <span className="text-[color:var(--text-3)] text-xs">—</span>}
+                        {l.tenant ? (
+                          <TenantPill tenant={l.tenant} />
+                        ) : (
+                          l.piano_interesse ? <span className="pill" style={{ background: "var(--grad-soft)", color: "var(--primary)", fontWeight: 700 }}><Sparkles size={10} className="mr-1" /> {l.piano_interesse}</span> : <span className="text-[color:var(--text-3)] text-xs">—</span>
+                        )}
                       </td>
                       <td>
                         <span className={`pill ${s.color}`}><StatusIcon size={10} className="mr-1" /> {s.label}</span>
@@ -289,6 +305,25 @@ export default function Leads() {
                   );
                 })}
               </div>
+
+              {/* Tenant / trial status block */}
+              {selected.tenant && (
+                <div className="mb-3 p-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-2)]" data-testid="lead-tenant-block">
+                  <div className="label-eyebrow mb-2">Stato tenant</div>
+                  <div className="mb-2"><TenantPill tenant={selected.tenant} /></div>
+                  <div className="text-xs text-[color:var(--text)] space-y-0.5">
+                    <div><strong>Studio:</strong> {selected.tenant.studio_nome}</div>
+                    <div><strong>Piano attivo:</strong> {(selected.tenant.plan || "free").toUpperCase()}</div>
+                    {selected.tenant.trial_active && selected.tenant.trial_ends_at && (
+                      <div><strong>Trial scade il:</strong> {fmtDateTime(selected.tenant.trial_ends_at)}</div>
+                    )}
+                    {selected.tenant.paid_since && (
+                      <div className="text-emerald-700"><strong>Pagante dal:</strong> {fmtDateTime(selected.tenant.paid_since)}</div>
+                    )}
+                    <div><strong>Setup completato:</strong> {selected.tenant.onboarding_completed ? "sì" : "no"}</div>
+                  </div>
+                </div>
+              )}
 
               <div className="text-[10px] text-[color:var(--text-3)] mb-3">Ricevuto {fmtDateTime(selected.created_at)}</div>
 
