@@ -1252,7 +1252,7 @@ async def create_lead(body: LeadCreate):
     return {"ok": True, "id": doc["_id"]}
 
 class LeadUpdate(BaseModel):
-    status: Optional[Literal["new", "contacted", "converted", "closed", "cancellata"]] = None
+    status: Optional[Literal["new", "contacted", "converted", "closed", "cancellata", "onboarding_started"]] = None
     notes: Optional[str] = None
     nome: Optional[str] = None
     email: Optional[EmailStr] = None

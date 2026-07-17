@@ -1,15 +1,30 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import { Inbox, Mail, Phone, Building2, Sparkles, Trash2, Search, CheckCircle2, Clock, X, Pencil, Save, Ban, Rocket } from "lucide-react";
+import { Inbox, Mail, Sparkles, Trash2, Search, Ban, Rocket, Zap, Wallet, AlertTriangle, Phone, Building2, Pencil, X, Save } from "lucide-react";
 
-const STATUS = {
-  new: { label: "Nuovo", color: "bg-indigo-100 text-indigo-700", icon: Inbox },
-  onboarding_started: { label: "Onboarding avviato", color: "bg-violet-100 text-violet-700", icon: Rocket },
-  contacted: { label: "Contattato", color: "bg-amber-100 text-amber-700", icon: Clock },
-  converted: { label: "Convertito", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
-  closed: { label: "Chiuso", color: "bg-slate-100 text-slate-600", icon: X },
-  cancellata: { label: "Cancellata", color: "bg-rose-100 text-rose-700", icon: Ban },
+// Categorie basate sul ciclo di vita del tenant, non sullo status manuale
+const LIFECYCLE = {
+  all:              { label: "Tutti",              icon: Inbox },
+  trial:            { label: "In trial",           icon: Sparkles,      color: "bg-violet-100 text-violet-700" },
+  setup_incomplete: { label: "Setup incompleto",   icon: Rocket,        color: "bg-amber-100 text-amber-700" },
+  paying:           { label: "Pagando",            icon: Wallet,        color: "bg-emerald-100 text-emerald-700" },
+  trial_expired:    { label: "Trial scaduto",      icon: AlertTriangle, color: "bg-slate-100 text-slate-700" },
+  cancellata:       { label: "Cancellata",         icon: Ban,           color: "bg-rose-100 text-rose-700" },
 };
+
+// Classifica ogni lead in una delle categorie lifecycle
+function lifecycleOf(lead) {
+  if (lead.status === "cancellata") return "cancellata";
+  const t = lead.tenant;
+  if (!t) return "trial_expired"; // nessun tenant collegato: raro, dopo cleanup
+  if (t.paid_since) return "paying";
+  const now = Date.now();
+  const trialEndsAt = t.trial_ends_at ? new Date(t.trial_ends_at).getTime() : 0;
+  const trialAlive = !!t.trial_active && trialEndsAt > now;
+  if (!t.onboarding_completed && trialAlive) return "setup_incomplete";
+  if (trialAlive) return "trial";
+  return "trial_expired";
+}
 
 const TIPO_LABELS = {
   centro_studi: "Centro studi",
@@ -57,15 +72,15 @@ export default function Leads() {
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     return items.filter((l) => {
-      if (filter !== "all" && (l.status || "new") !== filter) return false;
+      if (filter !== "all" && lifecycleOf(l) !== filter) return false;
       if (!s) return true;
-      return [l.nome, l.email, l.telefono, l.studio, l.messaggio].some((f) => (f || "").toLowerCase().includes(s));
+      return [l.nome, l.email, l.telefono, l.studio, l.tenant?.studio_nome, l.messaggio].some((f) => (f || "").toLowerCase().includes(s));
     });
   }, [items, filter, search]);
 
   const counts = useMemo(() => {
-    const c = { all: items.length, new: 0, contacted: 0, converted: 0, closed: 0, cancellata: 0 };
-    items.forEach((l) => { c[l.status || "new"] = (c[l.status || "new"] || 0) + 1; });
+    const c = { all: items.length, trial: 0, setup_incomplete: 0, paying: 0, trial_expired: 0, cancellata: 0 };
+    items.forEach((l) => { const k = lifecycleOf(l); c[k] = (c[k] || 0) + 1; });
     return c;
   }, [items]);
 
@@ -119,19 +134,28 @@ export default function Leads() {
         <p className="text-[color:var(--text-2)] mt-1">Tutti i contatti arrivati dalla landing page. Contatta rapidamente e traccia gli stati.</p>
       </div>
 
-      {/* Filters */}
+      {/* Filters: lifecycle-based */}
       <div className="surface-card p-3 mb-5 flex items-center gap-3 flex-wrap">
-        <div className="flex p-0.5 rounded-md bg-[color:var(--surface-2)]">
-          {["all", "new", "onboarding_started", "contacted", "converted", "closed"].map((k) => (
-            <button
-              key={k}
-              onClick={() => setFilter(k)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-sm ${filter === k ? "bg-white shadow-sm" : "text-[color:var(--text-2)] hover:text-[color:var(--text)]"}`}
-              data-testid={`leads-filter-${k}`}
-            >
-              {k === "all" ? "Tutti" : STATUS[k].label} <span className="ml-1 text-[10px] text-[color:var(--text-3)]">({counts[k] || 0})</span>
-            </button>
-          ))}
+        <div className="flex p-0.5 rounded-md bg-[color:var(--surface-2)] flex-wrap gap-0.5">
+          {Object.entries(LIFECYCLE).map(([k, v]) => {
+            const Icon = v.icon;
+            const active = filter === k;
+            const count = counts[k] || 0;
+            return (
+              <button
+                key={k}
+                onClick={() => setFilter(k)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-sm transition ${active ? "bg-white shadow-sm text-[color:var(--text)]" : "text-[color:var(--text-2)] hover:text-[color:var(--text)]"}`}
+                data-testid={`leads-filter-${k}`}
+              >
+                <Icon size={12} />
+                {v.label}
+                <span className={`ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full ${active ? (v.color || "bg-[color:var(--primary)] text-white") : "bg-[color:var(--surface)] text-[color:var(--text-3)]"}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
         <div className="relative flex-1 min-w-[220px]">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--text-3)]" />
@@ -154,18 +178,19 @@ export default function Leads() {
           ) : filtered.length === 0 ? (
             <div className="p-10 text-center text-[color:var(--text-2)]">
               <Inbox size={40} strokeWidth={1.3} className="mx-auto mb-3 text-[color:var(--text-3)]" />
-              <div className="font-semibold">Nessuna richiesta {filter !== "all" ? `con stato "${STATUS[filter]?.label || filter}"` : "ancora"}.</div>
+              <div className="font-semibold">Nessuna richiesta {filter !== "all" ? `nella categoria "${LIFECYCLE[filter]?.label || filter}"` : "ancora"}.</div>
               <div className="text-xs mt-1">I contatti dal form della landing appariranno qui in tempo reale.</div>
             </div>
           ) : (
             <table className="table-clean w-full">
               <thead>
-                <tr><th>Contatto</th><th>Azienda</th><th>Piano</th><th>Stato</th><th>Data</th></tr>
+                <tr><th>Contatto</th><th>Azienda</th><th>Piano</th><th>Ciclo di vita</th><th>Data</th></tr>
               </thead>
               <tbody>
                 {filtered.map((l) => {
-                  const s = STATUS[l.status] || STATUS.new;
-                  const StatusIcon = s.icon;
+                  const lc = lifecycleOf(l);
+                  const lcDef = LIFECYCLE[lc];
+                  const LcIcon = lcDef.icon;
                   return (
                     <tr key={l.id} onClick={() => setSelected(l)} className="cursor-pointer" data-testid={`lead-row-${l.id}`}>
                       <td>
@@ -184,7 +209,7 @@ export default function Leads() {
                         )}
                       </td>
                       <td>
-                        <span className={`pill ${s.color}`}><StatusIcon size={10} className="mr-1" /> {s.label}</span>
+                        <span className={`pill ${lcDef.color || ""}`}><LcIcon size={10} className="mr-1" /> {lcDef.label}</span>
                       </td>
                       <td className="text-xs text-[color:var(--text-2)]">{fmtDateTime(l.created_at)}</td>
                     </tr>
@@ -289,21 +314,25 @@ export default function Leads() {
                 </>
               )}
 
-              <div className="label-eyebrow mb-1.5">Cambia stato</div>
-              <div className="grid grid-cols-2 gap-1.5 mb-5">
-                {Object.entries(STATUS).map(([k, v]) => {
-                  const active = (selected.status || "new") === k;
-                  return (
-                    <button
-                      key={k}
-                      onClick={() => updateStatus(selected, k)}
-                      className={`text-xs px-2.5 py-1.5 rounded-md font-semibold border transition ${active ? `${v.color} border-transparent shadow-sm` : "border-[color:var(--border)] text-[color:var(--text-2)] hover:bg-[color:var(--surface-2)]"}`}
-                      data-testid={`lead-status-${k}`}
-                    >
-                      {v.label}
-                    </button>
-                  );
-                })}
+              {/* Solo azione "cancella richiesta" - il vecchio flusso di status manuali non serve più */}
+              <div className="mb-5">
+                {selected.status === "cancellata" ? (
+                  <button
+                    onClick={() => updateStatus(selected, "onboarding_started")}
+                    className="btn-secondary w-full justify-center text-xs"
+                    data-testid="lead-status-restore"
+                  >
+                    Ripristina dai cancellati
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => updateStatus(selected, "cancellata")}
+                    className="btn-secondary w-full justify-center text-xs text-[color:var(--text-2)] hover:text-[color:var(--error)]"
+                    data-testid="lead-status-cancellata"
+                  >
+                    <Ban size={12} /> Nascondi richiesta (Cancellata)
+                  </button>
+                )}
               </div>
 
               {/* Tenant / trial status block */}
